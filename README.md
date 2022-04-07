@@ -300,7 +300,7 @@ As more details, see following correspondence tables.
 
 # How to
 
-If you wants quick example with GUI, see RadiomicsJ IJ-PlugIn.  
+If you wants quick example with GUI, see [RadiomicsJ IJ-PlugIn](https://sites.google.com/vis-ionary.com/public/ij-plugin_radiomicsj).  
 Else,  
 
 ```  
