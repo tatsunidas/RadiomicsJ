@@ -67,6 +67,10 @@ User can set standarzization on your needs.
 3D based radiomics features are calculated by using both series of images and series of masks.  
 Masks are sharing voxel size and geometry with a paired image.  
 
+#### Aggregation for textures
+
+RadiomicsJ aggregates by a mean value for each angles (3D, averaging) to compute GLCM, GLRLM features on 3D configration. 
+
 #### (Optional) 2D basis
 
 In almost cases, meanings of 2D features included in 3D fetures, that is inducing correlation sometimes.  
