@@ -318,7 +318,7 @@ res.show(RadiomicsJ.resultWindowTitle);
 # Development
 
 You needs following external libs,
-- jogamp-fat.jar
+- jogamp-fat.jar([here](https://drive.google.com/file/d/1rDWfyYRUOxQoh4RVsjZx12Je965WPi8e/view?usp=sharing))
 - nifti_io.jar ([from imagej plugins](https://imagej.nih.gov/ij/plugins/download/jars/))
 
 and add to build path these libs.
