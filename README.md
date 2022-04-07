@@ -294,6 +294,8 @@ As more details, see following correspondence tables.
   <tr bgcolor="#e6e6e6"><td> Neighbouring grey level dependence based features </td><td> Dependence count variance </td><td> DNX2 </td></tr>
   <tr bgcolor="#ffffff"><td> Neighbouring grey level dependence based features </td><td> Dependence count entropy </td><td> FCBV </td></tr>
   <tr bgcolor="#e6e6e6"><td> Neighbouring grey level dependence based features </td><td> Dependence count energy </td><td> CAS9 </td></tr>
+  <!-- Fractal features -->
+  <tr bgcolor="#ffffff"><td> Fractal features </td><td> Capacity(Fractal dimension) </td><td> - </td></tr>
 </table>
 
 # How to
