@@ -298,7 +298,7 @@ As more details, see following correspondence tables.
   <tr bgcolor="#ffffff"><td> Fractal features </td><td> Capacity(Fractal dimension) </td><td> - </td></tr>
 </table>
 
-# How to
+# How to use
 
 If you wants quick example with GUI, see [RadiomicsJ IJ-PlugIn](https://sites.google.com/vis-ionary.com/public/ij-plugin_radiomicsj).  
 Else,  
@@ -314,6 +314,14 @@ radiomics.setDebug(true);//to watch progress.
 ResultsTable res = radiomics.execute(imgDir, maskDir, targetLabel);
 res.show(RadiomicsJ.resultWindowTitle);
 ```
+
+# Development
+
+You needs following external libs,
+- jogamp-fat.jar
+- nifti_io.jar ([from imagej plugins](https://imagej.nih.gov/ij/plugins/download/jars/))
+
+and add to build path these libs.
 
 # Acknowledgments
 
