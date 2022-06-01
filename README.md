@@ -1,7 +1,7 @@
 # RadiomicsJ
 Java library to compute radiomics features.
 The RadiomicsJ computes 170 or more imaging features.
-It is using the imagej as a image processing backend.
+It is using the imagej for the image processing backend.
 
 ## Environment
 
@@ -22,7 +22,7 @@ RadiomicsJ performs resampling with:
 - [3D]  
 	Trilinear  
 	NearestNeighbor3D  
-	NoInterpolation3D  
+	NoInterpolation3D (processing NearestNeighbor2D 3 times for x,y,z)
 
 ### Range filtering
 
@@ -44,7 +44,7 @@ User can use any image filter that implemented in ImageJ/Fiji and these plugins.
 
 RadiomicsJ has standardization function (v-mean/sd).  
 Mean and SD values are caluculated by voxels in ROI.  
-User can set standarzization on your needs.  
+User can set standardization on your needs.  
 
 ## Feature family
 - Morphological features
@@ -69,11 +69,11 @@ Masks are sharing voxel size and geometry with a paired image.
 
 #### Aggregation for textures
 
-RadiomicsJ aggregates by a mean value for each angles (3D, averaging) to compute GLCM, GLRLM features on 3D configration. 
+RadiomicsJ aggregates by a mean value for each angles (3D, averaging) to compute GLCM, GLRLM features on the 3D configration. 
 
 #### (Optional) 2D basis
 
-In almost cases, meanings of 2D features included in 3D fetures, that is inducing correlation sometimes.  
+In almost cases, meanings of 2D features were included in 3D fetures, that is inducing correlation sometimes.  
 With this reason, RadiomicsJ does not including Shape2DFeatures as default.  
 It is enable by both force2D=true and enableShape2D=true.  
 
