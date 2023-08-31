@@ -18,5 +18,4 @@ public class TestVolume {
 		Double volumeVoxelCounting = molph.calculate(MorphologicalFeatureType.VolumeVoxelCounting.id());
 		System.out.println("Volume (Voxel Counting):" + volumeVoxelCounting);
 	}
-
 }
