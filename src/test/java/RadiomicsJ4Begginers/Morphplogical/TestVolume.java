@@ -1,4 +1,4 @@
-package RadiomicsJ4Begginers;
+package RadiomicsJ4Begginers.Morphplogical;
 
 import features.MorphologicalFeatureType;
 import features.MorphologicalFeatures;
