@@ -29,6 +29,8 @@ import ij.process.ImageProcessor;
 import marchingcubes.MCTriangulator;
 import net.imagej.mesh.Meshes;
 import net.imagej.mesh.Triangle;
+import net.imagej.mesh.Vertex;
+import net.imagej.mesh.naive.NaiveFloatMesh.Vertices;
 import net.imagej.ops.geom.geom3d.DefaultConvexHull3D;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.img.display.imagej.ImageJFunctions;
@@ -163,8 +165,6 @@ public class MorphologicalFeatures {
 		}else if (name.equals(MorphologicalFeatureType.CentreOfMassShift.name())) {
 			return getCenterOfMassShift1();
 		}else if (name.equals(MorphologicalFeatureType.Maximum3DDiameter.name())) {
-//			return getMaximum3DDiameter();
-//			return getMaximum3DDiameterUsingConvHull();
 			return getMaximum3DDiameterByMesh();
 		}else if (name.equals(MorphologicalFeatureType.MajorAxisLength.name())) {
 			return getMajorAxisLength();
@@ -193,10 +193,9 @@ public class MorphologicalFeatures {
 		}else if (name.equals(MorphologicalFeatureType.AreaDensity_MinimumVolumeEnclosingEllipsoid.name())) {
 			return getAreaDensityByMinimumVolumeEnclosingEllipsoid();//return null
 		}else if (name.equals(MorphologicalFeatureType.VolumeDensity_ConvexHull.name())) {
-			return getVolumeDensityByConvexHull();
-//			return getVolumeDensityByConvexHull2();
+			return getVolumeDensityByConvexHull2();
 		}else if (name.equals(MorphologicalFeatureType.AreaDensity_ConvexHull.name())) {
-			return getAreaDensityByConvexHull();
+			return getAreaDensityByConvexHull2();
 		}else if (name.equals(MorphologicalFeatureType.IntegratedIntensity.name())) {
 			return getIntegratedIntensity();
 		}else if (name.equals(MorphologicalFeatureType.MoransIIndex.name())) {
@@ -362,6 +361,32 @@ public class MorphologicalFeatures {
 		}
 		mask = null;
 		points = null;
+		return surfaceArea;
+	}
+	
+	private Double getSurfaceAreaByMesh(List<Point3f> points) {
+		Double surfaceArea = 0d;
+		final int nPoints = points.size();
+		final Point3f origin = new Point3f((float)orgCal.xOrigin, (float)orgCal.yOrigin, (float)orgCal.zOrigin);
+//		System.out.println("Calculating surface area.., num of points : " + nPoints / 3);
+		for (int n = 0; n < nPoints; n += 3) {
+			// https://github.com/mdoube/BoneJ/blob/17ee483603afa8a7efb745512be60a29e093c94e/src/org/doube/geometry/Vectors.java#L19
+			final Point3f point0 = points.get(n);
+			final Point3f point1 = points.get(n+1);
+			final Point3f point2  = points.get(n+2);
+			final double x1 = (point1.x - point0.x);
+			final double y1 = (point1.y - point0.y);
+			final double z1 = (point1.z - point0.z);
+			final double x2 = (point2.x - point0.x);
+			final double y2 = (point2.y - point0.y);
+			final double z2 = (point2.z - point0.z);
+			final Point3f crossVector = new Point3f();
+			crossVector.x = (float) (y1 * z2 - z1 * y2);
+			crossVector.y = (float) (z1 * x2 - x1 * z2);
+			crossVector.z = (float) (x1 * y2 - y1 * x2);
+			final double deltaArea = 0.5 * crossVector.distance(origin);
+			surfaceArea += deltaArea;
+		}
 		return surfaceArea;
 	}
 	
@@ -1645,8 +1670,11 @@ public class MorphologicalFeatures {
 	}
 	
 	/*
+	 * deprecated
 	 * This feature is also called solidity 
 	 */
+	@SuppressWarnings("unused")
+	@Deprecated
 	private Double getVolumeDensityByConvexHull(){
 		ImagePlus mask = Utils.createMaskCopyAsGray8(isoMask,this.label);
 		Convex_Hull3DTool cht = new Convex_Hull3DTool();
@@ -1661,6 +1689,7 @@ public class MorphologicalFeatures {
 		return v/v_convex;
 	}
 	
+	@Deprecated
 	private Double getAreaDensityByConvexHull(){
 		ImagePlus mask = Utils.createMaskCopyAsGray8(isoMask,this.label);
 		Convex_Hull3DTool cht = new Convex_Hull3DTool();
@@ -1674,12 +1703,48 @@ public class MorphologicalFeatures {
 		return a/a_convex;
 	}
 	
+	private Double getAreaDensityByConvexHull2() {
+		double a = getSurfaceAreaByMesh();
+		ImagePlus mask = Utils.createMaskCopyAsGray8(isoMask,this.label);
+		int threshold = this.label-1;
+		boolean[] channels = { true, false, false }; // r,g,b, but only used r because image is always binary 8 bit.
+		MCTriangulator mct = new MCTriangulator();
+		int resamplingF = 2; // 1 to N.
+		@SuppressWarnings("unchecked")
+		List<org.scijava.vecmath.Point3f> pointsf = mct.getTriangles(mask, threshold, channels, resamplingF);
+		CustomTriangleMesh mesh = new CustomTriangleMesh(pointsf);
+		
+		com.github.quickhull3d.Point3d[] points_hull = new com.github.quickhull3d.Point3d[pointsf.size()];
+		int itr = 0;
+		for(org.scijava.vecmath.Point3f pf : pointsf) {
+			com.github.quickhull3d.Point3d pd = new com.github.quickhull3d.Point3d(pf.x, pf.y, pf.z);
+			points_hull[itr++] = pd;
+		}
+		QuickHull3D hull = new QuickHull3D();
+		hull.build(points_hull);
+		hull.triangulate();
+		
+		com.github.quickhull3d.Point3d[] vertices = hull.getVertices();
+		int[][] faces = hull.getFaces();
+		
+		//re-convert
+		List<org.scijava.vecmath.Point3f> points_hull_ = new ArrayList<>();
+		for(int i=0; i<faces.length;i++) {
+			int[] vp = faces[i];
+			org.scijava.vecmath.Point3f pf_a = new org.scijava.vecmath.Point3f((float)vertices[vp[0]].x, (float)vertices[vp[0]].y, (float)vertices[vp[0]].z);
+			org.scijava.vecmath.Point3f pf_b = new org.scijava.vecmath.Point3f((float)vertices[vp[1]].x, (float)vertices[vp[1]].y, (float)vertices[vp[1]].z);
+			org.scijava.vecmath.Point3f pf_c = new org.scijava.vecmath.Point3f((float)vertices[vp[2]].x, (float)vertices[vp[2]].y, (float)vertices[vp[2]].z);
+			points_hull_.add(pf_a);
+			points_hull_.add(pf_b);
+			points_hull_.add(pf_c);
+		}
+		double a_convexhull = getSurfaceAreaByMesh(points_hull_);
+		return Math.abs(a/a_convexhull);
+	}
+	
 	/*
 	 * used : com.github.quickhull3d
-	 * TriangleArray: illegal vertexCount
 	 */
-	@SuppressWarnings("unused")
-	@Deprecated
 	private Double getVolumeDensityByConvexHull2() {
 		ImagePlus mask = Utils.createMaskCopyAsGray8(isoMask,this.label);
 		int threshold = this.label-1;
@@ -1688,46 +1753,42 @@ public class MorphologicalFeatures {
 		int resamplingF = 2; // 1 to N.
 		@SuppressWarnings("unchecked")
 		List<org.scijava.vecmath.Point3f> pointsf = mct.getTriangles(mask, threshold, channels, resamplingF);
-		System.out.println(pointsf.size());
 		CustomTriangleMesh mesh = new CustomTriangleMesh(pointsf);
-		double v = mesh.getVolume();
+		double v = Math.abs(mesh.getVolume());//556
 		
 		com.github.quickhull3d.Point3d[] points_hull = new com.github.quickhull3d.Point3d[pointsf.size()];
 		int itr = 0;
 		for(org.scijava.vecmath.Point3f pf : pointsf) {
-			com.github.quickhull3d.Point3d pd = new Point3d(pf.x, pf.y, pf.z);
-			points_hull[itr] = pd;
-			itr++;
+			com.github.quickhull3d.Point3d pd = new com.github.quickhull3d.Point3d(pf.x, pf.y, pf.z);
+			points_hull[itr++] = pd;
 		}
 		QuickHull3D hull = new QuickHull3D();
 		hull.build(points_hull);
 		hull.triangulate();
+		
 		com.github.quickhull3d.Point3d[] vertices = hull.getVertices();
+//		System.out.println("vertises : " + hull.getNumVertices());
+//		System.out.println("vertises : " + vertices.length);
+		
 		int[][] faces = hull.getFaces();
-		System.out.println(vertices.length);//28
-		System.out.println(faces.length);//52
-		System.out.println(faces[0].length);//52
+//		System.out.println("faces "+ hull.getNumFaces());
+//		System.out.println("faces "+faces.length);//52
+//		System.out.println("face vertices "+faces[0].length);//3
+		
 		//re-convert
 		List<org.scijava.vecmath.Point3f> points_hull_ = new ArrayList<>();
-		boolean first = true;
-//		for(com.github.quickhull3d.Point3d vp : vertices) {
-//			if(first) {
-//				first = false;
-//				continue;
-//			}
-//			org.scijava.vecmath.Point3f pf = new org.scijava.vecmath.Point3f((float)vp.x, (float)vp.y, (float)vp.z);
-//			points_hull_.add(pf);
-//		}
-		for(int[] vp : faces) {
-			if(first) {
-				first = false;
-				continue;
-			}
-			org.scijava.vecmath.Point3f pf = new org.scijava.vecmath.Point3f((float)vp[0], (float)vp[1], (float)vp[2]);
-			points_hull_.add(pf);
+		for(int i=0; i<faces.length;i++) {
+			int[] vp = faces[i];
+//			System.out.println(vp[0]+" "+vp[1]+" "+vp[2]);
+			org.scijava.vecmath.Point3f pf_a = new org.scijava.vecmath.Point3f((float)vertices[vp[0]].x, (float)vertices[vp[0]].y, (float)vertices[vp[0]].z);
+			org.scijava.vecmath.Point3f pf_b = new org.scijava.vecmath.Point3f((float)vertices[vp[1]].x, (float)vertices[vp[1]].y, (float)vertices[vp[1]].z);
+			org.scijava.vecmath.Point3f pf_c = new org.scijava.vecmath.Point3f((float)vertices[vp[2]].x, (float)vertices[vp[2]].y, (float)vertices[vp[2]].z);
+			points_hull_.add(pf_a);
+			points_hull_.add(pf_b);
+			points_hull_.add(pf_c);
 		}
 		CustomTriangleMesh hull_mesh = new CustomTriangleMesh(points_hull_);
-		double vh = hull_mesh.getVolume();
+		double vh = Math.abs(hull_mesh.getVolume());//579
 		return v/vh;
 	}
 	
@@ -1742,8 +1803,8 @@ public class MorphologicalFeatures {
 		@SuppressWarnings("unchecked")
 		List<org.scijava.vecmath.Point3f> pointsf = mct.getTriangles(mask, threshold, channels, resamplingF);
 		CustomTriangleMesh mesh = new CustomTriangleMesh(pointsf);
-		double v = -1 * mesh.getVolume();
-		System.out.println(v);//556
+		double v = Math.abs(mesh.getVolume());
+//		System.out.println(v);//556
 		@SuppressWarnings("rawtypes")
 		RandomAccessibleInterval rai = ImageJFunctions.wrapReal(mask);
 //		Mesh m = new DefaultMarchingCubes<>().calculate(rai);//Meshes.marchingCubes(rai);
@@ -1752,12 +1813,9 @@ public class MorphologicalFeatures {
 		DefaultConvexHull3D hull = new DefaultConvexHull3D();
 		net.imagej.mesh.Mesh m_hull = hull.calculate(m);
 		List<org.scijava.vecmath.Point3f> hull_p = new ArrayList<>();
-//		Iterator iter_v = m_hull.vertices().iterator();
-		Iterator<Triangle> iter_t = m_hull.triangles().iterator();
-		while(iter_t.hasNext()) {
-//			Vertex p = (Vertex) iter_v.next();
-//			hull_p.add(new Point3f(p.xf(), p.yf(), p.zf()));			
-			Triangle p = (Triangle) iter_t.next();
+		Iterator<Triangle> iter = m_hull.triangles().iterator();
+		while(iter.hasNext()) {		
+			Triangle p = (Triangle) iter.next();
 			hull_p.add(new Point3f(p.v0xf(), p.v0yf(), p.v0zf()));	
 			hull_p.add(new Point3f(p.v1xf(), p.v1yf(), p.v1zf()));	
 			hull_p.add(new Point3f(p.v2xf(), p.v2yf(), p.v2zf()));	
@@ -1766,7 +1824,7 @@ public class MorphologicalFeatures {
 		CustomTriangleMesh mesh_hull = new CustomTriangleMesh(hull_p);
 		double hv = mesh_hull.getVolume();
 //		System.out.println(hv);//838
-		return v/hv;
+		return v/hv;//0.66
 	}
 	
 	/**
