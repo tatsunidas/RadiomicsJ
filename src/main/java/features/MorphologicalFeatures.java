@@ -1878,7 +1878,7 @@ public class MorphologicalFeatures {
 		if(voxels == null || voxels.length == 0) {
 			return null;
 		}
-		HashMap<String, double[]> xyzMaskGeo = Utils.getRoiBoundingBoxInfo(mask, label, true);//axis aligned bb
+		HashMap<String, double[]> xyzMaskGeo = Utils.getRoiBoundingBoxInfo(mask, label, RadiomicsJ.debug);//axis aligned bb
 		double[] aabbX = xyzMaskGeo.get("x");//0:min 1:max
 		double[] aabbY = xyzMaskGeo.get("y");
 		double[] aabbZ = xyzMaskGeo.get("z");
@@ -1937,7 +1937,7 @@ public class MorphologicalFeatures {
 		if(voxels == null || voxels.length == 0) {
 			return null;
 		}
-		HashMap<String, double[]> xyzMaskGeo = Utils.getRoiBoundingBoxInfo(mask, label, true);//axis aligned bb
+		HashMap<String, double[]> xyzMaskGeo = Utils.getRoiBoundingBoxInfo(mask, label, RadiomicsJ.debug);//axis aligned bb
 		double[] aabbX = xyzMaskGeo.get("x");//0:min 1:max
 		double[] aabbY = xyzMaskGeo.get("y");
 		double[] aabbZ = xyzMaskGeo.get("z");
@@ -2004,7 +2004,7 @@ public class MorphologicalFeatures {
 		if(voxels == null || voxels.length == 0) {
 			return null;
 		}
-		HashMap<String, double[]> xyzMaskGeo = Utils.getRoiBoundingBoxInfo(mask, label, true);//axis aligned bb
+		HashMap<String, double[]> xyzMaskGeo = Utils.getRoiBoundingBoxInfo(mask, label, RadiomicsJ.debug);//axis aligned bb
 		double[] aabbX = xyzMaskGeo.get("x");//0:min 1:max
 		double[] aabbY = xyzMaskGeo.get("y");
 		double[] aabbZ = xyzMaskGeo.get("z");
@@ -2087,7 +2087,7 @@ public class MorphologicalFeatures {
 		if(voxels == null || voxels.length == 0) {
 			return null;
 		}
-		HashMap<String, double[]> xyzMaskGeo = Utils.getRoiBoundingBoxInfo(mask, label, true);//axis aligned bb
+		HashMap<String, double[]> xyzMaskGeo = Utils.getRoiBoundingBoxInfo(mask, label, RadiomicsJ.debug);//axis aligned bb
 		double[] aabbX = xyzMaskGeo.get("x");//0:min 1:max
 		double[] aabbY = xyzMaskGeo.get("y");
 		double[] aabbZ = xyzMaskGeo.get("z");
