@@ -16,8 +16,8 @@ public class TestLocalIntensityFeatures {
 		RadiomicsJ.targetLabel = 1;
 		
 		LocalIntensityFeatures f = new LocalIntensityFeatures(imp, mask, RadiomicsJ.targetLabel);
-		System.out.println(f.calculate(LocalIntensityFeatureType.LocalIntensityPeak.id()));
-		System.out.println(f.calculate(LocalIntensityFeatureType.GlobalIntensityPeak.id()));
+		System.out.println(LocalIntensityFeatureType.LocalIntensityPeak +":"+ f.calculate(LocalIntensityFeatureType.LocalIntensityPeak.id()));
+		System.out.println(LocalIntensityFeatureType.GlobalIntensityPeak +":"+ f.calculate(LocalIntensityFeatureType.GlobalIntensityPeak.id()));
 		
 		System.exit(0);
 	}

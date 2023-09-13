@@ -437,44 +437,48 @@ public class IntensityVolumeHistogramFeatures{
 	}
 	
 	/**
-	 * The area under the IVH curve can be approximated by calculating the Riemann sum using the trapezoidal rule. 
-	 * Note that if there is only one discretised intensity in the ROI,
-	 * we define the area under the IVH curve F.ivh.auc = 0
+	 * The area under the IVH curve can be approximated by calculating the Riemann
+	 * sum using the trapezoidal rule. Note that if there is only one discretised
+	 * intensity in the ROI, we define the area under the IVH curve F.ivh.auc = 0
 	 * https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2701316/
 	 */
 	@Deprecated
 	private Double getAreaUnderTheIVHCurve() {
-		Double auc = 0d;
-		if(!continuousCalibrated) {
+		if (!continuousCalibrated) {
 			ArrayList<Double> al = new ArrayList<>(dciIVHisto.keySet());
 			Collections.sort(al);
 			int size = al.size();
-	        for(int i=0;i<size; i++) {
-	        	if(i+1 == size) {
-	        		break;
-	        	}
-	        	double d1 = al.get(i);
-	        	double d2 = al.get(i+1);
-	        	double nyu1 = dciIVHisto.get(al.get(i))[0];//nyu:fractional volume
-	        	double nyu2 = dciIVHisto.get(al.get(i+1))[0];
-	        	auc += (d2-d1)*((nyu1+nyu2)/2);
-	        }
-		}else {
+			double sum_nu = 0d;
+			for (int i = 0; i < size; i++) {
+				if (i + 1 == size) {
+					break;
+				}
+				double d1 = al.get(i);
+				double d2 = al.get(i + 1);
+				double nu1 = dciIVHisto.get(al.get(i))[0];// nu:fractional volume
+				double nu2 = dciIVHisto.get(al.get(i + 1))[0];
+				double delta = (d2 - d1);
+				sum_nu += delta/2d * (nu1 + nu2);
+			}
+			return sum_nu / size;
+		} else {
 			ArrayList<Double> al = new ArrayList<>(cciIVHisto.keySet());
 			Collections.sort(al);
 			int size = al.size();
-	        for(int i=0;i<size; i++) {
-	        	if(i+1 == size) {
-	        		break;
-	        	}
-	        	double d1 = al.get(i);
-	        	double d2 = al.get(i+1);
-	        	double nyu1 = cciIVHisto.get(al.get(i))[0];//nyu:fractional volume
-	        	double nyu2 = cciIVHisto.get(al.get(i+1))[0];
-	        	auc += (d2-d1)*((nyu1+nyu2)/2);
-	        }
+			double sum_nu = 0d;
+			for (int i = 0; i < size; i++) {
+				if (i + 1 == size) {
+					break;
+				}
+				double d1 = al.get(i);
+				double d2 = al.get(i + 1);
+				double nu1 = cciIVHisto.get(al.get(i))[0];// nu:fractional volume
+				double nu2 = cciIVHisto.get(al.get(i + 1))[0];
+				double delta = (d2 - d1);
+				sum_nu += delta/2d * (nu1 + nu2);
+			}
+			return sum_nu / size;
 		}
-		return auc;
 	}
 	
 	public String toString() {
@@ -485,9 +489,9 @@ public class IntensityVolumeHistogramFeatures{
 			System.out.println("===  IVH result (nBins)  ===");
 			for(int i=0;i<size;i++) {
 				double discVal = al.get(i);
-				double nyu = dciIVHisto.get(discVal)[0];
+				double nu = dciIVHisto.get(discVal)[0];
 				double gamma = dciIVHisto.get(discVal)[1];
-				System.out.println("discretised value:"+discVal+", nyu:"+nyu+", gamma:"+gamma);
+				System.out.println("discretised value:"+discVal+", gamma:"+gamma+", nu:"+nu);
 			}
 		}else {
 			ArrayList<Double> al = new ArrayList<>(cciIVHisto.keySet());
@@ -496,9 +500,9 @@ public class IntensityVolumeHistogramFeatures{
 			System.out.println("===  IVH result (continus, binWidth)  ===");
 			for(int i=0;i<size;i++) {
 				double discVal = al.get(i);
-				double nyu = cciIVHisto.get(discVal)[0];
+				double nu = cciIVHisto.get(discVal)[0];
 				double gamma = cciIVHisto.get(discVal)[1];
-				System.out.println("discretised value:"+discVal+", nyu:"+nyu+", gamma:"+gamma);
+				System.out.println("discretised value:"+discVal+", gamma:"+gamma+", nu:"+nu);
 			}
 		}
 		System.out.println("=== IVH result end ===");

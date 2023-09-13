@@ -12,17 +12,19 @@ public class TestIntensityVolumeHistogramFeatures {
 		
 		RadiomicsJ.targetLabel = 1;
 		RadiomicsJ.nBins = Utils.getNumOfBinsByMinMaxRange(imp, mask, RadiomicsJ.targetLabel);//digital phantom  of roi, max.
-		RadiomicsJ.debug = true;
+		RadiomicsJ.debug = false;
 		
 		IntensityVolumeHistogramFeatures ivhf = new IntensityVolumeHistogramFeatures(imp, mask, 1, 0);
 		
-//		System.out.println(ivhf.calculate(IntensityVolumeHistogramFeatureType.VolumeAtIntensityFraction10.id()));//OK
-//		System.out.println(ivhf.calculate(IntensityVolumeHistogramFeatureType.VolumeAtIntensityFraction90.id()));//OK
-//		System.out.println(ivhf.calculate(IntensityVolumeHistogramFeatureType.IntensityAtVolumeFraction10.id()));//OK
-//		System.out.println(ivhf.calculate(IntensityVolumeHistogramFeatureType.IntensityAtVolumeFraction90.id()));//OK
-//		System.out.println(ivhf.calculate(IntensityVolumeHistogramFeatureType.VolumeFractionDifferenceBetweenIntensityFractions.id()));//OK
-//		System.out.println(ivhf.calculate(IntensityVolumeHistogramFeatureType.IntensityFractionDifferenceBetweenVolumeFractions.id()));//OK
-		System.out.println(ivhf.calculate(IntensityVolumeHistogramFeatureType.AreaUnderTheIVHCurve.id()));//OK
+		ivhf.toString();//show IVH matrix
+		
+		System.out.println(IntensityVolumeHistogramFeatureType.VolumeAtIntensityFraction10+":"+ivhf.calculate(IntensityVolumeHistogramFeatureType.VolumeAtIntensityFraction10.id()));//OK
+		System.out.println(IntensityVolumeHistogramFeatureType.VolumeAtIntensityFraction90+":"+ivhf.calculate(IntensityVolumeHistogramFeatureType.VolumeAtIntensityFraction90.id()));//OK
+		System.out.println(IntensityVolumeHistogramFeatureType.IntensityAtVolumeFraction10+":"+ivhf.calculate(IntensityVolumeHistogramFeatureType.IntensityAtVolumeFraction10.id()));//OK
+		System.out.println(IntensityVolumeHistogramFeatureType.IntensityAtVolumeFraction90+":"+ivhf.calculate(IntensityVolumeHistogramFeatureType.IntensityAtVolumeFraction90.id()));//OK
+		System.out.println(IntensityVolumeHistogramFeatureType.VolumeFractionDifferenceBetweenIntensityFractions+":"+ivhf.calculate(IntensityVolumeHistogramFeatureType.VolumeFractionDifferenceBetweenIntensityFractions.id()));//OK
+		System.out.println(IntensityVolumeHistogramFeatureType.IntensityFractionDifferenceBetweenVolumeFractions+":"+ivhf.calculate(IntensityVolumeHistogramFeatureType.IntensityFractionDifferenceBetweenVolumeFractions.id()));//OK
+		System.out.println(IntensityVolumeHistogramFeatureType.AreaUnderTheIVHCurve+":"+ivhf.calculate(IntensityVolumeHistogramFeatureType.AreaUnderTheIVHCurve.id()));//OK
 
 		System.exit(0);
 	}

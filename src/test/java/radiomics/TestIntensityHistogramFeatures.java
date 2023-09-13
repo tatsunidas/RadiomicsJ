@@ -13,31 +13,31 @@ public class TestIntensityHistogramFeatures {
 		RadiomicsJ.targetLabel = 1;
 		RadiomicsJ.nBins = Utils.getNumOfBinsByMinMaxRange(imp, mask, RadiomicsJ.targetLabel);//digital phantom  of roi, max.
 		
-//		IntensityHistogramFeatures ihf = new IntensityHistogramFeatures(imp, mask, null);
+		IntensityHistogramFeatures ihf = new IntensityHistogramFeatures(imp, mask, RadiomicsJ.targetLabel, true, RadiomicsJ.nBins, null);
 		
-//		System.out.println(ihf.calculate(RadiomicsJ.IntensityBasedStatisticalFeatureTypes.Mean.id()));//OK
-//		System.out.println(ihf.calculate(RadiomicsJ.IntensityBasedStatisticalFeatureTypes.Variance.id()));//OK
-//		System.out.println(ihf.calculate(RadiomicsJ.IntensityBasedStatisticalFeatureTypes.Skewness.id()));//OK
-//		System.out.println(ihf.calculate(RadiomicsJ.IntensityBasedStatisticalFeatureTypes.Kurtosis.id())-3);//OK, 3.3.4 (Excess) intensity kurtosis
-//		System.out.println(ihf.calculate(RadiomicsJ.IntensityBasedStatisticalFeatureTypes.Median.id()));//ok
-//		System.out.println(ihf.calculate(RadiomicsJ.IntensityBasedStatisticalFeatureTypes.Minimum.id()));//OK
-//		System.out.println(ihf.calculate(RadiomicsJ.IntensityBasedStatisticalFeatureTypes.Percentile10.id()));//OK
-//		System.out.println(ihf.calculate(RadiomicsJ.IntensityBasedStatisticalFeatureTypes.Percentile90.id()));//OK
-//		System.out.println(ihf.calculate(RadiomicsJ.IntensityBasedStatisticalFeatureTypes.Maximum.id()));//OK
-//		System.out.println(ihf.calculate(RadiomicsJ.IntensityBasedStatisticalFeatureTypes.Mode.id()));//OK
-//		System.out.println(ihf.calculate(RadiomicsJ.IntensityBasedStatisticalFeatureTypes.Interquartile.id()));//OK
-//		System.out.println(ihf.calculate(RadiomicsJ.IntensityBasedStatisticalFeatureTypes.Range.id()));//ok
-//		System.out.println(ihf.calculate(RadiomicsJ.IntensityBasedStatisticalFeatureTypes.MeanAbsoluteDeviation.id()));
-//		System.out.println(ihf.calculate(RadiomicsJ.IntensityBasedStatisticalFeatureTypes.RobustMeanAbsoluteDeviation.id()));
-//		System.out.println(ihf.calculate(RadiomicsJ.IntensityBasedStatisticalFeatureTypes.MedianAbsoluteDeviation.id()));
-//		System.out.println(ihf.calculate(RadiomicsJ.IntensityBasedStatisticalFeatureTypes.CoefficientOfVariation.id()));
-//		System.out.println(ihf.calculate(RadiomicsJ.IntensityBasedStatisticalFeatureTypes.QuartileCoefficientOfDispersion.id()));
-//		System.out.println(ihf.calculate(RadiomicsJ.IntensityBasedStatisticalFeatureTypes.Entropy.id()));//ok
-//		System.out.println(ihf.calculate(RadiomicsJ.IntensityBasedStatisticalFeatureTypes.Uniformity.id()));//or named energy
-//		System.out.println(ihf.calculate(RadiomicsJ.IntensityBasedStatisticalFeatureTypes.MaximumHistogramGradient.id()));//ok
-//		System.out.println(ihf.calculate(RadiomicsJ.IntensityBasedStatisticalFeatureTypes.MaximumHistogramGradientIntensity.id()));//ok
-//		System.out.println(ihf.calculate(RadiomicsJ.IntensityBasedStatisticalFeatureTypes.MinimumHistogramGradient.id()));//ok
-//		System.out.println(ihf.calculate(RadiomicsJ.IntensityBasedStatisticalFeatureTypes.MinimumHistogramGradientIntensity.id()));//ok
+		System.out.println(IntensityHistogramFeatureType.MeanDiscretisedIntensity+":"+ihf.calculate(IntensityHistogramFeatureType.MeanDiscretisedIntensity.id()));//OK
+		System.out.println(IntensityHistogramFeatureType.Variance+":"+ihf.calculate(IntensityHistogramFeatureType.Variance.id()));//OK
+		System.out.println(IntensityHistogramFeatureType.Skewness+":"+ihf.calculate(IntensityHistogramFeatureType.Skewness.id()));//OK
+		System.out.println(IntensityHistogramFeatureType.Kurtosis+":"+(ihf.calculate(IntensityHistogramFeatureType.Kurtosis.id())-3));//OK, 3.3.4 (Excess) intensity kurtosis
+		System.out.println(IntensityHistogramFeatureType.Median+":"+ihf.calculate(IntensityHistogramFeatureType.Median.id()));//ok
+		System.out.println(IntensityHistogramFeatureType.Minimum+":"+ihf.calculate(IntensityHistogramFeatureType.Minimum.id()));//OK
+		System.out.println(IntensityHistogramFeatureType.Percentile10+":"+ihf.calculate(IntensityHistogramFeatureType.Percentile10.id()));//OK
+		System.out.println(IntensityHistogramFeatureType.Percentile90+":"+ihf.calculate(IntensityHistogramFeatureType.Percentile90.id()));//OK
+		System.out.println(IntensityHistogramFeatureType.Maximum+":"+ihf.calculate(IntensityHistogramFeatureType.Maximum.id()));//OK
+		System.out.println(IntensityHistogramFeatureType.Mode+":"+ihf.calculate(IntensityHistogramFeatureType.Mode.id()));//OK
+		System.out.println(IntensityHistogramFeatureType.Interquartile+":"+ihf.calculate(IntensityHistogramFeatureType.Interquartile.id()));//OK
+		System.out.println(IntensityHistogramFeatureType.Range+":"+ihf.calculate(IntensityHistogramFeatureType.Range.id()));//ok
+		System.out.println(IntensityHistogramFeatureType.MeanAbsoluteDeviation+":"+ihf.calculate(IntensityHistogramFeatureType.MeanAbsoluteDeviation.id()));
+		System.out.println(IntensityHistogramFeatureType.RobustMeanAbsoluteDeviation+":"+ihf.calculate(IntensityHistogramFeatureType.RobustMeanAbsoluteDeviation.id()));
+		System.out.println(IntensityHistogramFeatureType.MedianAbsoluteDeviation+":"+ihf.calculate(IntensityHistogramFeatureType.MedianAbsoluteDeviation.id()));
+		System.out.println(IntensityHistogramFeatureType.CoefficientOfVariation+":"+ihf.calculate(IntensityHistogramFeatureType.CoefficientOfVariation.id()));
+		System.out.println(IntensityHistogramFeatureType.QuartileCoefficientOfDispersion+":"+ihf.calculate(IntensityHistogramFeatureType.QuartileCoefficientOfDispersion.id()));
+		System.out.println(IntensityHistogramFeatureType.Entropy+":"+ihf.calculate(IntensityHistogramFeatureType.Entropy.id()));//ok
+		System.out.println(IntensityHistogramFeatureType.Uniformity+":"+ihf.calculate(IntensityHistogramFeatureType.Uniformity.id()));//or named energy
+		System.out.println(IntensityHistogramFeatureType.MaximumHistogramGradient+":"+ihf.calculate(IntensityHistogramFeatureType.MaximumHistogramGradient.id()));//ok
+		System.out.println(IntensityHistogramFeatureType.MaximumHistogramGradientIntensity+":"+ihf.calculate(IntensityHistogramFeatureType.MaximumHistogramGradientIntensity.id()));//ok
+		System.out.println(IntensityHistogramFeatureType.MinimumHistogramGradient+":"+ihf.calculate(IntensityHistogramFeatureType.MinimumHistogramGradient.id()));//ok
+		System.out.println(IntensityHistogramFeatureType.MinimumHistogramGradientIntensity+":"+ihf.calculate(IntensityHistogramFeatureType.MinimumHistogramGradientIntensity.id()));//ok
 		
 		System.exit(0);
 	}
