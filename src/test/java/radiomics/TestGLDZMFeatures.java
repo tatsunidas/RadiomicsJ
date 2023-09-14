@@ -1,7 +1,10 @@
 package radiomics;
 
+import com.vis.radiomics.features.*;
+import com.vis.radiomics.main.RadiomicsJ;
+import com.vis.radiomics.main.TestDataLoader;
+
 import ij.ImagePlus;
-import features.*;
 
 public class TestGLDZMFeatures {
 	

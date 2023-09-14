@@ -1,8 +1,5 @@
 package radiomics;
 
-import features.RadiomicsJ;
-import features.TestDataLoader;
-import features.Utils;
 import ij.ImagePlus;
 import ij.measure.ResultsTable;
 
@@ -20,6 +17,10 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.CellReference;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
+import com.vis.radiomics.main.RadiomicsJ;
+import com.vis.radiomics.main.TestDataLoader;
+import com.vis.radiomics.main.Utils;
 
 public class TestRadiomicsJ {
 	

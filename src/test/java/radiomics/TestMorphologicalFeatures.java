@@ -1,9 +1,10 @@
 package radiomics;
 
-import features.MorphologicalFeatureType;
-import features.MorphologicalFeatures;
-import features.RadiomicsJ;
-import features.TestDataLoader;
+import com.vis.radiomics.features.MorphologicalFeatureType;
+import com.vis.radiomics.features.MorphologicalFeatures;
+import com.vis.radiomics.main.RadiomicsJ;
+import com.vis.radiomics.main.TestDataLoader;
+
 import ij.ImagePlus;
 
 public class TestMorphologicalFeatures {

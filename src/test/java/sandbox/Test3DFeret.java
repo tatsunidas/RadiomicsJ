@@ -1,7 +1,8 @@
 package sandbox;
 
-import features.RadiomicsJ;
-import features.TestDataLoader;
+import com.vis.radiomics.main.RadiomicsJ;
+import com.vis.radiomics.main.TestDataLoader;
+
 import ij.ImagePlus;
 
 public class Test3DFeret {

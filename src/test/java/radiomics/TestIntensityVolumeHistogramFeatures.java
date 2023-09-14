@@ -1,7 +1,11 @@
 package radiomics;
 
+import com.vis.radiomics.features.*;
+import com.vis.radiomics.main.RadiomicsJ;
+import com.vis.radiomics.main.TestDataLoader;
+import com.vis.radiomics.main.Utils;
+
 import ij.ImagePlus;
-import features.*;
 
 public class TestIntensityVolumeHistogramFeatures {
 	

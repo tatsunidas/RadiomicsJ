@@ -8,9 +8,10 @@ import java.util.Vector;
 
 import javax.swing.JOptionPane;
 
-import features.RadiomicsJ;
-import features.SettingParams;
-import features.TestDataLoader;
+import com.vis.radiomics.main.RadiomicsJ;
+import com.vis.radiomics.main.SettingParams;
+import com.vis.radiomics.main.TestDataLoader;
+
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.GenericDialog;

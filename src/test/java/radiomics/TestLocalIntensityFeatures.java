@@ -1,9 +1,10 @@
 package radiomics;
 
-import features.LocalIntensityFeatureType;
-import features.LocalIntensityFeatures;
-import features.RadiomicsJ;
-import features.TestDataLoader;
+import com.vis.radiomics.features.LocalIntensityFeatureType;
+import com.vis.radiomics.features.LocalIntensityFeatures;
+import com.vis.radiomics.main.RadiomicsJ;
+import com.vis.radiomics.main.TestDataLoader;
+
 import ij.ImagePlus;
 
 public class TestLocalIntensityFeatures {

@@ -5,9 +5,10 @@ import org.apache.commons.math3.linear.MatrixUtils;
 import org.apache.commons.math3.linear.RealMatrix;
 import org.apache.commons.math3.stat.correlation.Covariance;
 
-import features.RadiomicsJ;
-import features.TestDataLoader;
-import features.Utils;
+import com.vis.radiomics.main.RadiomicsJ;
+import com.vis.radiomics.main.TestDataLoader;
+import com.vis.radiomics.main.Utils;
+
 //import bonej.Ellipsoid;
 import ij.ImagePlus;
 

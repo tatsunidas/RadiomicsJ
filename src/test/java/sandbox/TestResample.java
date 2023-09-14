@@ -1,7 +1,8 @@
 package sandbox;
 
-import features.TestDataLoader;
-import features.Utils;
+import com.vis.radiomics.main.TestDataLoader;
+import com.vis.radiomics.main.Utils;
+
 import ij.ImagePlus;
 
 /**

@@ -1,9 +1,10 @@
 package radiomics;
 
-import features.RadiomicsJ;
-import features.Shape2DFeatureType;
-import features.Shape2DFeatures;
-import features.TestDataLoader;
+import com.vis.radiomics.features.Shape2DFeatureType;
+import com.vis.radiomics.features.Shape2DFeatures;
+import com.vis.radiomics.main.RadiomicsJ;
+import com.vis.radiomics.main.TestDataLoader;
+
 import ij.ImagePlus;
 
 public class TestShape2D {

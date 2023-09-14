@@ -1,6 +1,7 @@
 package sandbox;
 
-import features.ImageFiltering;
+import com.vis.radiomics.features.ImageFiltering;
+
 import ij.ImagePlus;
 
 public class TestWaveCoeffs {

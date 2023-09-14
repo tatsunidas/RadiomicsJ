@@ -1,8 +1,9 @@
 package radiomics;
 
-import features.DiagnosticsInfo;
-import features.RadiomicsJ;
-import features.TestDataLoader;
+import com.vis.radiomics.features.DiagnosticsInfo;
+import com.vis.radiomics.main.RadiomicsJ;
+import com.vis.radiomics.main.TestDataLoader;
+
 import ij.ImagePlus;
 
 public class TestDiagnostics {

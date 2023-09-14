@@ -1,6 +1,7 @@
 package sandbox;
 
-import features.ImagePreprocessing;
+import com.vis.radiomics.features.ImagePreprocessing;
+
 import ij.ImagePlus;
 import ij.gui.OvalRoi;
 import ij.gui.Roi;
