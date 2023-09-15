@@ -1658,18 +1658,44 @@ public class Utils {
 		angles.put(Integer.valueOf(13), new int[] { 0, 0, 0 });// own voxel
 		angles.put(Integer.valueOf(14), new int[] { 1, 0, 0 });
 		angles.put(Integer.valueOf(15), new int[] { -1, 1, 0 });
-		angles.put(Integer.valueOf(16), new int[] { 0, 1, 0 });
+		angles.put(Integer.valueOf(16), new int[] { 0, 1, 0 });// 90 degree
 		angles.put(Integer.valueOf(17), new int[] { 1, 1, 0 });
 		angles.put(Integer.valueOf(18), new int[] { -1, -1, 1 });
-		angles.put(Integer.valueOf(19), new int[] { 0, -1, 1 });
+		angles.put(Integer.valueOf(19), new int[] { 0, -1, 1 });// 135 degree
 		angles.put(Integer.valueOf(20), new int[] { 1, -1, 1 });
 		angles.put(Integer.valueOf(21), new int[] { -1, 0, 1 });
-		angles.put(Integer.valueOf(22), new int[] { 0, 0, 1 });
+		angles.put(Integer.valueOf(22), new int[] { 0, 0, 1 });// 0 degree
 		angles.put(Integer.valueOf(23), new int[] { 1, 0, 1 });
 		angles.put(Integer.valueOf(24), new int[] { -1, 1, 1 });
-		angles.put(Integer.valueOf(25), new int[] { 0, 1, 1 });
+		angles.put(Integer.valueOf(25), new int[] { 0, 1, 1 });// 45 degree
 		angles.put(Integer.valueOf(26), new int[] { 1, 1, 1 });
 		return angles;
+	}
+	
+	public static HashMap<Integer, int[]> bulidAnglesFor2D(){
+		HashMap<Integer, int[]> angles = new HashMap<>();
+		angles.put(22, new int[] { 0, 0, 1 });//0
+		angles.put(25, new int[] { 0, 1, 1 });//45
+		angles.put(16, new int[] { 0, 1, 0 });//90
+		angles.put(19, new int[] { 0, -1, 1 });//135
+		return angles;
+	}
+	
+	public static int getAngleVectorKey(int[] angleVector) {
+		if(angleVector == null) {
+			return -1;
+		}
+		if(angleVector.length != 3) {
+			return -1;
+		}
+		HashMap<Integer, int[]> angles = buildAngles();
+		for(int key : angles.keySet()) {
+			int[] avector = angles.get(key);
+			if(avector[0]==angleVector[0] && avector[1]==angleVector[1] && avector[2]==angleVector[2]) {
+				return key;
+			}
+		}
+		return -1;
 	}
 	
 	/**

@@ -53,6 +53,8 @@ public class GLCMFeatures {
 	int delta = 1;
 
 	HashMap<Integer, HashMap<String, Object>> coeffs;// angle_od and coefficients of it angle.
+	public static final String Px = "Px";
+	public static final String Py = "Py";
 	double eps = Math.ulp(1.0);// 2.220446049250313E-16
 
 	String[] weighting_norms = new String[] { "no_weighting", "manhattan", "euclidian", "infinity" };
@@ -258,7 +260,7 @@ public class GLCMFeatures {
 	}
 
 	/**
-	 * calculate glcm on 3d (in 26 components, symmetrical.).
+	 * calculate glcm on 2d/3d (in 26 components, symmetrical.).
 	 * 
 	 * @return
 	 */
@@ -320,14 +322,14 @@ public class GLCMFeatures {
 		int s = img.getNSlices();
 
 		int offsetX = angle[2] * delta;
-		int offsetY = angle[1] * delta;
+		int offsetY = angle[1] * delta * -1;//adjust vector direction and coordinate direction in Y axis.
 		int offsetZ = angle[0] * delta;
 
 		for (int z = 0; z < s; z++) {
 			for (int y = 0; y < h; y++) {
 				for (int x = 0; x < w; x++) {
 					int dx = x + offsetX;
-					int dy = y - offsetY;
+					int dy = y + offsetY;
 					int dz = z + offsetZ;
 					if ((dx >= 0 && dx < w) && (dy >= 0 && dy < h) && (dz >= 0 && dz < s)) {
 						int lbli = (int) mask.getStack().getProcessor(z+1).getPixelValue(x, y);
@@ -368,7 +370,7 @@ public class GLCMFeatures {
 	/*
 	 * faster
 	 */
-	private double[][] calcGLCM2(int angleID, int[] angle, int delta) {
+	public double[][] calcGLCM2(int angleID, int[] angle, int delta) {
 
 		ImagePlus img = discImg;
 		ImagePlus mask = orgMask;
@@ -389,7 +391,7 @@ public class GLCMFeatures {
 		}
 		
 		int offsetX = angle[2] * delta;
-		int offsetY = angle[1] * delta;
+		int offsetY = angle[1] * delta * -1;//adjust vector direction and coordinate direction in Y axis.
 		int offsetZ = angle[0] * delta;
 		
 		if(this.aabb == null) {
@@ -515,77 +517,46 @@ public class GLCMFeatures {
 //		}
 		return angles;
 	}
+	
+	public double[][] normalize(double[][] glcm_raw){
+		double[][] norm_glcm = new double[nBins][nBins];
+		// init array
+		for (int y = 0; y < nBins; y++) {
+			for (int x = 0; x < nBins; x++) {
+				norm_glcm[y][x] = 0d;
+			}
+		}
+		double sum = 0d;
+		for (int i = 0; i < nBins; i++) {
+			for (int j = 0; j < nBins; j++) {
+				sum += glcm_raw[i][j];
+			}
+		}
+		for (int i = 0; i < nBins; i++) {
+			for (int j = 0; j < nBins; j++) {
+				norm_glcm[i][j] = glcm_raw[i][j] / sum;
+			}
+		}
+		return norm_glcm;
+	}
 
 	public HashMap<Integer, double[][]> normalize(java.util.HashMap<Integer, double[][]> glcm_raw) {
 
 		glcm = new HashMap<Integer, double[][]>();// final glcm set of each angles
-		ArrayList<Integer> angles = new ArrayList<>(glcm_raw.keySet());
-		Collections.sort(angles);
-		for (Integer a : angles) {
+		ArrayList<Integer> anglesKey = new ArrayList<>(glcm_raw.keySet());
+		Collections.sort(anglesKey);
+		
+		/*
+		 * if do distance weighting, do first merge all angles, then calculate features.
+		 */
+		for (Integer a : anglesKey) {
 			double[][] glcm_raw_at_a = glcm_raw.get(a);
 			// skip all zero matrix
 			if (glcm_raw_at_a == null) {
 				glcm.put(a, null);
 				continue;
 			}
-			double[][] norm_glcm_at_a = new double[nBins][nBins];
-			// init array
-			for (int y = 0; y < nBins; y++) {
-				for (int x = 0; x < nBins; x++) {
-					norm_glcm_at_a[y][x] = 0d;
-				}
-			}
-
-			// do weighting.
-			/*
-			 * future work... see,
-			 * https://pyradiomics.readthedocs.io/en/latest/_modules/radiomics/glcm.html#
-			 * RadiomicsGLCM
-			 */
-//			if(weightingNorm != null) {
-//				double weight = 1.0d;
-//				double px = orgCal.pixelWidth;
-//				double py = orgCal.pixelHeight;
-//				double pz = orgCal.pixelHeight;
-//				if(weightingNorm.equals("manhattan")) {
-//					/*
-//					 * ピクセルスペ�?�スを合算してから2�?
-//					 * weights[a_idx] = numpy.exp(-numpy.sum(numpy.abs(a) * pixelSpacing) ** 2)
-//					 */
-//					weight = Math.exp(-(Math.pow((Math.abs(phi) * pixelSpacingX)+(Math.abs(phi) * pixelSpacingY),2)));
-//				}else if(weightingNorm.equals("euclidian")) {
-//					/*
-//					 * ピクセルスペ�?�スそれぞれ�?2乗してから合�?
-//					 * weights[a_idx] = numpy.exp(-numpy.sum((numpy.abs(a) * pixelSpacing) ** 2))  # sqrt ^ 2 = 1
-//					 */
-//					weight = Math.exp(-((Math.pow(Math.abs(phi) * pixelSpacingX,2)+Math.pow(Math.abs(phi) * pixelSpacingY,2))));
-//				}else if(weightingNorm.equals("infinity")){
-//					/*
-//					 * ピクセルスペ�?�スが大きいほ�?のみで計�?
-//					 * weights[a_idx] = numpy.exp(-max(numpy.abs(a) * pixelSpacing) ** 2)
-//					 */
-//					weight = Math.exp(-(Math.pow(Math.abs(phi) * Math.max(pixelSpacingX, pixelSpacingY),2)));
-//				}else if(weightingNorm.equals("no_weighting")){
-//					weight = 1d;
-//				}
-//				for (int i=0; i<nBins; i++)  {
-//					for (int j=0; j<nBins; j++) {
-//						glcm[i][j] = glcm[i][j]*weight;//weighted
-//					}
-//				}
-//			}
-
-			double sum = 0d;
-			for (int i = 0; i < nBins; i++) {
-				for (int j = 0; j < nBins; j++) {
-					sum += glcm_raw_at_a[i][j];
-				}
-			}
-			for (int i = 0; i < nBins; i++) {
-				for (int j = 0; j < nBins; j++) {
-					norm_glcm_at_a[i][j] = glcm_raw_at_a[i][j] / sum;
-				}
-			}
+			double[][] norm_glcm_at_a = normalize(glcm_raw_at_a);
 			glcm.put(a, norm_glcm_at_a);
 		}
 
@@ -699,6 +670,30 @@ public class GLCMFeatures {
 			coeffs_a.put("StdDevY", stdevy);
 			this.coeffs.put(a, coeffs_a);
 		}
+	}
+	
+	/**
+	 * TODO
+	 * "manhattan"
+	 * "euclidian" //default
+	 * "infinity"
+	 * 
+	 * @param angleVector
+	 * @param glcm_raw
+	 * @return weighted glcm_raw
+	 */
+	public double[][] weighting(int[] angleVector, double[][] glcm_raw){
+		double px = orgCal.pixelWidth;
+		double py = orgCal.pixelHeight;
+		double pz = orgCal.pixelDepth;
+		double w = Math.exp(-1*Math.sqrt(Math.pow(angleVector[2]*px, 2)+Math.pow(angleVector[1]*py, 2)+Math.pow(angleVector[0]*pz, 2)));
+		double[][] weighted = new double[nBins][nBins];
+		for(int i=0;i<nBins;i++) {
+			for(int j=0;j<nBins;j++) {
+				weighted[i][j] = glcm_raw[i][j]*w;
+			}
+		}
+		return weighted;
 	}
 
 	public double getJointMaximum() {
@@ -1500,7 +1495,7 @@ public class GLCMFeatures {
 		for (int row = 0; row < mat.length; row++) {
 			StringBuilder sb = new StringBuilder();
 			for (int col = 0; col < mat[0].length; col++) {
-				sb.append(IJ.d2s(mat[row][col], 2));
+				sb.append(IJ.d2s(mat[row][col], 3));
 				sb.append(" ");
 			}
 			sb.append("\n");

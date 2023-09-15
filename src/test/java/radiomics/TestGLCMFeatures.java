@@ -97,19 +97,24 @@ public class TestGLCMFeatures {
 		}
 		
 		// angle new int[] {0,0,1} is ordered by z,y,x (dim2, dim1, dim0)
-		double[][] mat = null;
-		mat = test.calcGLCM(0, new int[] { 0, 0, 1 }, delta);
+		double[][] mat_0 = test.calcGLCM2(0, new int[] { 0, 0, 1 }, delta);
 		System.out.println("Check : (x,y,z)(1,0,0) vector →");
-		System.out.println(test.toString(mat));
-		mat = test.calcGLCM(0, new int[] { 0, 1, 1 }, delta);
+		System.out.println(test.toString(mat_0));
+		double[][] mat_45 = test.calcGLCM2(0, new int[] { 0, 1, 1 }, delta);
 		System.out.println("Check : (x,y,z)(1,1,0) vector ↗");
-		System.out.println(test.toString(mat));
-		mat = test.calcGLCM(0, new int[] { 0, 1, 0 }, delta);
+		System.out.println(test.toString(mat_45));
+		double[][] mat_90 = test.calcGLCM2(0, new int[] { 0, 1, 0 }, delta);
 		System.out.println("Check : (x,y,z)(0,1,0) vector ↑");
-		System.out.println(test.toString(mat));
-		mat = test.calcGLCM(0, new int[] { 0, 1, -1 }, delta);
+		System.out.println(test.toString(mat_90));
+		double[][] mat_135 = test.calcGLCM2(0, new int[] { 0, 1, -1 }, delta);
 		System.out.println("Check : (x,y,z)(-1,1,0) vector ↖");
-		System.out.println(test.toString(mat));
+		System.out.println(test.toString(mat_135));
+		
+		System.out.println("Normalized distribution at 0 degree");
+		double[][] mat_norm = test.normalize(mat_0);
+		System.out.println(test.toString(mat_norm));
+		
+		System.out.println(Math.pow(2, 3));
 	}
 	
 }
