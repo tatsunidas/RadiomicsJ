@@ -77,7 +77,7 @@ public class GLCMFeatures {
 //			}
 //		}
 //
-//		int nBins = 4;// 0 to 5
+//		int nBins = 4;// 1 to 4
 //		int delta = 1;
 //		GLCMFeatures test = new GLCMFeatures(
 //				new ImagePlus("test-2d", new ByteProcessor(pixels[0].length, pixels.length, pixelsByte)), null, nBins,
@@ -296,7 +296,7 @@ public class GLCMFeatures {
 	 * @return
 	 */
 	@SuppressWarnings("unused")
-	private double[][] calcGLCM(int angleID, int[] angle, int delta) {
+	public double[][] calcGLCM(int angleID, int[] angle, int delta) {
 
 		ImagePlus img = discImg;
 		ImagePlus mask = orgMask;
@@ -309,7 +309,7 @@ public class GLCMFeatures {
 		}
 
 		double[][] glcm_at_angle = new double[nBins][nBins];
-		// reset
+		// init by padding zero.
 		for (int y = 0; y < nBins; y++) {
 			for (int x = 0; x < nBins; x++) {
 				glcm_at_angle[y][x] = 0d;
@@ -327,7 +327,7 @@ public class GLCMFeatures {
 			for (int y = 0; y < h; y++) {
 				for (int x = 0; x < w; x++) {
 					int dx = x + offsetX;
-					int dy = y + offsetY;
+					int dy = y - offsetY;
 					int dz = z + offsetZ;
 					if ((dx >= 0 && dx < w) && (dy >= 0 && dy < h) && (dz >= 0 && dz < s)) {
 						int lbli = (int) mask.getStack().getProcessor(z+1).getPixelValue(x, y);
@@ -633,7 +633,9 @@ public class GLCMFeatures {
 			HashMap<String, Object> coeffs_a = new HashMap<>();
 			double[] px = new double[nBins];
 			double[] py = new double[nBins];
+			//p_{i+j}
 			double[] pXAddY = new double[(nBins * 2) - 1];// 2 to nBins*2
+			//p_{i-j}
 			double[] pXSubY = new double[nBins];
 			double ux = 0.0;
 			double uy = 0.0;

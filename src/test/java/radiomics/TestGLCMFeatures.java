@@ -5,17 +5,22 @@ import com.vis.radiomics.main.RadiomicsJ;
 import com.vis.radiomics.main.TestDataLoader;
 
 import ij.ImagePlus;
+import ij.process.ByteProcessor;
+import ij.process.ImageProcessor;
 
 public class TestGLCMFeatures {
 	
 	public static void main(String[] args) throws Exception {
-		ImagePlus ds_pair[] = TestDataLoader.digital_phantom1();
-		ImagePlus imp = ds_pair[0];
-		ImagePlus mask = ds_pair[1];
 		
-		RadiomicsJ.targetLabel = 1;
+		checkMatrix();
 		
-		GLCMFeatures f = new GLCMFeatures(imp, mask, 1 ,1,true,6,null,null);
+//		ImagePlus ds_pair[] = TestDataLoader.digital_phantom1();
+//		ImagePlus imp = ds_pair[0];
+//		ImagePlus mask = ds_pair[1];
+//		
+//		RadiomicsJ.targetLabel = 1;
+//		
+//		GLCMFeatures f = new GLCMFeatures(imp, mask, 1 ,1,true,6,null,null);
 		/*
 			DifferenceAverage(4),
 			DifferenceVariance(5),
@@ -39,16 +44,16 @@ public class TestGLCMFeatures {
 			InformationalMeasureOfCorrelation1(23),
 			InformationalMeasureOfCorrelation2(24)
 		 */
-		System.out.println(f.calculate(GLCMFeatureType.JointMaximum.id()));//OK
-		System.out.println(f.calculate(GLCMFeatureType.JointAverage.id()));//OK
-		System.out.println(f.calculate(GLCMFeatureType.JointVariance.id()));//OK
-		System.out.println(f.calculate(GLCMFeatureType.JointEntropy.id()));//OK
-		System.out.println(f.calculate(GLCMFeatureType.DifferenceAverage.id()));//OK
-		System.out.println(f.calculate(GLCMFeatureType.DifferenceVariance.id()));//OK
-		System.out.println(f.calculate(GLCMFeatureType.DifferenceEntropy.id()));//OK
-		System.out.println(f.calculate(GLCMFeatureType.SumAverage.id()));//OK
-		System.out.println(f.calculate(GLCMFeatureType.SumVariance.id()));//OK
-		System.out.println(f.calculate(GLCMFeatureType.SumEntropy.id()));//OK
+//		System.out.println(f.calculate(GLCMFeatureType.JointMaximum.id()));//OK
+//		System.out.println(f.calculate(GLCMFeatureType.JointAverage.id()));//OK
+//		System.out.println(f.calculate(GLCMFeatureType.JointVariance.id()));//OK
+//		System.out.println(f.calculate(GLCMFeatureType.JointEntropy.id()));//OK
+//		System.out.println(f.calculate(GLCMFeatureType.DifferenceAverage.id()));//OK
+//		System.out.println(f.calculate(GLCMFeatureType.DifferenceVariance.id()));//OK
+//		System.out.println(f.calculate(GLCMFeatureType.DifferenceEntropy.id()));//OK
+//		System.out.println(f.calculate(GLCMFeatureType.SumAverage.id()));//OK
+//		System.out.println(f.calculate(GLCMFeatureType.SumVariance.id()));//OK
+//		System.out.println(f.calculate(GLCMFeatureType.SumEntropy.id()));//OK
 //		System.out.println(f.calculate(RadiomicsJ.GLCMFeatureTypes.AngularSecondMoment.id()));//OK
 //		System.out.println(f.calculate(RadiomicsJ.GLCMFeatureTypes.Contrast.id()));//OK
 //		System.out.println(f.calculate(RadiomicsJ.GLCMFeatureTypes.Dissimilarity.id()));//OK
@@ -66,4 +71,45 @@ public class TestGLCMFeatures {
 //		System.out.println(f.calculate(RadiomicsJ.GLCMFeatureTypes.InformationalMeasureOfCorrelation2.id()));//OK
 		System.exit(0);
 	}
+	
+	public static void checkMatrix() {
+		byte pixels[] = new byte[16];
+		byte r0[] = new byte[] { 1, 2, 2, 3 };
+		byte r1[] = new byte[] { 1, 2, 3, 3 };
+		byte r2[] = new byte[] { 4, 2, 4, 1 };
+		byte r3[] = new byte[] { 4, 1, 2, 3 };
+		int i= 0;
+		for(byte[] r: new byte[][] {r0,r1,r2,r3}) {
+			for(byte v:r) {
+				pixels[i++] = v;
+			}
+		}
+		ImageProcessor bp = new ByteProcessor(4, 4, pixels);
+		ImagePlus imp = new ImagePlus("sample", bp);
+		int nBins = 4;// 1 to 4
+		int delta = 1;
+		
+		GLCMFeatures test = null;
+		try {
+			test = new GLCMFeatures(imp, null, 1,delta, true, nBins, null, null);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		// angle new int[] {0,0,1} is ordered by z,y,x (dim2, dim1, dim0)
+		double[][] mat = null;
+		mat = test.calcGLCM(0, new int[] { 0, 0, 1 }, delta);
+		System.out.println("Check : (x,y,z)(1,0,0) vector →");
+		System.out.println(test.toString(mat));
+		mat = test.calcGLCM(0, new int[] { 0, 1, 1 }, delta);
+		System.out.println("Check : (x,y,z)(1,1,0) vector ↗");
+		System.out.println(test.toString(mat));
+		mat = test.calcGLCM(0, new int[] { 0, 1, 0 }, delta);
+		System.out.println("Check : (x,y,z)(0,1,0) vector ↑");
+		System.out.println(test.toString(mat));
+		mat = test.calcGLCM(0, new int[] { 0, 1, -1 }, delta);
+		System.out.println("Check : (x,y,z)(-1,1,0) vector ↖");
+		System.out.println(test.toString(mat));
+	}
+	
 }
