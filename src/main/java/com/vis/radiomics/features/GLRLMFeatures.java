@@ -388,9 +388,9 @@ public class GLRLMFeatures {
 		/*
 		 * forward
 		 */
-		int connected_f_x = seedX + angle[2];//forwarding
-		int connected_f_y = seedY + angle[1];//forwarding
-		int connected_f_z = seedZ + angle[0];//forwarding
+		int connected_f_x = seedX + angle[2];
+		int connected_f_y = seedY - angle[1];//adjust vector direction and coordinate direction in Y axis.
+		int connected_f_z = seedZ + angle[0];
 		if(!Utils.isOutOfRange(new Point3i(connected_f_x, connected_f_y, connected_f_z), max_w, max_h, max_s)) {
 			if(voxels[connected_f_z][connected_f_y][connected_f_x] != null) {
 				if(voxels[connected_f_z][connected_f_y][connected_f_x] == grayLevel) {
@@ -406,7 +406,7 @@ public class GLRLMFeatures {
 		 * backward
 		 */
 		int connected_b_x = seedX - angle[2];
-		int connected_b_y = seedY - angle[1];
+		int connected_b_y = seedY + angle[1];//adjust vector direction and coordinate direction in Y axis.
 		int connected_b_z = seedZ - angle[0];
 
 		if(!Utils.isOutOfRange(new Point3i(connected_b_x, connected_b_y, connected_b_z), max_w, max_h, max_s)) {
