@@ -71,20 +71,20 @@ public class TestGLDZMFeatures {
 		 */
 		System.out.println(GLDZMFeatureType.SmallDistanceEmphasis+":"+f.calculate(GLDZMFeatureType.SmallDistanceEmphasis.id()));//OK
 		System.out.println(GLDZMFeatureType.LargeDistanceEmphasis+":"+f.calculate(GLDZMFeatureType.LargeDistanceEmphasis.id()));//OK
-		System.out.println(f.calculate(GLSZMFeatureType.LowGrayLevelZoneEmphasis.id()));//OK
-		System.out.println(f.calculate(GLSZMFeatureType.HighGrayLevelZoneEmphasis.id()));//OK
-		System.out.println(f.calculate(GLSZMFeatureType.SmallZoneLowGrayLevelEmphasis.id()));//OK
-		System.out.println(f.calculate(GLSZMFeatureType.SmallZoneHighGrayLevelEmphasis.id()));//OK
-		System.out.println(f.calculate(GLSZMFeatureType.LargeZoneLowGrayLevelEmphasis.id()));//OK
-		System.out.println(f.calculate(GLSZMFeatureType.LargeZoneHighGrayLevelEmphasis.id()));//OK
-		System.out.println(f.calculate(GLSZMFeatureType.GrayLevelNonUniformity.id()));//OK
-		System.out.println(f.calculate(GLSZMFeatureType.GrayLevelNonUniformityNormalized.id()));//OK
-		System.out.println(f.calculate(GLSZMFeatureType.SizeZoneNonUniformity.id()));//OK
-		System.out.println(f.calculate(GLSZMFeatureType.SizeZoneNonUniformityNormalized.id()));//OK
-		System.out.println(f.calculate(GLSZMFeatureType.ZonePercentage.id()));//OK
-		System.out.println(f.calculate(GLSZMFeatureType.GrayLevelVariance.id()));//OK
-		System.out.println(f.calculate(GLSZMFeatureType.ZoneSizeVariance.id()));//OK
-		System.out.println(f.calculate(GLSZMFeatureType.ZoneSizeEntropy.id()));//OK
+		System.out.println(GLDZMFeatureType.LowGrayLevelZoneEmphasis+":"+f.calculate(GLDZMFeatureType.LowGrayLevelZoneEmphasis.id()));//OK
+		System.out.println(GLDZMFeatureType.HighGrayLevelZoneEmphasis+":"+f.calculate(GLDZMFeatureType.HighGrayLevelZoneEmphasis.id()));//OK
+		System.out.println(GLDZMFeatureType.SmallDistanceLowGrayLevelEmphasis+":"+f.calculate(GLDZMFeatureType.SmallDistanceLowGrayLevelEmphasis.id()));//OK
+		System.out.println(GLDZMFeatureType.SmallDistanceHighGrayLevelEmphasis+":"+f.calculate(GLDZMFeatureType.SmallDistanceHighGrayLevelEmphasis.id()));//OK
+		System.out.println(GLDZMFeatureType.LargeDistanceLowGrayLevelEmphasis+":"+f.calculate(GLDZMFeatureType.LargeDistanceLowGrayLevelEmphasis.id()));//OK
+		System.out.println(GLDZMFeatureType.LargeDistanceHighGrayLevelEmphasis+":"+f.calculate(GLDZMFeatureType.LargeDistanceHighGrayLevelEmphasis.id()));//OK
+		System.out.println(GLDZMFeatureType.GrayLevelNonUniformity+":"+f.calculate(GLDZMFeatureType.GrayLevelNonUniformity.id()));//OK
+		System.out.println(GLDZMFeatureType.GrayLevelNonUniformityNormalized+":"+f.calculate(GLDZMFeatureType.GrayLevelNonUniformityNormalized.id()));//OK
+		System.out.println(GLDZMFeatureType.ZoneDistanceNonUniformity+":"+f.calculate(GLDZMFeatureType.ZoneDistanceNonUniformity.id()));//OK
+		System.out.println(GLDZMFeatureType.ZoneDistanceNonUniformityNormalized+":"+f.calculate(GLDZMFeatureType.ZoneDistanceNonUniformityNormalized.id()));//OK
+		System.out.println(GLDZMFeatureType.ZonePercentage+":"+f.calculate(GLDZMFeatureType.ZonePercentage.id()));//OK
+		System.out.println(GLDZMFeatureType.GrayLevelVariance+":"+f.calculate(GLDZMFeatureType.GrayLevelVariance.id()));//OK
+		System.out.println(GLDZMFeatureType.ZoneDistanceVariance+":"+f.calculate(GLDZMFeatureType.ZoneDistanceVariance.id()));//OK
+		System.out.println(GLDZMFeatureType.ZoneDistanceEntropy+":"+f.calculate(GLDZMFeatureType.ZoneDistanceEntropy.id()));//OK
 		System.exit(0);
 	}
 }

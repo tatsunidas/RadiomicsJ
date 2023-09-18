@@ -12,7 +12,8 @@ public class TestGLSZMFeatures {
 	
 	public static void main(String[] args) throws Exception {
 		
-		checkMatrix();
+//		checkMatrix();
+		checkFeatures();
 		System.exit(0);
 	}
 	
