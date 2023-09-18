@@ -94,13 +94,13 @@ public class NGLDMFeatures {
 				discImg = RadiomicsJ.discretisedImp;
 			}else {
 				if(useBinCount) {
-					discImg = Utils.discrete(this.img, this.mask, this.label, this.nBins);
+					discImg = Utils.discrete(this.img, null/*mask is null to avoid recursive discrete*/, this.label, this.nBins);
 				}else {
 					/*
 					 * do Fixed Bin Width
 					 */
-					discImg = Utils.discreteByBinWidth(this.img, this.mask, this.label, binWidth);
-					this.nBins = Utils.getNumOfBinsByMax(discImg, this.mask, this.label);
+					discImg = Utils.discreteByBinWidth(this.img, null/*mask is null to avoid recursive discrete*/, this.label, binWidth);
+					this.nBins = Utils.getNumOfBinsByMax(discImg, null/*mask is null to avoid recursive discrete*/, this.label);
 				}
 			}
 			w = discImg.getWidth();
@@ -183,7 +183,7 @@ public class NGLDMFeatures {
 								ImageProcessor ip = discImg.getStack().getProcessor(p.z+1);
 								ImageProcessor mp = mask.getStack().getProcessor(p.z+1);
 								float fv = ip.getf(p.x, p.y);
-								if(!Float.isNaN(fv) && (int)mp.getf(p.x, p.y)==this.label) {
+								if(!Float.isNaN(fv)) {
 									if (Math.abs(grayLevel - ((int)fv)) <= alpha) {
 										count++;
 									}
@@ -227,7 +227,7 @@ public class NGLDMFeatures {
 			}
 			int[] a = angles.get(a_id);
 			int nX = seedX+(a[2]*delta);
-			int nY = seedY+(a[1]*delta);
+			int nY = seedY+(a[1]*delta*-1);//adjust y direction from vector
 			int nZ = seedZ+(a[0]*delta);
 			Point3i neighbor = new Point3i(nX,nY,nZ);
 			if(!Utils.isOutOfRange(new Point3i(nX,nY,nZ), max_w , max_h, max_s)) connect26.add(neighbor);

@@ -57,45 +57,8 @@ public class GLCMFeatures {
 	public static final String Py = "Py";
 	double eps = Math.ulp(1.0);// 2.220446049250313E-16
 
-	String[] weighting_norms = new String[] { "no_weighting", "manhattan", "euclidian", "infinity" };
-	String weightingNorm = null;
-
-	// debug
-//	public static void main(String[] args) throws Exception {
-//		Integer pixels[][] = new Integer[4][];
-//		Integer r0[] = new Integer[] { 1, 2, 2, 3 };
-//		Integer r1[] = new Integer[] { 1, 2, 3, 3 };
-//		Integer r2[] = new Integer[] { 4, 2, 4, 1 };
-//		Integer r3[] = new Integer[] { 4, 1, 2, 3 };
-//		pixels[0] = r0;
-//		pixels[1] = r1;
-//		pixels[2] = r2;
-//		pixels[3] = r3;
-//		byte[] pixelsByte = new byte[4 * 4];
-//		int num = 0;
-//		for (Integer[] r : pixels) {
-//			for (Integer p : r) {
-//				pixelsByte[num++] = Byte.valueOf(String.valueOf(p));
-//			}
-//		}
-//
-//		int nBins = 4;// 1 to 4
-//		int delta = 1;
-//		GLCMFeatures test = new GLCMFeatures(
-//				new ImagePlus("test-2d", new ByteProcessor(pixels[0].length, pixels.length, pixelsByte)), null, nBins,
-//				delta, null);
-//		// angle new int[] {0,0,1} is ordered by z,y,x (dim2, dim1, dim0)
-//		double[][] mat = test.calcGLCM(0, new int[] { 0, 0, 1 }, delta);
-//		System.out.println(test.toString(mat));
-//		test.checkCoefficients(22, "Px");
-//		test.checkCoefficients(22, "Py");
-//		test.checkCoefficients(22, "pXSubY");
-//		test.checkCoefficients(22, "pXAddY");
-////		boolean normalization = false;//debug, show count, not proba.
-////		test.calcGLCM(pixelsByte, 5, 5, normalization);
-////		String res = test.toString();
-////		System.out.println(res);
-//	}
+	final String[] weighting_methods = new String[] { "no_weighting", "manhattan", "euclidian", "infinity" };
+	private String weightingMethod = null;
 
 
 	/**
@@ -242,21 +205,18 @@ public class GLCMFeatures {
 		return null;
 	}
 
-	private void setWeightingNorm(String weightingNorm) {
-		if (weightingNorm == null) {
-			this.weightingNorm = null;// none weighting (ignore weighting).
+	private void setWeightingNorm(String weightingMethod) {
+		if (weightingMethod == null) {
+			this.weightingMethod = null;// none weighting (ignore weighting).
 			return;
 		}
-		boolean found = false;
-		for (String methodname : weighting_norms) {
-			if (weightingNorm.equals(methodname)) {
-				found = true;
-				this.weightingNorm = weightingNorm;
+		for (String methodname : weighting_methods) {
+			if (weightingMethod.equals(methodname)) {
+				this.weightingMethod = methodname;
+				return;
 			}
 		}
-		if (!found) {
-			this.weightingNorm = null;// none weighting (ignore weighting).
-		}
+		this.weightingMethod = null;// no weighting (ignore weighting).
 	}
 
 	/**
@@ -266,7 +226,7 @@ public class GLCMFeatures {
 	 */
 	public void calcGLCM() {
 		glcm_raw = new java.util.HashMap<Integer, double[][]>();// phi_id and it glcm
-		HashMap<Integer, int[]> angles = buildAngles();
+		HashMap<Integer, int[]> angles = Utils.buildAngles();
 		ArrayList<Integer> angle_ids = new ArrayList<>(angles.keySet());
 		Collections.sort(angle_ids);
 		int num_of_angles = angle_ids.size();
@@ -276,6 +236,8 @@ public class GLCMFeatures {
 			 */
 			for (int a = 14; a < num_of_angles; a++) {
 				double[][] glcm_at_a = calcGLCM2(a, angles.get(Integer.valueOf(a)), this.delta);
+				//GLCM matrices are weighted by weighting factor W and then normalized.
+				glcm_at_a = weighting(angles.get(Integer.valueOf(a)), glcm_at_a);
 				glcm_raw.put(a, glcm_at_a);
 			}
 		} else {
@@ -284,6 +246,8 @@ public class GLCMFeatures {
 					continue;
 				}
 				double[][] glcm_at_a = calcGLCM2(a, angles.get(Integer.valueOf(a)), this.delta);
+				//GLCM matrices are weighted by weighting factor W and then normalized.
+				glcm_at_a = weighting(angles.get(Integer.valueOf(a)), glcm_at_a);
 				glcm_raw.put(a, glcm_at_a);
 			}
 		}
@@ -297,7 +261,7 @@ public class GLCMFeatures {
 	 * @param delta
 	 * @return
 	 */
-	@SuppressWarnings("unused")
+	@Deprecated
 	public double[][] calcGLCM(int angleID, int[] angle, int delta) {
 
 		ImagePlus img = discImg;
@@ -383,7 +347,7 @@ public class GLCMFeatures {
 		}
 
 		double[][] glcm_at_angle = new double[nBins][nBins];
-		// reset
+		// init
 		for (int y = 0; y < nBins; y++) {
 			for (int x = 0; x < nBins; x++) {
 				glcm_at_angle[y][x] = 0d;
@@ -457,65 +421,6 @@ public class GLCMFeatures {
 			return null;
 		}
 		return glcm_at_angle;
-	}
-
-	/**
-	 * 
-	 * @return 26 + own angles. symmetrical calculation needed only angle 14 to 27.
-	 */
-	private HashMap<Integer, int[]> buildAngles() {
-		// angle 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
-		// dim z -1 0 1 -1 0 1 -1 0 1 -1 0 1 -1 0 1 -1 0 1 -1 0 1 -1 0 1 -1 0 1
-		// dim y -1 -1 -1 0 0 0 1 1 1 -1 -1 -1 0 0 0 1 1 1 -1 -1 -1 0 0 0 1 1 1
-		// dim x -1 -1 -1 -1 -1 -1 -1 -1 -1 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1
-		HashMap<Integer, int[]> angles = new HashMap<>();
-		angles.put(Integer.valueOf(0), new int[] { -1, -1, -1 });// z,y,x
-		angles.put(Integer.valueOf(1), new int[] { 0, -1, -1 });
-		angles.put(Integer.valueOf(2), new int[] { 1, -1, -1 });
-		angles.put(Integer.valueOf(3), new int[] { -1, 0, -1 });
-		angles.put(Integer.valueOf(4), new int[] { 0, 0, -1 });
-		angles.put(Integer.valueOf(5), new int[] { 1, 0, -1 });
-		angles.put(Integer.valueOf(6), new int[] { -1, 1, -1 });
-		angles.put(Integer.valueOf(7), new int[] { 0, 1, -1 });
-		angles.put(Integer.valueOf(8), new int[] { 1, 1, -1 });
-		angles.put(Integer.valueOf(9), new int[] { -1, -1, 0 });
-		angles.put(Integer.valueOf(10), new int[] { 0, -1, 0 });
-		angles.put(Integer.valueOf(11), new int[] { 1, -1, 0 });
-		angles.put(Integer.valueOf(12), new int[] { -1, 0, 0 });
-		angles.put(Integer.valueOf(13), new int[] { 0, 0, 0 });// own voxel
-		angles.put(Integer.valueOf(14), new int[] { 1, 0, 0 });
-		angles.put(Integer.valueOf(15), new int[] { -1, 1, 0 });
-		angles.put(Integer.valueOf(16), new int[] { 0, 1, 0 });
-		angles.put(Integer.valueOf(17), new int[] { 1, 1, 0 });
-		angles.put(Integer.valueOf(18), new int[] { -1, -1, 1 });
-		angles.put(Integer.valueOf(19), new int[] { 0, -1, 1 });
-		angles.put(Integer.valueOf(20), new int[] { 1, -1, 1 });
-		angles.put(Integer.valueOf(21), new int[] { -1, 0, 1 });
-		angles.put(Integer.valueOf(22), new int[] { 0, 0, 1 });
-		angles.put(Integer.valueOf(23), new int[] { 1, 0, 1 });
-		angles.put(Integer.valueOf(24), new int[] { -1, 1, 1 });
-		angles.put(Integer.valueOf(25), new int[] { 0, 1, 1 });
-		angles.put(Integer.valueOf(26), new int[] { 1, 1, 1 });
-
-		// check whether identical value.//check OK.
-//		ArrayList<Integer> aid = new ArrayList<>(angles.keySet());
-//		Collections.sort(aid);
-//		for(Integer id1 : aid) {
-//			int[] a1 = angles.get(id1);
-//			int c = 0;
-//			for(int id2 : aid) {
-//				int[] a2 = angles.get(id2);
-//				if(a1[0]==a2[0] && a1[1]==a2[1] && a1[2]==a2[2]) {
-//					c++;
-//				}
-//			}
-//			if(c < 1 || c > 1) {
-//				System.out.println("Something strange..., "+id1);
-//			}else if(c == 1){
-//				System.out.println("success : "+id1);
-//			}
-//		}
-		return angles;
 	}
 	
 	public double[][] normalize(double[][] glcm_raw){
@@ -673,20 +578,37 @@ public class GLCMFeatures {
 	}
 	
 	/**
-	 * TODO
 	 * "manhattan"
 	 * "euclidian" //default
-	 * "infinity"
+	 * "infinity" | Chebyshev distance
 	 * 
 	 * @param angleVector
 	 * @param glcm_raw
 	 * @return weighted glcm_raw
 	 */
 	public double[][] weighting(int[] angleVector, double[][] glcm_raw){
-		double px = orgCal.pixelWidth;
-		double py = orgCal.pixelHeight;
-		double pz = orgCal.pixelDepth;
-		double w = Math.exp(-1*Math.sqrt(Math.pow(angleVector[2]*px, 2)+Math.pow(angleVector[1]*py, 2)+Math.pow(angleVector[0]*pz, 2)));
+		double dx = orgCal.pixelWidth * angleVector[2];
+		double dy = orgCal.pixelHeight* angleVector[1];
+		double dz = orgCal.pixelDepth* angleVector[0];
+		double distance = 1d;
+		if(this.weightingMethod == null || this.weightingMethod.equals("no_weighting")) {
+			return glcm_raw;
+		}else if (this.weightingMethod.equals("manhattan")) {
+			distance = dx+dy+dz;
+		}else if (this.weightingMethod.equals("euclidian")) {
+			distance = Math.sqrt(Math.pow(dx, 2)+Math.pow(dy, 2)+Math.pow(dz, 2));
+		}else if (this.weightingMethod.equals("infinity")) {
+			double max = 0d;
+			for(double v : new double[] {dx,dy,dz}) {
+				if(max < v) {
+					max = v;
+				}
+			}
+			distance = max;
+		}else {
+			return glcm_raw;
+		}
+		double w = Math.exp(-1*Math.pow(distance,2));
 		double[][] weighted = new double[nBins][nBins];
 		for(int i=0;i<nBins;i++) {
 			for(int j=0;j<nBins;j++) {
@@ -1441,7 +1363,7 @@ public class GLCMFeatures {
 		if (glcm == null || glcm.size() < 1) {
 			return null;
 		}
-		HashMap<Integer, int[]> angles = buildAngles();
+		HashMap<Integer, int[]> angles = Utils.buildAngles();
 		ArrayList<Integer> angles_key = new ArrayList<>(glcm.keySet());
 		for (Integer a_id : angles_key) {
 			int[] ang = angles.get(a_id);

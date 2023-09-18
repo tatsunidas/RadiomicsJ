@@ -14,39 +14,8 @@ public class TestGLRLMFeatures {
 	public static void main(String[] args) throws Exception {
 		
 		checkMatrix();
+//		checkFeatures();
 		
-//		ImagePlus ds_pair[] = TestDataLoader.digital_phantom1();
-//		ImagePlus imp = ds_pair[0];
-//		ImagePlus mask = ds_pair[1];
-//		
-//		RadiomicsJ.targetLabel = 1;
-//		
-//		GLRLMFeatures f = new GLRLMFeatures(
-//				imp,
-//				mask,
-//				1,
-//				true,
-//				6,
-//				null,
-//				null);
-		
-//		System.out.println(f.calculate(GLRLMFeatureType.ShortRunEmphasis.id()));//OK
-//		System.out.println(f.calculate(RadiomicsJ.GLRLMFeatureTypes.LongRunEmphasis.id()));//OK
-//		System.out.println(f.calculate(RadiomicsJ.GLRLMFeatureTypes.LowGrayLevelRunEmphasis.id()));//OK
-//		System.out.println(RadiomicsJ.GLRLMFeatureTypes.HighGrayLevelRunEmphasis +" , "+f.calculate(RadiomicsJ.GLRLMFeatureTypes.HighGrayLevelRunEmphasis.id()));//OK
-//		System.out.println(f.calculate(RadiomicsJ.GLRLMFeatureTypes.ShortRunLowGrayLevelEmphasis.id()));//OK
-//		System.out.println(f.calculate(RadiomicsJ.GLRLMFeatureTypes.ShortRunHighGrayLevelEmphasis.id()));//OK
-//		System.out.println(f.calculate(RadiomicsJ.GLRLMFeatureTypes.LongRunLowGrayLevelEmphasis.id()));//OK
-//		System.out.println(f.calculate(RadiomicsJ.GLRLMFeatureTypes.LongRunHighGrayLevelEmphasis.id()));//OK
-//		System.out.println(f.calculate(RadiomicsJ.GLRLMFeatureTypes.GrayLevelNonUniformity.id()));//ok
-//		System.out.println(f.calculate(RadiomicsJ.GLRLMFeatureTypes.GrayLevelNonUniformityNormalized.id()));//OK
-//		System.out.println(f.calculate(RadiomicsJ.GLRLMFeatureTypes.RunLengthNonUniformity.id()));//ok
-//		System.out.println(f.calculate(RadiomicsJ.GLRLMFeatureTypes.RunLengthNonUniformityNormalized.id()));//OK
-//		System.out.println(f.calculate(RadiomicsJ.GLRLMFeatureTypes.RunPercentage.id()));//ok
-//		System.out.println(f.calculate(RadiomicsJ.GLRLMFeatureTypes.GrayLevelVariance.id()));//OK
-//		System.out.println(f.calculate(RadiomicsJ.GLRLMFeatureTypes.RunLengthVariance.id()));//OK
-//		System.out.println(f.calculate(RadiomicsJ.GLRLMFeatureTypes.RunEntropy.id()));//ok
-
 		System.exit(0);
 	}
 	
@@ -109,9 +78,48 @@ public class TestGLRLMFeatures {
 		System.out.println("Check : (x,y,z)(-1,1,0) vector ↖");
 		System.out.println(test.toString(mat_135));
 		
-//		System.out.println("Normalized distribution at 0 degree");
-//		double[][] mat_norm = test.normalize(mat_0);
-//		System.out.println(test.toString(mat_norm));
+		System.out.println("Normalized distribution at 0 degree");
+		double[][] mat_norm = test.normalize(mat_0);
+		System.out.println(test.toString(mat_norm));
 		
+	}
+	
+	static void checkFeatures() {
+		ImagePlus ds_pair[] = TestDataLoader.digital_phantom1();
+		ImagePlus imp = ds_pair[0];
+		ImagePlus mask = ds_pair[1];
+		
+		RadiomicsJ.targetLabel = 1;
+		
+		GLRLMFeatures f = null;
+		try {
+			f = new GLRLMFeatures(
+					imp,
+					mask,
+					1,
+					true,
+					Utils.getNumOfBinsByMinMaxRange(imp, mask, 1),
+					null,
+					null);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		System.out.println(GLRLMFeatureType.ShortRunEmphasis+":"+f.calculate(GLRLMFeatureType.ShortRunEmphasis.id()));//OK
+		System.out.println(GLRLMFeatureType.LongRunEmphasis+":"+f.calculate(GLRLMFeatureType.LongRunEmphasis.id()));//OK
+		System.out.println(GLRLMFeatureType.LowGrayLevelRunEmphasis+":"+f.calculate(GLRLMFeatureType.LowGrayLevelRunEmphasis.id()));//OK
+		System.out.println(GLRLMFeatureType.HighGrayLevelRunEmphasis +":"+f.calculate(GLRLMFeatureType.HighGrayLevelRunEmphasis.id()));//OK
+		System.out.println(GLRLMFeatureType.ShortRunLowGrayLevelEmphasis+":"+f.calculate(GLRLMFeatureType.ShortRunLowGrayLevelEmphasis.id()));//OK
+		System.out.println(GLRLMFeatureType.ShortRunHighGrayLevelEmphasis+":"+f.calculate(GLRLMFeatureType.ShortRunHighGrayLevelEmphasis.id()));//OK
+		System.out.println(GLRLMFeatureType.LongRunLowGrayLevelEmphasis+":"+f.calculate(GLRLMFeatureType.LongRunLowGrayLevelEmphasis.id()));//OK
+		System.out.println(GLRLMFeatureType.LongRunHighGrayLevelEmphasis+":"+f.calculate(GLRLMFeatureType.LongRunHighGrayLevelEmphasis.id()));//OK
+		System.out.println(GLRLMFeatureType.GrayLevelNonUniformity+":"+f.calculate(GLRLMFeatureType.GrayLevelNonUniformity.id()));//ok
+		System.out.println(GLRLMFeatureType.GrayLevelNonUniformityNormalized+":"+f.calculate(GLRLMFeatureType.GrayLevelNonUniformityNormalized.id()));//OK
+		System.out.println(GLRLMFeatureType.RunLengthNonUniformity+":"+f.calculate(GLRLMFeatureType.RunLengthNonUniformity.id()));//ok
+		System.out.println(GLRLMFeatureType.RunLengthNonUniformityNormalized+":"+f.calculate(GLRLMFeatureType.RunLengthNonUniformityNormalized.id()));//OK
+		System.out.println(GLRLMFeatureType.RunPercentage+":"+f.calculate(GLRLMFeatureType.RunPercentage.id()));//ok
+		System.out.println(GLRLMFeatureType.GrayLevelVariance+":"+f.calculate(GLRLMFeatureType.GrayLevelVariance.id()));//OK
+		System.out.println(GLRLMFeatureType.RunLengthVariance+":"+f.calculate(GLRLMFeatureType.RunLengthVariance.id()));//OK
+		System.out.println(GLRLMFeatureType.RunEntropy+":"+f.calculate(GLRLMFeatureType.RunEntropy.id()));//ok
 	}
 }

@@ -140,6 +140,7 @@ public class GLRLMFeatures {
 		 */
 		for (int a = 14; a < num_of_angles; a++) {
 			double[][] glrlm_at_a = calcGLRLM(a, angles.get(Integer.valueOf(a)));
+			//TODO weighting before normalize
 			glrlm_raw.put(a, glrlm_at_a);
 		}
 		normalize(glrlm_raw);
@@ -164,10 +165,7 @@ public class GLRLMFeatures {
 							continue;
 						}
 						if(voxels[z][y][x] == grayLevel) {
-//							Integer run_length = 0;//init run length
-//							run_length = countNeighbor(grayLevel, voxels, run_length, x, y, z, angle);
-//							glrlm_row.put(run_length, glrlm_row.get(run_length) == null ? 1:glrlm_row.get(run_length)+1);
-							Integer run_length = countNeighbor2(grayLevel, voxels, x, y, z, angle);
+							Integer run_length = countNeighbor(grayLevel, voxels, x, y, z, angle);
 							glrlm_row.put(run_length, glrlm_row.get(run_length) == null ? 1:glrlm_row.get(run_length)+1);
 						}
 					}
@@ -179,6 +177,28 @@ public class GLRLMFeatures {
 		return map2matrix(glrlm_map_a);
 	}
 	
+	public double[][] normalize(double[][] glrlm_raw_at_angle){
+		int run_len_max = glrlm_raw_at_angle[0].length;
+		double[][] norm_glcm_at_a = new double[nBins][run_len_max];
+		// init array
+		for (int y = 0; y < nBins; y++) {
+			for (int x = 0; x < run_len_max; x++) {
+				norm_glcm_at_a[y][x] = 0d;
+			}
+		}
+		double sum = 0d;
+		for (int i = 0; i < nBins; i++) {
+			for (int j = 0; j < run_len_max; j++) {
+				sum += glrlm_raw_at_angle[i][j];
+			}
+		}
+		for (int i = 0; i < nBins; i++) {
+			for (int j = 0; j < run_len_max; j++) {
+				norm_glcm_at_a[i][j] = glrlm_raw_at_angle[i][j] / sum;
+			}
+		}
+		return norm_glcm_at_a;
+	}
 	
 	public HashMap<Integer, double[][]> normalize(java.util.HashMap<Integer, double[][]> glrlm_raw) {
 		glrlm = new HashMap<Integer, double[][]>();// final normalized glrlm set of each angles
@@ -191,65 +211,7 @@ public class GLRLMFeatures {
 				glrlm.put(a, null);
 				continue;
 			}
-			int run_len_max = glrlm_raw_at_a[0].length;
-			double[][] norm_glcm_at_a = new double[nBins][run_len_max];
-			// init array
-			for (int y = 0; y < nBins; y++) {
-				for (int x = 0; x < run_len_max; x++) {
-					norm_glcm_at_a[y][x] = 0d;
-				}
-			}
-
-			// do weighting.
-			/*
-			 * future work... see,
-			 * https://pyradiomics.readthedocs.io/en/latest/_modules/radiomics/glcm.html#
-			 * RadiomicsGLCM
-			 */
-//			if(weightingNorm != null) {
-//				double weight = 1.0d;
-//				double px = orgCal.pixelWidth;
-//				double py = orgCal.pixelHeight;
-//				double pz = orgCal.pixelHeight;
-//				if(weightingNorm.equals("manhattan")) {
-//					/*
-//					 * ピクセルスペ�?�スを合算してから2�?
-//					 * weights[a_idx] = numpy.exp(-numpy.sum(numpy.abs(a) * pixelSpacing) ** 2)
-//					 */
-//					weight = Math.exp(-(Math.pow((Math.abs(phi) * pixelSpacingX)+(Math.abs(phi) * pixelSpacingY),2)));
-//				}else if(weightingNorm.equals("euclidian")) {
-//					/*
-//					 * ピクセルスペ�?�スそれぞれ�?2乗してから合�?
-//					 * weights[a_idx] = numpy.exp(-numpy.sum((numpy.abs(a) * pixelSpacing) ** 2))  # sqrt ^ 2 = 1
-//					 */
-//					weight = Math.exp(-((Math.pow(Math.abs(phi) * pixelSpacingX,2)+Math.pow(Math.abs(phi) * pixelSpacingY,2))));
-//				}else if(weightingNorm.equals("infinity")){
-//					/*
-//					 * ピクセルスペ�?�スが大きいほ�?のみで計�?
-//					 * weights[a_idx] = numpy.exp(-max(numpy.abs(a) * pixelSpacing) ** 2)
-//					 */
-//					weight = Math.exp(-(Math.pow(Math.abs(phi) * Math.max(pixelSpacingX, pixelSpacingY),2)));
-//				}else if(weightingNorm.equals("no_weighting")){
-//					weight = 1d;
-//				}
-//				for (int i=0; i<nBins; i++)  {
-//					for (int j=0; j<nBins; j++) {
-//						glcm[i][j] = glcm[i][j]*weight;//weighted
-//					}
-//				}
-//			}
-
-			double sum = 0d;
-			for (int i = 0; i < nBins; i++) {
-				for (int j = 0; j < run_len_max; j++) {
-					sum += glrlm_raw_at_a[i][j];
-				}
-			}
-			for (int i = 0; i < nBins; i++) {
-				for (int j = 0; j < run_len_max; j++) {
-					norm_glcm_at_a[i][j] = glrlm_raw_at_a[i][j] / sum;
-				}
-			}
+			double[][] norm_glcm_at_a = normalize(glrlm_raw_at_a);
 			glrlm.put(a, norm_glcm_at_a);
 		}
 
@@ -258,41 +220,8 @@ public class GLRLMFeatures {
 		return glrlm;
 	}
 	
-	/*
-	 * old implementation
-	 * occur stack overflow.
-	 */
-//	private int countNeighbor(final int grayLevel, Integer[][][] voxels, Integer count, final int seedX, final int seedY, final int seedZ, final int[] angle) {
-//		if (voxels[seedZ][seedY][seedX] == null || voxels[seedZ][seedY][seedX] == Integer.MIN_VALUE) {
-//			return count;
-//		}
-//		if(voxels[seedZ][seedY][seedX] == Integer.valueOf(grayLevel)) {
-//			count++;
-//			voxels[seedZ][seedY][seedX] = Integer.MIN_VALUE;
-//		}
-//		ArrayList<Point3i> neighbor = connectedNeighbor2(voxels,grayLevel, seedX, seedY, seedZ, w, h, s, angle);
-//		if(neighbor == null || neighbor.size() == 0) {
-//			return count;
-//		}
-//		for(Point3i np : neighbor) {
-//			if(np == null) {
-//				//out of pixels coordinate
-//				continue;
-//			}
-//			if(voxels[np.z][np.y][np.x] == null) {
-//				continue;
-//			}
-//			if(voxels[np.z][np.y][np.x] == Integer.MIN_VALUE) {
-//				continue;
-//			}
-//			if(voxels[np.z][np.y][np.x] == grayLevel) {
-//				count = countNeighbor(grayLevel,voxels, count, np.x, np.y, np.z, angle);
-//			}
-//		}
-//		return count;
-//	}
 	
-	private int countNeighbor2(final int grayLevel, Integer[][][] voxels, final int seedX, final int seedY, final int seedZ, final int[] angle) {
+	private int countNeighbor(final int grayLevel, Integer[][][] voxels, final int seedX, final int seedY, final int seedZ, final int[] angle) {
 		ArrayList<Point3i> runs = new ArrayList<Point3i>();
 		if(voxels[seedZ][seedY][seedX] == grayLevel) {
 			runs.add(new Point3i(seedX, seedY, seedZ));
@@ -462,73 +391,6 @@ public class GLRLMFeatures {
 				glrlm[row-1][col-1] = (double)count; 
 			}
 		}
-		
-//		if(!weightingNorm.equals("no_weighting")) {
-//			double weight = 1.0d;
-//			double pixelSpacingX = orgCal.pixelWidth;
-//			double pixelSpacingY = orgCal.pixelHeight;
-//			if(weightingNorm.equals("manhattan")) {
-//				/*
-//				 * ピクセルスペ�?�スを合算してから2�?
-//				 */
-//				weight = Math.exp(-(Math.pow((Math.abs(phi) * pixelSpacingX)+(Math.abs(phi) * pixelSpacingY),2)));
-////				weights[a_idx] = numpy.exp(-numpy.sum(numpy.abs(a) * pixelSpacing) ** 2)
-//			}else if(weightingNorm.equals("euclidian")) {
-//				/*
-//				 * ピクセルスペ�?�スそれぞれ�?2乗してから合�?
-//				 */
-//				weight = Math.exp(-((Math.pow(Math.abs(phi) * pixelSpacingX,2)+Math.pow(Math.abs(phi) * pixelSpacingY,2))));
-////				weights[a_idx] = numpy.exp(-numpy.sum((numpy.abs(a) * pixelSpacing) ** 2))  # sqrt ^ 2 = 1
-//			}else if(weightingNorm.equals("infinity")){
-//				/*
-//				 * ピクセルスペ�?�スが大きいほ�?のみで計�?
-//				 */
-//				weight = Math.exp(-(Math.pow(Math.abs(phi) * Math.max(pixelSpacingX, pixelSpacingY),2)));
-////				weights[a_idx] = numpy.exp(-max(numpy.abs(a) * pixelSpacing) ** 2)
-//			}
-//			//先にGLRLMを計算しておく�?要がある�?
-//			for(int row=1;row<=discreteLevel;row++) {
-//				HashMap<Integer,Integer> length_count_pair = glrlm_map.get(row);
-//				for(int col=1;col<=discreteLevel;col++) {
-//					Integer count = length_count_pair.get(col);
-//					if(count == null) {
-//						count = 0;
-//					}
-//					glrlm[row-1][col-1] = (double)count;
-//				}
-//			}
-//			//weighting and get sum for norm
-//			for (int i=0; i<discreteLevel; i++)  {
-//				for (int j=0; j<discreteLevel; j++) {
-//					glrlm[i][j] = glrlm[i][j]*weight;//weighted
-//					Nr += glrlm[i][j];
-//				}
-//			}
-//			//get normalized matrix
-//			for (int i=0; i<discreteLevel; i++)  {
-//				for (int j=0; j<discreteLevel; j++) {
-//					n_glrlm[i][j] = glrlm[i][j]/Nr;
-//				}
-//			}
-//		}else {
-//			//no weighting
-//			for(int row=1;row<=discreteLevel;row++) {
-//				HashMap<Integer,Integer> length_count_pair = glrlm_map.get(row);
-//				for(int col=1;col<=discreteLevel;col++) {
-//					Integer count = length_count_pair.get(col);
-//					if(count == null) {
-//						count = 0;
-//					}
-//					glrlm[row-1][col-1] = (double)count; 
-//					Nr += (double)count;
-//				}
-//			}
-//			for(int row=1;row<=discreteLevel;row++) {
-//				for(int col=1;col<=discreteLevel;col++) {
-//					n_glrlm[row-1][col-1] = glrlm[row-1][col-1]/Nr;
-//				}
-//			}
-//		}
 		return glrlm;
 	}
 	

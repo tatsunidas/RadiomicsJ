@@ -124,7 +124,7 @@ public class GLSZMFeatures {
 	}
 	
 
-	public void fillGLSZM() throws Exception {
+	private void fillGLSZM() throws Exception {
 		glszm_raw = null;//init
 		glszm = null;
 		HashMap<Integer, HashMap<Integer,Integer>> glszm_map = new HashMap<Integer, HashMap<Integer,Integer>>();
@@ -280,7 +280,7 @@ public class GLSZMFeatures {
 //			}
 //			int[] a = angles.get(a_id);
 //			int nX = seedX+a[2];
-//			int nY = seedY+a[1];
+//			int nY = seedY+(a[1]*-1);
 //			int nZ = seedZ+a[0];
 //			Point3i neighbor = new Point3i(nX,nY,nZ);
 //			if(!Utils.isOutOfRange(new Point3i(nX,nY,nZ), max_w , max_h, max_s)) connect26.add(neighbor);
@@ -296,7 +296,7 @@ public class GLSZMFeatures {
 			}
 			int[] a = angles.get(a_id);
 			int nX = seedX+a[2];
-			int nY = seedY+a[1];
+			int nY = seedY+(a[1]*-1);//adjust y direction from vector
 			int nZ = seedZ+a[0];
 			Point3i neighbour = new Point3i(nX,nY,nZ);
 			if(!Utils.isOutOfRange(neighbour, max_w, max_h, max_s)) {
@@ -613,7 +613,7 @@ public class GLSZMFeatures {
 	 * @return The 'Size Zone Matrix'.*/
 	public double[][] getMatrix(boolean raw){
 		if(!raw) {
-			return glszm;
+			return glszm;//normalized
 		}else {
 			return glszm_raw;
 		}
@@ -632,9 +632,12 @@ public class GLSZMFeatures {
 	
 	public String toString(){
 		StringBuffer sb = new StringBuffer() ;
-		for (int j=0; j<glszm.length;j++) {
-			for (int i=0; i<glszm[0].length;i++) {
-				sb.append(glszm[j][i] + " ");
+		sb.append("row[↓]:gray level (1 to N)"+"\n");
+		sb.append("col[→]:zone size (1 to N)"+"\n");
+		sb.append("=========================="+"\n");
+		for (int j=0; j<glszm_raw.length;j++) {
+			for (int i=0; i<glszm_raw[0].length;i++) {
+				sb.append(glszm_raw[j][i] + " ");
 			}
 			sb.append("\n");
 		}

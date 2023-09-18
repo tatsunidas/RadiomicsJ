@@ -222,7 +222,6 @@ public class GLDZMFeatures {
 					}
 					int v = pixels[z][y][x];
 					ArrayList<Point3i> blob = new ArrayList<>();
-//					searchNeighbor(v, pixels, x, y, z, blob);//stack overflow
 					blob = searchNeighbor2(v, pixels, x, y, z);
 					blobs.add(blob);
 				}
@@ -363,7 +362,7 @@ public class GLDZMFeatures {
 			}
 			int[] a = angles.get(a_id);
 			int nX = seedX+a[2];
-			int nY = seedY+a[1];
+			int nY = seedY+(a[1]*-1);//adjust y direction from vector
 			int nZ = seedZ+a[0];
 			Point3i neighbour = new Point3i(nX,nY,nZ);
 			if(!Utils.isOutOfRange(neighbour, max_w, max_h, max_s)) {

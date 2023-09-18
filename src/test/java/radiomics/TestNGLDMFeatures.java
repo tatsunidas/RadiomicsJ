@@ -5,10 +5,60 @@ import com.vis.radiomics.main.RadiomicsJ;
 import com.vis.radiomics.main.TestDataLoader;
 
 import ij.ImagePlus;
+import ij.process.ByteProcessor;
+import ij.process.ImageProcessor;
 
 public class TestNGLDMFeatures {
 	
 	public static void main(String[] args) throws Exception {
+		checkMatrix();
+		System.exit(0);
+	}
+	
+	static void checkMatrix() {
+		byte pixels[] = new byte[16];
+		byte r0[] = new byte[] { 1, 2, 2, 3 };
+		byte r1[] = new byte[] { 1, 2, 3, 3 };
+		byte r2[] = new byte[] { 4, 2, 4, 1 };
+		byte r3[] = new byte[] { 4, 1, 2, 3 };
+		// flatten to create ByteProcessor
+		int i= 0;
+		for(byte[] r: new byte[][] {r0,r1,r2,r3}) {
+			for(byte v:r) {
+				pixels[i++] = v;
+			}
+		}
+		ImageProcessor bp = new ByteProcessor(4, 4, pixels);
+		ImagePlus imp = new ImagePlus("sample", bp);
+
+		byte roi_mask[] = new byte[16];
+		byte m0[] = new byte[] { 0, 0, 0, 0 };
+		byte m1[] = new byte[] { 0, 1, 1, 0 };
+		byte m2[] = new byte[] { 0, 1, 1, 0 };
+		byte m3[] = new byte[] { 0, 0, 0, 0 };
+		i= 0;
+		for(byte[] r: new byte[][] {m0,m1,m2,m3}) {
+			for(byte v:r) {
+				roi_mask[i++] = v;
+			}
+		}
+		ImageProcessor bp2 = new ByteProcessor(4, 4, roi_mask);
+		ImagePlus mask = new ImagePlus("sample_mask", bp2);
+		int nBins = 4;// 1 to 4
+		int delta = 1;
+
+		NGLDMFeatures f = null;
+		try {
+			f = new NGLDMFeatures(imp, mask, RadiomicsJ.targetLabel, 0, delta, true, nBins, null);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		System.out.println(f.toString());
+
+	}
+	
+	static void checkFeatures() throws Exception {
 		ImagePlus ds_pair[] = TestDataLoader.digital_phantom1();
 		ImagePlus imp = ds_pair[0];
 		ImagePlus mask = ds_pair[1];
@@ -42,7 +92,7 @@ public class TestNGLDMFeatures {
 	/*
 	 * ATTENTION !! 
 	 * this cannot reproduce. 
-	 * Because difinition is not the same about valid count neighbours. 
+	 * Because definition is not the same about valid count neighbours. 
 	 * 
 	 * see, Table 3.162 in IBSI. 
 	 * 

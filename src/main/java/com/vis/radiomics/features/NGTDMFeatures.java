@@ -84,13 +84,13 @@ public class NGTDMFeatures {
 				discImg = RadiomicsJ.discretisedImp;
 			}else {
 				if(useBinCount) {
-					discImg = Utils.discrete(this.img, this.mask, this.label, this.nBins);
+					discImg = Utils.discrete(this.img, null/*here, mask must be null to avoid recursive discrete*/, this.label, this.nBins);
 				}else {
 					/*
 					 * do Fixed Bin Width
 					 */
-					discImg = Utils.discreteByBinWidth(this.img, this.mask, this.label, binWidth);
-					this.nBins = Utils.getNumOfBinsByMax(discImg, this.mask, this.label);
+					discImg = Utils.discreteByBinWidth(this.img, null/*here, mask must be null to avoid recursive discrete*/, this.label, binWidth);
+					this.nBins = Utils.getNumOfBinsByMax(discImg, null/*here, mask must be null to avoid recursive discrete*/, this.label);
 				}
 			}
 			w = discImg.getWidth();
@@ -170,31 +170,27 @@ public class NGTDMFeatures {
 		Nvp = 0d; //sum of neighbor i
 		for(int grayLevel=1;grayLevel<=nBins;grayLevel++) {
 			double si = 0d; //Neighbourhood grey tone difference
-			int ni = 0;// the total number of voxels with grey level
+			int ni = 0;// the total number of voxels have this gray level
 			for(int z=0;z<s;z++) {
 				float[][] iSlice = discImg.getStack().getProcessor(z+1).getFloatArray();
 				float[][] mSlice = mask.getStack().getProcessor(z+1).getFloatArray();
 				for(int y=0;y<h;y++) {
 					for(int x=0;x<w;x++) {
-						float val = iSlice[x][y];
-						if(Float.isNaN(val)) {
-							continue;
-						}
+						//check voxel is in roi
 						int lbl = (int) mSlice[x][y];
 						if(lbl != this.label) {
 							continue;
 						}
+						float val = iSlice[x][y];
+						if(Float.isNaN(val)) {
+							continue;
+						}
 						if(((int)val) == grayLevel) {
-							ArrayList<Point3i> neighbor = connectedNeighbor(x,y,z,w,h,s);
 							double blob_sum = 0.0;
 							int numOfValidNeighbor = 0;
+							ArrayList<Point3i> neighbor = connectedNeighbor(x,y,z,w,h,s);
 							for(Point3i p : neighbor) {
 								ImageProcessor ip = discImg.getStack().getProcessor(p.z+1);
-								ImageProcessor mp = mask.getStack().getProcessor(p.z+1);
-								lbl = (int) mp.getf(p.x, p.y);
-								if(lbl != this.label) {
-									continue;
-								}
 								float fv = ip.getf(p.x, p.y);
 								if(!Float.isNaN(fv)) {
 									blob_sum += fv;
@@ -229,7 +225,7 @@ public class NGTDMFeatures {
 			}
 			int[] a = angles.get(a_id);
 			int nX = seedX+(a[2]*delta);
-			int nY = seedY+(a[1]*delta);
+			int nY = seedY+(a[1]*delta*-1);
 			int nZ = seedZ+(a[0]*delta);
 			Point3i neighbor = new Point3i(nX,nY,nZ);
 			if(!Utils.isOutOfRange(new Point3i(nX,nY,nZ), max_w , max_h, max_s)) connect26.add(neighbor);

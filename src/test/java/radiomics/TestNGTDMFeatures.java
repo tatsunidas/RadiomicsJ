@@ -5,69 +5,54 @@ import com.vis.radiomics.main.RadiomicsJ;
 import com.vis.radiomics.main.TestDataLoader;
 
 import ij.ImagePlus;
+import ij.process.ByteProcessor;
+import ij.process.ImageProcessor;
 
 public class TestNGTDMFeatures {
 
 	public static void main(String[] args) throws Exception {
 
-//		testIBSI();
-		testPhantom1();
+		testIBSI();
+//		testPhantom1();
 		System.exit(0);
 	}
 
-	/**
-	 * ATTENTION!!
-	 * IBSI example of table 3.156 is not using valid neighbor count.
-	 * 
-	 * see, IBSI Table 3.156
-	 * In our definition complete neighbourhood are no longer required. 
-	 * In our definition the NGTDM would be calculated on the entire pixel area, and not solely on those pixels within the roi.//but this is strange !! can not reproduce digital phantom1 !.
-	 * 
-	 * In the testPhantom1();, I can completely reproduce results.
-	 * 
-	 * @throws Exception
-	 */
-	public static void testIBSI() throws Exception {
+	static void testIBSI() throws Exception {
 		// ibsi
-		Integer pixels[][] = new Integer[4][];
-		Integer r0[] = new Integer[] { 1, 2, 2, 3 };
-		Integer r1[] = new Integer[] { 1, 2, 3, 3 };
-		Integer r2[] = new Integer[] { 4, 2, 4, 1 };
-		Integer r3[] = new Integer[] { 4, 1, 2, 3 };
-		pixels[0] = r0;
-		pixels[1] = r1;
-		pixels[2] = r2;
-		pixels[3] = r3;
-		byte[] pixelsByte = new byte[4 * 4];
-		int num = 0;
-		for (Integer[] r : pixels) {
-			for (Integer p : r) {
-				pixelsByte[num++] = Byte.valueOf(String.valueOf(p));
+		byte pixels[] = new byte[16];
+		byte r0[] = new byte[] { 1, 2, 2, 3 };
+		byte r1[] = new byte[] { 1, 2, 3, 3 };
+		byte r2[] = new byte[] { 4, 2, 4, 1 };
+		byte r3[] = new byte[] { 4, 1, 2, 3 };
+		// flatten to create ByteProcessor
+		int i= 0;
+		for(byte[] r: new byte[][] {r0,r1,r2,r3}) {
+			for(byte v:r) {
+				pixels[i++] = v;
 			}
 		}
+		ImageProcessor bp = new ByteProcessor(4, 4, pixels);
+		ImagePlus imp = new ImagePlus("sample", bp);
 
-		Integer mask[][] = new Integer[4][];
-		Integer m0[] = new Integer[] { 0, 0, 0, 0 };
-		Integer m1[] = new Integer[] { 0, 1, 1, 0 };
-		Integer m2[] = new Integer[] { 0, 1, 1, 0 };
-		Integer m3[] = new Integer[] { 0, 0, 0, 0 };
-		mask[0] = m0;
-		mask[1] = m1;
-		mask[2] = m2;
-		mask[3] = m3;
-		byte[] maskByte = new byte[4 * 4];
-		num = 0;
-		for (Integer[] m : mask) {
-			for (Integer p : m) {
-				maskByte[num++] = Byte.valueOf(String.valueOf(p));
+		byte roi_mask[] = new byte[16];
+		byte m0[] = new byte[] { 0, 0, 0, 0 };
+		byte m1[] = new byte[] { 0, 1, 1, 0 };
+		byte m2[] = new byte[] { 0, 1, 1, 0 };
+		byte m3[] = new byte[] { 0, 0, 0, 0 };
+		i= 0;
+		for(byte[] r: new byte[][] {m0,m1,m2,m3}) {
+			for(byte v:r) {
+				roi_mask[i++] = v;
 			}
 		}
+		ImageProcessor bp2 = new ByteProcessor(4, 4, roi_mask);
+		ImagePlus mask = new ImagePlus("sample_mask", bp2);
+		
+		
 		RadiomicsJ.targetLabel = 1;
-//		int nBins = 4;// 1 to 4
-//		NGTDMFeatures test = new NGTDMFeatures(
-//				new ImagePlus("test-2d", new ByteProcessor(pixels[0].length, pixels.length, pixelsByte)),
-//				new ImagePlus("mask-2d", new ByteProcessor(pixels[0].length, pixels.length, maskByte)), nBins, 1);
-//		System.out.println(test.toString());
+		int nBins = 4;// 1 to 4
+		NGTDMFeatures test = new NGTDMFeatures(imp,mask,1,1,true,nBins,null);
+		System.out.println(test.toString());
 	}
 	
 	public static void testPhantom1() throws Exception {
