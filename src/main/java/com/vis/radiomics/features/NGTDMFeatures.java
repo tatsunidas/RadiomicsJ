@@ -11,9 +11,14 @@ import org.scijava.vecmath.Point3i;
 import com.vis.radiomics.main.RadiomicsJ;
 import com.vis.radiomics.main.Utils;
 
+import ij.IJ;
 import ij.ImagePlus;
+import ij.measure.Calibration;
 import ij.process.ImageProcessor;
 
+/**
+ * @author tatsunidas <t_kobayashi@vis-ionary.com>
+ */
 public class NGTDMFeatures {
 
 	/*
@@ -23,7 +28,7 @@ public class NGTDMFeatures {
 	
 	ImagePlus img;//original
 	ImagePlus mask;
-	ImagePlus discImg;//discretised images by using roi mask.
+	ImagePlus descImg;//descretized images by using roi mask.
 	
 	int w;
 	int h;
@@ -40,139 +45,140 @@ public class NGTDMFeatures {
 	double Ngp; //number of gray levels, where pi not equal 0.0.
 	double eps = Math.ulp(1.0);// 2.220446049250313E-16
 
-	public NGTDMFeatures(ImagePlus img, ImagePlus mask, int label, Integer delta, boolean useBinCount, Integer nBins, Double binWidth) throws Exception {
+	/**
+	 * 
+	 * @param img: original image without descretized
+	 * @param mask: ROI mask
+	 * @param label: target intensity in mask
+	 * @param delta: neighbor range
+	 * @param useBinCount: if true, use FixedBinNumber, else use FixedBinSize with binWidth
+	 * @param nBins: if useBinCount true, descretized by this nBins. if null, use default 32.
+	 * @param binWidth : if useBinCount false, descretized by FixedBinSize
+	 * @throws Exception
+	 */
+	public NGTDMFeatures(ImagePlus img/*no descretized*/, ImagePlus mask, int label, Integer delta, boolean useBinCount, Integer nBins, Double binWidth) throws Exception {
 		if (img == null) {
 			return;
-		} else {
-			if (img.getType() == ImagePlus.COLOR_RGB) {
-				JOptionPane.showMessageDialog(null, "RadiomicsJ can read only grayscale images(8/16/32 bits)...sorry.");
+		}
+		if (img.getType() == ImagePlus.COLOR_RGB) {
+			JOptionPane.showMessageDialog(null, "RadiomicsJ can read only grayscale images(8/16/32 bits)...sorry.");
+			return;
+		}
+		this.img = img;
+		this.label = label;
+		
+		w = this.img.getWidth();
+		h = this.img.getHeight();
+		s = this.img.getNSlices();
+		
+		//check mask
+		if (mask != null) {
+			int m_w = mask.getWidth();
+			int m_h = mask.getHeight();
+			int m_s = mask.getNSlices();
+			if (w != m_w || h != m_h  || s != m_s ) {
+				JOptionPane.showMessageDialog(null, "RadiomicsJ: please input same dimension image and mask.");
 				return;
 			}
-			this.label = label;			
-			if (mask != null) {
-				if (img.getWidth() != mask.getWidth() || img.getHeight() != mask.getHeight()) {
-					JOptionPane.showMessageDialog(null, "RadiomicsJ: please input same dimension image and mask.");
-					return;
-				}
-			}else {
-				// create full face mask
-				mask = ImagePreprocessing.createMask(img.getWidth(), img.getHeight(), img.getNSlices(), null,
-						this.label, img.getCalibration().pixelWidth,img.getCalibration().pixelHeight, img.getCalibration().pixelDepth);
-			}
-			
-			if(nBins != null) {
-				this.nBins = nBins;
-			}else {
-				this.nBins = RadiomicsJ.nBins;
-			}
-			
-			if(binWidth == null) {
-				binWidth = RadiomicsJ.binWidth;
-			}
-			
-			if (delta != null && delta > 0) {
-				this.delta = delta;
-			}else {
-				this.delta = RadiomicsJ.deltaNGToneDM;
-			}
-			
-			this.img = img;
-			this.mask = mask;
-			
-			// discretised by roi mask.
-			if(RadiomicsJ.discretisedImp != null) {
-				discImg = RadiomicsJ.discretisedImp;
-			}else {
-				if(useBinCount) {
-					discImg = Utils.discrete(this.img, null/*here, mask must be null to avoid recursive discrete*/, this.label, this.nBins);
-				}else {
-					/*
-					 * do Fixed Bin Width
-					 */
-					discImg = Utils.discreteByBinWidth(this.img, null/*here, mask must be null to avoid recursive discrete*/, this.label, binWidth);
-					this.nBins = Utils.getNumOfBinsByMax(discImg, null/*here, mask must be null to avoid recursive discrete*/, this.label);
-				}
-			}
-			w = discImg.getWidth();
-			h = discImg.getHeight();
-			s = discImg.getNSlices();
-			
-			angle_ids = new ArrayList<>(angles.keySet());//0 to 26
-			Collections.sort(angle_ids);
-			
-			fillNGTDM2();
+		}else {
+			// create full face mask
+			Calibration cal = img.getCalibration();
+			double px = cal.pixelWidth;
+			double py = cal.pixelHeight;
+			double pz = cal.pixelDepth;
+			mask = ImagePreprocessing.createMask(w, h, s, null, this.label, px, py, pz);
 		}
+		this.mask = mask;
+		
+		// discretised by roi mask.
+		if(nBins != null) {
+			this.nBins = nBins;
+		}else {
+			this.nBins = RadiomicsJ.nBins;
+		}
+		if (RadiomicsJ.discretisedImp != null) {
+			descImg = RadiomicsJ.discretisedImp;
+		} else {
+			if (useBinCount) {
+				/*
+				 * Fixed Bin Number
+				 */
+				descImg = Utils.discrete(this.img, this.mask, this.label, this.nBins);
+			} else {
+				/*
+				 * Fixed Bin Size
+				 */
+				if(binWidth == null) {
+					binWidth = RadiomicsJ.binWidth;
+				}
+				descImg = Utils.discreteByBinWidth(this.img, this.mask, this.label, binWidth);
+				this.nBins = Utils.getNumOfBinsByMax(descImg,this.mask, this.label);
+			}
+		}
+			
+		if (delta != null && delta > 0) {
+			this.delta = delta;
+		} else {
+			this.delta = RadiomicsJ.deltaNGToneDM;
+		}
+
+		angle_ids = new ArrayList<>(angles.keySet());// 0 to 26
+		Collections.sort(angle_ids);
+		fillNGTDM(false);
 	}
 	
-	//slow, use version 2, fillNGTDM2()
-	public void fillNGTDM() {
-		int w = discImg.getWidth();
-		int h = discImg.getHeight();
-		int s = discImg.getNSlices();
-		ngtdm = new double[nBins][4];//[i, Ni, Pi, Si]
-		Nvp = 0d; //sum of neighbor i
-		for(int grayLevel=1;grayLevel<=nBins;grayLevel++) {
-			double si = 0d; //Neighbourhood grey tone difference
-			int ni = 0;// the total number of voxels with grey level
-			for(int z=0;z<s;z++) {
-				for(int y=0;y<h;y++) {
-					for(int x=0;x<w;x++) {
-//						discImg.setSlice(z+1);
-//						mask.setSlice(z+1);
-						float val = discImg.getStack().getProcessor(z+1).getPixelValue(x, y);
-						if(Float.isNaN(val)) {
-							continue;
-						}
-						int lbl = (int) mask.getStack().getProcessor(z+1).getPixelValue(x, y);
-						if(lbl != this.label) {
-							continue;
-						}
-						if(((int)val) == grayLevel) {
-							ArrayList<Point3i> neighbor = connectedNeighbor(x,y,z,w,h,s);
-							double blob_sum = 0.0;
-							int numOfValidNeighbor = 0;
-							for(Point3i p : neighbor) {
-//								mask.setSlice(p.z+1);
-								lbl = (int) mask.getStack().getProcessor(p.z+1).getPixelValue(p.x, p.y);
-								if(lbl != this.label) {
-									continue;
-								}
-//								discImg.setSlice(p.z+1);
-								float fv = discImg.getStack().getProcessor(p.z+1).getPixelValue(p.x, p.y);
-								if(!Float.isNaN(fv)) {
-									blob_sum += fv;
-									numOfValidNeighbor++;
-								}
-							}
-							if(numOfValidNeighbor != 0) {
-								si += Math.abs(grayLevel-(blob_sum/numOfValidNeighbor));
-							}
-							ni++;
-						}
-					}
-				}
-			}
-			ngtdm[grayLevel-1] = new double[]{(double)grayLevel, (double)ni, 0.0d, si};
-			Nvp += ni;
-			if(si != 0.0) {
-				Ngp++;
-			}
+	public NGTDMFeatures(ImagePlus descretizedImg, ImagePlus mask, int label, Integer delta)
+			throws Exception {
+		if (descretizedImg == null) {
+			return;
 		}
-		//finally, add "Pi"
-		for(int grayLevel=1;grayLevel<=nBins;grayLevel++) {
-			ngtdm[grayLevel-1][2] = ngtdm[grayLevel-1][1]/Nvp;
+		if (descretizedImg.getType() == ImagePlus.COLOR_RGB) {
+			JOptionPane.showMessageDialog(null, "RadiomicsJ can read only grayscale images(8/16/32 bits)...sorry.");
+			return;
 		}
+		this.descImg = descretizedImg;
+		this.label = label;
+		w = descretizedImg.getWidth();
+		h = descretizedImg.getHeight();
+		s = descretizedImg.getNSlices();
+		if (mask != null) {
+			int m_w = mask.getWidth();
+			int m_h = mask.getHeight();
+			int m_s = mask.getNSlices();
+			if (w != m_w || h != m_h || s != m_s) {
+				JOptionPane.showMessageDialog(null, "RadiomicsJ: please input same dimension image and mask.");
+				return;
+			}
+		} else {
+			// create full face mask
+			Calibration cal = descretizedImg.getCalibration();
+			double px = cal.pixelWidth;
+			double py = cal.pixelHeight;
+			double pz = cal.pixelDepth;
+			mask = ImagePreprocessing.createMask(w, h, s, null, this.label, px, py, pz);
+		}
+		this.mask = mask;
+		
+		this.nBins = Utils.getNumOfBinsByMax(this.descImg, this.mask, this.label);
+
+		if (delta != null && delta > 0) {
+			this.delta = delta;
+		} else {
+			this.delta = RadiomicsJ.deltaNGToneDM;
+		}
+		angle_ids = new ArrayList<>(angles.keySet());// 0 to 26
+		Collections.sort(angle_ids);
+		fillNGTDM(false);
 	}
 	
-	
-	public void fillNGTDM2() {
+	public void fillNGTDM(boolean amadasunAlgorithms) {
 		ngtdm = new double[nBins][4];//[i, Ni, Pi, Si]
 		Nvp = 0d; //sum of neighbor i
 		for(int grayLevel=1;grayLevel<=nBins;grayLevel++) {
 			double si = 0d; //Neighbourhood grey tone difference
 			int ni = 0;// the total number of voxels have this gray level
 			for(int z=0;z<s;z++) {
-				float[][] iSlice = discImg.getStack().getProcessor(z+1).getFloatArray();
+				float[][] iSlice = descImg.getStack().getProcessor(z+1).getFloatArray();
 				float[][] mSlice = mask.getStack().getProcessor(z+1).getFloatArray();
 				for(int y=0;y<h;y++) {
 					for(int x=0;x<w;x++) {
@@ -190,7 +196,13 @@ public class NGTDMFeatures {
 							int numOfValidNeighbor = 0;
 							ArrayList<Point3i> neighbor = connectedNeighbor(x,y,z,w,h,s);
 							for(Point3i p : neighbor) {
-								ImageProcessor ip = discImg.getStack().getProcessor(p.z+1);
+								if(!amadasunAlgorithms) {
+									int lbl_ = (int) mask.getStack().getProcessor(p.z + 1).getPixelValue(p.x, p.y);
+									if (lbl_ != this.label) {
+										continue;
+									}
+								}
+								ImageProcessor ip = descImg.getStack().getProcessor(p.z+1);
 								float fv = ip.getf(p.x, p.y);
 								if(!Float.isNaN(fv)) {
 									blob_sum += fv;
@@ -218,21 +230,22 @@ public class NGTDMFeatures {
 	}
 	
 	private ArrayList<Point3i> connectedNeighbor(int seedX, int seedY, int seedZ, int max_w , int max_h, int max_s){
-		ArrayList<Point3i> connect26 = new ArrayList<Point3i>();
-		for(Integer a_id:angle_ids) {
-			if(Integer.valueOf(13) == a_id) {
-				continue;//0,0,0
+		ArrayList<Point3i> neighbors = new ArrayList<Point3i>();
+		for(int i=1; i<= delta;i++) {
+			for(Integer a_id:angle_ids) {
+				if(Integer.valueOf(13) == a_id) {
+					continue;//0,0,0
+				}
+				int[] a = angles.get(a_id);
+				int nX = seedX+(a[2]*i);
+				int nY = seedY+(a[1]*i*-1);
+				int nZ = seedZ+(a[0]*i);
+				Point3i neighbor = new Point3i(nX,nY,nZ);
+				if(!Utils.isOutOfRange(new Point3i(nX,nY,nZ), max_w , max_h, max_s)) neighbors.add(neighbor);
 			}
-			int[] a = angles.get(a_id);
-			int nX = seedX+(a[2]*delta);
-			int nY = seedY+(a[1]*delta*-1);
-			int nZ = seedZ+(a[0]*delta);
-			Point3i neighbor = new Point3i(nX,nY,nZ);
-			if(!Utils.isOutOfRange(new Point3i(nX,nY,nZ), max_w , max_h, max_s)) connect26.add(neighbor);
 		}
-		return connect26;
+		return neighbors;
 	}
-
 	
 	public Double calculate(String id) {
 		String name = NGTDMFeatureType.findType(id);
@@ -338,10 +351,14 @@ public class NGTDMFeatures {
 
 	public String toString(){
 		StringBuffer sb = new StringBuffer() ;
-		sb.append("i  Ni  Pi  Si");
+		sb.append("i\tNi\tPi\tSi");
 		sb.append("\n");
 		for (int i=0; i<ngtdm.length;i++) {
-				sb.append(ngtdm[i][0] + " " + ngtdm[i][1] + " " + ngtdm[i][2] + " " + ngtdm[i][3]);
+			String gray = IJ.d2s(ngtdm[i][0], 0);
+			String n = IJ.d2s(ngtdm[i][1], 0);
+			String p = IJ.d2s(ngtdm[i][2], 3);
+			String s = IJ.d2s(ngtdm[i][3], 3);
+				sb.append(gray + "\t" + n + "\t" + p + "\t" + s);
 				sb.append("\n");
 		}
 		return sb.toString() ;

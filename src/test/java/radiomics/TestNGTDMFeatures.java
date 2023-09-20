@@ -12,11 +12,16 @@ public class TestNGTDMFeatures {
 
 	public static void main(String[] args) throws Exception {
 
-		testIBSI();
-//		testPhantom1();
+//		testIBSI();
+		testPhantom1();
 		System.exit(0);
 	}
 
+	/**
+	 * if you want reproduce IBSI Fig.18, use fillNGTDM_Amadasun
+	 * 
+	 * @throws Exception
+	 */
 	static void testIBSI() throws Exception {
 		// ibsi
 		byte pixels[] = new byte[16];
@@ -48,10 +53,11 @@ public class TestNGTDMFeatures {
 		ImageProcessor bp2 = new ByteProcessor(4, 4, roi_mask);
 		ImagePlus mask = new ImagePlus("sample_mask", bp2);
 		
-		
 		RadiomicsJ.targetLabel = 1;
-		int nBins = 4;// 1 to 4
-		NGTDMFeatures test = new NGTDMFeatures(imp,mask,1,1,true,nBins,null);
+		int delta=1;
+		NGTDMFeatures test = new NGTDMFeatures(imp/*descretized*/,mask,RadiomicsJ.targetLabel,delta);
+		// re-calculate
+		test.fillNGTDM(true);
 		System.out.println(test.toString());
 	}
 	
@@ -64,12 +70,12 @@ public class TestNGTDMFeatures {
 
 		//ImagePlus img, ImagePlus mask, int label, Integer delta, boolean useBinCount, Integer nBins, Double binWidth
 		NGTDMFeatures f = new NGTDMFeatures(imp, mask ,RadiomicsJ.targetLabel, 1, true, 6 ,null);
-//		System.out.println(f.toString());
+		System.out.println(f.toString());
 		
-		System.out.println(f.calculate(NGTDMFeatureType.Coarseness.id()));//OK
-		System.out.println(f.calculate(NGTDMFeatureType.Contrast.id()));//OK
-		System.out.println(f.calculate(NGTDMFeatureType.Busyness.id()));//OK
-		System.out.println(f.calculate(NGTDMFeatureType.Complexity.id()));//OK
-		System.out.println(f.calculate(NGTDMFeatureType.Strength.id()));//OK
+		System.out.println(NGTDMFeatureType.Coarseness+":"+f.calculate(NGTDMFeatureType.Coarseness.id()));//OK
+		System.out.println(NGTDMFeatureType.Contrast+":"+f.calculate(NGTDMFeatureType.Contrast.id()));//OK
+		System.out.println(NGTDMFeatureType.Busyness+":"+f.calculate(NGTDMFeatureType.Busyness.id()));//OK
+		System.out.println(NGTDMFeatureType.Complexity+":"+f.calculate(NGTDMFeatureType.Complexity.id()));//OK
+		System.out.println(NGTDMFeatureType.Strength+":"+f.calculate(NGTDMFeatureType.Strength.id()));//OK
 	}
 }
