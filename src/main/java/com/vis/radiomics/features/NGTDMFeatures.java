@@ -28,7 +28,7 @@ public class NGTDMFeatures {
 	
 	ImagePlus img;//original
 	ImagePlus mask;
-	ImagePlus descImg;//descretized images by using roi mask.
+	ImagePlus discImg;//discretized images by using roi mask.
 	
 	int w;
 	int h;
@@ -97,13 +97,13 @@ public class NGTDMFeatures {
 			this.nBins = RadiomicsJ.nBins;
 		}
 		if (RadiomicsJ.discretisedImp != null) {
-			descImg = RadiomicsJ.discretisedImp;
+			discImg = RadiomicsJ.discretisedImp;
 		} else {
 			if (useBinCount) {
 				/*
 				 * Fixed Bin Number
 				 */
-				descImg = Utils.discrete(this.img, this.mask, this.label, this.nBins);
+				discImg = Utils.discrete(this.img, this.mask, this.label, this.nBins);
 			} else {
 				/*
 				 * Fixed Bin Size
@@ -111,8 +111,8 @@ public class NGTDMFeatures {
 				if(binWidth == null) {
 					binWidth = RadiomicsJ.binWidth;
 				}
-				descImg = Utils.discreteByBinWidth(this.img, this.mask, this.label, binWidth);
-				this.nBins = Utils.getNumOfBinsByMax(descImg,this.mask, this.label);
+				discImg = Utils.discreteByBinWidth(this.img, this.mask, this.label, binWidth);
+				this.nBins = Utils.getNumOfBinsByMax(discImg,this.mask, this.label);
 			}
 		}
 			
@@ -136,7 +136,7 @@ public class NGTDMFeatures {
 			JOptionPane.showMessageDialog(null, "RadiomicsJ can read only grayscale images(8/16/32 bits)...sorry.");
 			return;
 		}
-		this.descImg = descretizedImg;
+		this.discImg = descretizedImg;
 		this.label = label;
 		w = descretizedImg.getWidth();
 		h = descretizedImg.getHeight();
@@ -159,7 +159,7 @@ public class NGTDMFeatures {
 		}
 		this.mask = mask;
 		
-		this.nBins = Utils.getNumOfBinsByMax(this.descImg, this.mask, this.label);
+		this.nBins = Utils.getNumOfBinsByMax(this.discImg, this.mask, this.label);
 
 		if (delta != null && delta > 0) {
 			this.delta = delta;
@@ -178,7 +178,7 @@ public class NGTDMFeatures {
 			double si = 0d; //Neighbourhood grey tone difference
 			int ni = 0;// the total number of voxels have this gray level
 			for(int z=0;z<s;z++) {
-				float[][] iSlice = descImg.getStack().getProcessor(z+1).getFloatArray();
+				float[][] iSlice = discImg.getStack().getProcessor(z+1).getFloatArray();
 				float[][] mSlice = mask.getStack().getProcessor(z+1).getFloatArray();
 				for(int y=0;y<h;y++) {
 					for(int x=0;x<w;x++) {
@@ -202,7 +202,7 @@ public class NGTDMFeatures {
 										continue;
 									}
 								}
-								ImageProcessor ip = descImg.getStack().getProcessor(p.z+1);
+								ImageProcessor ip = discImg.getStack().getProcessor(p.z+1);
 								float fv = ip.getf(p.x, p.y);
 								if(!Float.isNaN(fv)) {
 									blob_sum += fv;

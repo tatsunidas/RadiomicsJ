@@ -1364,10 +1364,10 @@ public class Utils {
 	
 	/**
 	 * nBins, for one by one intensity step histogram.
-	 * discretisation interval is 1.
+	 * discretization interval is 1.
 	 * 
 	 * NOTE
-	 * This method does NOT discrete to Continuous calibrated image intensities, see ISBI manual.
+	 * This method does NOT produce nBins for Continuous calibrated image intensities, see ISBI manual.
 	 */
 	public static Integer getNumOfBinsByMinMaxRange(ImagePlus img, ImagePlus mask, int label) {
 		double[] voxels = Utils.getVoxels(img, mask, label);//get voxels in Roi
