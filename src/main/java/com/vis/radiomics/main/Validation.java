@@ -15,11 +15,341 @@
  */
 package com.vis.radiomics.main;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.util.CellReference;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
+import ij.ImagePlus;
+import ij.measure.ResultsTable;
+
 /**
  * 
  * @author tatsunidas <t_kobayashi@vis-ionary.com>
  *
  */
 public class Validation {
+	
+	//system string color 
+	//e.g., System.out.println("\u001B[36m" + "finish");
+	public static final String ANSI_RED = "\u001B[31m";
+	public static final String ANSI_GREEN = "\u001B[32m";
+	public static final String ANSI_YELLOW = "\u001B[33m";
+	public static final String ANSI_BLUE = "\u001B[34m";
+	public static final String ANSI_PURPLE = "\u001B[35m";
+	public static final String ANSI_CYAN = "\u001B[36m";
+	
+	static final String referenceFile = "validation/IBSI_ValidationFile.xlsx";
+	static final String digitalPhantomSettingsParam = "validation/ParamsTestDigitalPhantom1.properties";
+	
+	public enum ValidationConfigType{
+		A,B,C,D,E,P//P(digital phantom1) 
+	}
+	
+	//answers
+	static HashMap<String, Double> ans_digital_phantom;
+	static HashMap<String, Double> ans_config_a;
+	static HashMap<String, Double> ans_config_b;
+	static HashMap<String, Double> ans_config_c;
+	static HashMap<String, Double> ans_config_d;
+	static HashMap<String, Double> ans_config_e;
+	//tolerance
+	static HashMap<String, Double> tole_digital_phantom;
+	static HashMap<String, Double> tole_config_a;
+	static HashMap<String, Double> tole_config_b;
+	static HashMap<String, Double> tole_config_c;
+	static HashMap<String, Double> tole_config_d;
+	static HashMap<String, Double> tole_config_e;
+	
+	//debug
+	public static void main(String[] args) {
+		Validation.ibsiDigitalPhantom();
+	}
+	
+	/**
+	 * Testing calculation accuracy using the IBSI digital phantom under the default condition. 
+	 * @return all clear or not
+	 */
+	public static boolean ibsiDigitalPhantom() {
+		ImagePlus[] imgAndMask = TestDataLoader.digital_phantom1_scratch();
+		try {
+			return testWithConfig(imgAndMask, ValidationConfigType.P, digitalPhantomSettingsParam );
+		} catch (Exception e) {
+			e.printStackTrace();
+			return false;
+		}
+	}
+	
+	/**
+	 * 
+	 * @param configType A B C D E, and P(digital phantom1)
+	 * @param propPath
+	 * @throws Exception
+	 */
+	public static boolean testWithConfig(ImagePlus ds[], ValidationConfigType configType, String propPath) throws Exception {
+		buildAnswers();
+		System.out.println("==== ===== ===== ===== ===== ====");
+		System.out.println("CONFIG TYPE\t"+configType);
+		System.out.println("==== ===== ===== ===== ===== ====\n");
 
+		RadiomicsJ radi = new RadiomicsJ();
+		radi.loadSettingsFromResource(propPath);
+		radi.setDebug(true);
+
+		ResultsTable res = radi.execute(ds[0], ds[1],RadiomicsJ.targetLabel);
+		if(RadiomicsJ.debug)
+			System.out.println("\nFinish calculating features without any error !\n");
+		
+		System.out.println("===== ===== ===== ===== ===== =====");
+		System.out.println("START VALIDATION");
+		System.out.println("===== ===== ===== ===== ===== =====\n");
+		String header[] = res.getHeadings();
+		ArrayList<String> no_matches = new ArrayList<>();
+		ArrayList<String> errors = new ArrayList<>();
+		for(String h : header) {
+			String h2 = header2familyName_3D(h);
+			if(h2 == null) {
+				continue;
+			}
+			int col = res.getColumnIndex(h);
+			Double ans = null;
+			Double tole = null;
+			if(configType == ValidationConfigType.A) {
+				ans = ans_config_a.get(h2);
+				tole = tole_config_a.get(h2);
+			}else if(configType == ValidationConfigType.B){
+				ans = ans_config_b.get(h2);
+				tole = tole_config_b.get(h2);
+			}else if(configType == ValidationConfigType.C){
+				ans = ans_config_c.get(h2);
+				tole = tole_config_c.get(h2);
+			}else if(configType == ValidationConfigType.D){
+				ans = ans_config_d.get(h2);
+				tole = tole_config_d.get(h2);
+			}else if(configType == ValidationConfigType.E){
+				ans = ans_config_e.get(h2);
+				tole = tole_config_e.get(h2);
+			}else if(configType == ValidationConfigType.P){
+				ans = ans_digital_phantom.get(h2);
+				tole = tole_digital_phantom.get(h2);
+			}
+			
+			if(ans == null) {
+				if(RadiomicsJ.debug)
+					System.out.println(h + " : answer is null");
+				continue;
+			}
+			
+			String sv = res.getStringValue(col, 0);
+			Double dv = Double.valueOf(sv);
+			
+			if(dv==null || Double.isNaN(dv)) {
+				System.err.println(h + " : result value is null or NaN.");
+				errors.add(h + " : result value is null or NaN.");
+			}else {
+				if(errorRateCheck(dv, ans, tole)) {
+					System.out.println(ANSI_CYAN+h+ " : Clear ( output: "+dv+", ans: "+ans+", tolerance: "+tole+" )");
+				}else {
+					System.err.println(ANSI_RED+h+ " : NotMatch ( output: "+dv+", ans: "+ans+", tolerance: "+tole+" )");
+					no_matches.add(h+ " : NotMatch ( output: "+dv+", ans: "+ans+", tolerance: "+tole+" )");
+				}
+			}
+		}
+		if(no_matches.size() == 0 && errors.size()==0) {
+			System.out.println(ANSI_CYAN+"All Clear, congrats !");
+			return true;
+		}else {
+			System.out.println("\n===============================================");
+			System.out.println("NO MATCHES");
+			System.out.println("===============================================");
+			System.out.println("\n"+ANSI_RED+"Please check these features...");
+			for(String msg:no_matches) {
+				System.out.println(msg);
+			}
+			if(errors.size() != 0) {
+				System.out.println("\n===============================================");
+				System.out.println("CALCULATION FAILED");
+				System.out.println("===============================================");
+				System.out.println("\n"+ANSI_RED+"Please check these features...");
+				for(String msg:no_matches) {
+					System.out.println(msg);
+				}
+			}
+			return false;
+		}
+	}
+	
+	private static void buildAnswers() {
+		System.out.println("Loading answers...");
+		ans_digital_phantom = new HashMap<String, Double>();
+		ans_config_a = new HashMap<String, Double>();
+		ans_config_b = new HashMap<String, Double>();
+		ans_config_c = new HashMap<String, Double>();
+		ans_config_d = new HashMap<String, Double>();
+		ans_config_e = new HashMap<String, Double>();
+		tole_digital_phantom = new HashMap<String, Double>();
+		tole_config_a = new HashMap<String, Double>();
+		tole_config_b = new HashMap<String, Double>();
+		tole_config_c = new HashMap<String, Double>();
+		tole_config_d = new HashMap<String, Double>();
+		tole_config_e = new HashMap<String, Double>();
+		URL refUrl = Validation.class
+                .getClassLoader().getResource(referenceFile);
+		try (
+				FileInputStream excelFile = new FileInputStream(new File(refUrl.toURI()));
+				Workbook workbook = new XSSFWorkbook(excelFile);) {
+
+			for (int i = 0; i < 5; i++) {
+				Sheet datatypeSheet = workbook.getSheetAt(i);// digital phantom1(0),...
+				if (RadiomicsJ.debug)
+					System.out.println(datatypeSheet.getSheetName());
+				Iterator<Row> iterator = datatypeSheet.iterator();
+				String ds_type = null;
+				while (iterator.hasNext()) {
+					Row currentRow = iterator.next();
+					Iterator<Cell> cellIterator = currentRow.iterator();
+					String family = null;
+					String RadiomicsJ_NAME = null;
+					Double benchmark_value = null;
+					Double tolerance = null;
+					int count = 0;
+					while (cellIterator.hasNext()) {
+						Cell currentCell = cellIterator.next();
+						/*
+						 * A data_set B family C image_biomarker D RadiomicsJ_NAME E consensus F
+						 * benchmark_value G tolerance
+						 */
+						String col_name = CellReference.convertNumToColString(currentCell.getColumnIndex());
+						if (col_name.equals("A") && ds_type == null) {
+							ds_type = currentCell.getStringCellValue();
+							if (ds_type.equals("data_set")) {
+								ds_type = null;
+								break;
+							} else {
+								continue;
+							}
+						}
+						if (col_name.equals("B")) {
+							family = currentCell.getStringCellValue();
+							count++;
+						} else if (col_name.equals("D")) {
+							RadiomicsJ_NAME = currentCell.getStringCellValue();
+							count++;
+						} else if (col_name.equals("F")) {
+							benchmark_value = currentCell.getNumericCellValue();
+							count++;
+						} else if (col_name.equals("G")) {
+							tolerance = currentCell.getNumericCellValue();
+							count++;
+						}
+						if (count == 4) {
+							if (RadiomicsJ_NAME == null || RadiomicsJ_NAME.trim().length() == 0) {
+								continue;
+							}
+							if (ds_type.equals("digital phantom")) {
+								ans_digital_phantom.put(family + "_" + RadiomicsJ_NAME, benchmark_value);
+								tole_digital_phantom.put(family + "_" + RadiomicsJ_NAME, tolerance);
+//	                        	System.out.println(family+"_"+RadiomicsJ_NAME+" bench : "+benchmark_value+", tolerance: "+tolerance);
+							} else if (ds_type.equals("configuration A")) {
+								ans_config_a.put(family + "_" + RadiomicsJ_NAME, benchmark_value);
+								tole_config_a.put(family + "_" + RadiomicsJ_NAME, tolerance);
+							} else if (ds_type.equals("configuration B")) {
+								ans_config_b.put(family + "_" + RadiomicsJ_NAME, benchmark_value);
+								tole_config_b.put(family + "_" + RadiomicsJ_NAME, tolerance);
+							} else if (ds_type.equals("configuration C")) {
+								ans_config_c.put(family + "_" + RadiomicsJ_NAME, benchmark_value);
+								tole_config_c.put(family + "_" + RadiomicsJ_NAME, tolerance);
+//	                        	System.out.println(family+"_"+RadiomicsJ_NAME+" bench : "+benchmark_value+", tolerance: "+tolerance);
+							} else if (ds_type.equals("configuration D")) {
+								ans_config_d.put(family + "_" + RadiomicsJ_NAME, benchmark_value);
+								tole_config_d.put(family + "_" + RadiomicsJ_NAME, tolerance);
+							} else if (ds_type.equals("configuration E")) {
+								ans_config_e.put(family + "_" + RadiomicsJ_NAME, benchmark_value);
+								tole_config_e.put(family + "_" + RadiomicsJ_NAME, tolerance);
+							}
+							break;
+						}
+					}
+				}
+			}
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} catch (URISyntaxException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		System.out.println("Finish Loading answers...");
+	}
+	
+	static String header2familyName_3D(String header) {
+		String familyName = null;
+		if(header.contains("Morphology_")) {
+			//return as-is
+			return header;
+		}else if(header.contains("LocalIntensity_")) {
+			String ibName = header.substring(header.indexOf("_")+1);
+			familyName = "Local intensity_"+ibName;
+		}else if(header.contains("IntensityBasedStatistical_")) {
+			String ibName = header.substring(header.indexOf("_")+1);
+			familyName = "Statistics_"+ibName;
+		}else if(header.contains("IntensityHistogram_")) {
+			String ibName = header.substring(header.indexOf("_")+1);
+			familyName = "Intensity histogram_"+ibName;
+		}else if(header.contains("IntensityVolumeHistogram_")) {
+			String ibName = header.substring(header.indexOf("_")+1);
+			familyName = "Intensity volume histogram_"+ibName;
+		}else if(header.contains("GLCM_")) {
+			String ibName = header.substring(header.indexOf("_")+1);
+			familyName = "Co-occurrence matrix (3D, averaged)_"+ibName;
+		}else if(header.contains("GLRLM_")) {
+			String ibName = header.substring(header.indexOf("_")+1);
+			familyName = "Run length matrix (3D, averaged)_"+ibName;
+		}else if(header.contains("GLSZM_")) {
+			String ibName = header.substring(header.indexOf("_")+1);
+			familyName = "Size zone matrix (3D)_"+ibName;
+		}else if(header.contains("GLDZM_")) {
+			String ibName = header.substring(header.indexOf("_")+1);
+			familyName = "Distance zone matrix (3D)_"+ibName;
+		}else if(header.contains("NGTDM_")) {
+			String ibName = header.substring(header.indexOf("_")+1);
+			familyName = "Neighbourhood grey tone difference matrix (3D)_"+ibName;
+		}else if(header.contains("NGLDM_")) {
+			String ibName = header.substring(header.indexOf("_")+1);
+			familyName = "Neighbouring grey level dependence matrix (3D)_"+ibName;
+		}
+		return familyName;
+	}
+	
+	private static boolean errorRateCheck(Double out, Double ans, Double tole) {
+		if((out >= (ans-tole)) && out <= (ans+tole)) {
+			return true;
+		}else {
+			return (out/ans) > 0.99;
+		}
+	}
+	
+//	static Double roundOff(Double out, Double ans) {
+//		double a = ans;
+//		double b = out;
+//		String numString = String.valueOf(a);
+//		int decimal = numString.substring(numString.indexOf(".")+1).length();
+//	    double roundOff = Math.round(b * Math.pow(10, decimal))/Math.pow(10, decimal);
+////		System.out.println(roundOff);
+//	    return roundOff;
+//	}
+	
 }

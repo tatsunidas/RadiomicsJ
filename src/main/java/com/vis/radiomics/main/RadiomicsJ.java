@@ -18,6 +18,8 @@ package com.vis.radiomics.main;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -240,7 +242,7 @@ public class RadiomicsJ {
 	/**
 	 * radiomicsj version
 	 */
-	public static String version = "2.0.1";
+	public static String version = "2.1.1";
 	
 	/**
 	 * use test data
@@ -479,7 +481,7 @@ public class RadiomicsJ {
 	/**
 	 * deprecated features
 	 */
-	String[] excluded_list = new String[] {
+	public static final String[] excluded_list = new String[] {
 			/*Morphplogical feature*/
 			MorphologicalFeatureType.VolumeDensity_OrientedMinimumBoundingBox.name(),
 			MorphologicalFeatureType.AreaDensity_OrientedMinimumBoundingBox.name(),
@@ -496,11 +498,9 @@ public class RadiomicsJ {
 	 * because calculation cost(time) much high (take too long time to calculate).
 	 * if you use these features, turn on activate_include_no_default=true.
 	 */
-	String[] no_default_list = new String[] {
+	public static final String[] no_default_list = new String[] {
 			MorphologicalFeatureType.MoransIIndex.name(),
 			MorphologicalFeatureType.GearysCMeasure.name(),
-			MorphologicalFeatureType.VolumeDensity_ConvexHull.name(),//take too long time to calculation
-			MorphologicalFeatureType.AreaDensity_ConvexHull.name(),//take too long time to calculation
 	};
 	
 	public RadiomicsJ() {
@@ -542,26 +542,59 @@ public class RadiomicsJ {
 	}
 	
 	public void loadSettings(String propFilePath) {
-		if(propFilePath == null) {
+		if (propFilePath == null) {
 			return;
 		}
 		File propFile = null;
 		Properties prop = null;
-		if(propFilePath != null) {
+		if (propFilePath != null) {
 			propFile = new File(propFilePath);
-			if(propFile==null || !propFile.exists()) {
+			if (propFile == null || !propFile.exists()) {
 				System.out.println("Sorry, can not read properties file correctly.");
 				System.out.println("Please check input paths.");
 				System.exit(0);
-			}else {
+			} else {
 				try (FileInputStream in = new FileInputStream(propFile);) {
 					prop = new Properties();
 					prop.load(in);
-		        } catch (IOException e) {
-		        	System.out.println("Ouch, fail to read properties file...");
-		            e.printStackTrace();
-		            System.exit(0);
-		        }
+				} catch (IOException e) {
+					System.out.println("Ouch, fail to read properties file...");
+					e.printStackTrace();
+					System.exit(0);
+				}
+			}
+		}
+		loadSettings(prop);
+	}
+	
+	/**
+	 * 
+	 * @param propFilePathInResource: validation/***.properties (no need slash"/" in head) 
+	 */
+	public void loadSettingsFromResource(String propFilePathInResource) {
+		if (propFilePathInResource == null) {
+			return;
+		}
+		URL refUrl = RadiomicsJ.class.getClassLoader().getResource(propFilePathInResource);
+		File propFile = null;
+		try {
+			propFile = new File(refUrl.toURI());
+		} catch (URISyntaxException e) {
+			e.printStackTrace();
+		}
+		Properties prop = null;
+		if (propFile == null || !propFile.exists()) {
+			System.out.println("Sorry, can not read properties file correctly.");
+			System.out.println("Please check input paths.");
+			System.exit(0);
+		} else {
+			try (FileInputStream in = new FileInputStream(propFile);) {
+				prop = new Properties();
+				prop.load(in);
+			} catch (IOException e) {
+				System.out.println("Ouch, fail to read properties file...");
+				e.printStackTrace();
+				System.exit(0);
 			}
 		}
 		loadSettings(prop);

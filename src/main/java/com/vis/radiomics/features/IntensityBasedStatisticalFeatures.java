@@ -146,7 +146,7 @@ public class IntensityBasedStatisticalFeatures {
 		} else if (name.equals(IntensityBasedStatisticalFeatureType.Skewness.name())) {
 			return getSkewness1();
 		} else if (name.equals(IntensityBasedStatisticalFeatureType.Kurtosis.name())) {
-			return getKurtosis();
+			return getExcessKurtosis();
 		} else if (name.equals(IntensityBasedStatisticalFeatureType.Median.name())) {
 			return getMedian();
 		} else if (name.equals(IntensityBasedStatisticalFeatureType.Minimum.name())) {
