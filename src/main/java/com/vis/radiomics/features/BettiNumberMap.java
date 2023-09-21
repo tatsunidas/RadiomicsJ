@@ -1,3 +1,18 @@
+/*
+ * Copyright [2022] [Tatsuaki Kobayashi]
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+ */
 package com.vis.radiomics.features;
 
 import ij.IJ;
@@ -15,8 +30,8 @@ import ij.process.ImageProcessor;
 /**
  * you can try 3d procedure.
  * see, GLDZM. 
- * 1. get main blob and minimum blob
- * 2. calculate how many minimum blob in main blob.
+ * 1. get main zone and minimum zone
+ * 2. calculate how many minimum zone in main zone.
  * 3. create matrix.
  * 
  * or

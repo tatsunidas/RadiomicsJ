@@ -1,3 +1,18 @@
+/*
+ * Copyright [2022] [Tatsuaki Kobayashi]
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+ */
 package com.vis.radiomics.features;
 
 import java.util.ArrayList;
@@ -10,6 +25,7 @@ import javax.swing.JOptionPane;
 import org.apache.commons.math3.stat.StatUtils;
 import org.scijava.vecmath.Point3i;
 
+import com.vis.radiomics.main.ImagePreprocessing;
 import com.vis.radiomics.main.RadiomicsJ;
 import com.vis.radiomics.main.Utils;
 
@@ -18,6 +34,11 @@ import ij.ImageStack;
 import ij.measure.Calibration;
 import ij.process.ByteProcessor;
 
+/**
+ * 
+ * @author tatsunidas
+ *
+ */
 public class GLDZMFeatures {
 	
 	ImagePlus img;

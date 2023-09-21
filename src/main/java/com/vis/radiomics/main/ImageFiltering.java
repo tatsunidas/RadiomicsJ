@@ -1,4 +1,4 @@
-package com.vis.radiomics.features;
+package com.vis.radiomics.main;
 
 import com.vis.radiomics.plugins.wavelet.Wavelet_Denoise;
 
@@ -8,6 +8,11 @@ import ij.measure.Calibration;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 
+/**
+ * 
+ * @author tatsunidas <t_kobayashi@vis-ionary.com>
+ *
+ */
 public class ImageFiltering {
 	
 	/**

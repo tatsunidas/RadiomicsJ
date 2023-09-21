@@ -1,3 +1,18 @@
+/*
+ * Copyright [2022] [Tatsuaki Kobayashi]
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+ */
 package com.vis.radiomics.features;
 
 import java.util.ArrayList;
@@ -16,8 +31,8 @@ import org.apache.commons.math3.stat.StatUtils;
 import org.apache.commons.math3.stat.correlation.Covariance;
 import org.scijava.vecmath.Point3f;
 
-import com.github.quickhull3d.Point3d;
 import com.github.quickhull3d.QuickHull3D;
+import com.vis.radiomics.main.ImagePreprocessing;
 import com.vis.radiomics.main.RadiomicsJ;
 import com.vis.radiomics.main.Utils;
 import com.vis.radiomics.plugins.fiji.Convex_Hull3DTool;
@@ -31,8 +46,6 @@ import ij.process.ImageProcessor;
 import marchingcubes.MCTriangulator;
 import net.imagej.mesh.Meshes;
 import net.imagej.mesh.Triangle;
-import net.imagej.mesh.Vertex;
-import net.imagej.mesh.naive.NaiveFloatMesh.Vertices;
 import net.imagej.ops.geom.geom3d.DefaultConvexHull3D;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.img.display.imagej.ImageJFunctions;
@@ -1691,6 +1704,7 @@ public class MorphologicalFeatures {
 		return v/v_convex;
 	}
 	
+	@SuppressWarnings("unused")
 	@Deprecated
 	private Double getAreaDensityByConvexHull(){
 		ImagePlus mask = Utils.createMaskCopyAsGray8(isoMask,this.label);
@@ -1714,7 +1728,7 @@ public class MorphologicalFeatures {
 		int resamplingF = 2; // 1 to N.
 		@SuppressWarnings("unchecked")
 		List<org.scijava.vecmath.Point3f> pointsf = mct.getTriangles(mask, threshold, channels, resamplingF);
-		CustomTriangleMesh mesh = new CustomTriangleMesh(pointsf);
+		//CustomTriangleMesh mesh = new CustomTriangleMesh(pointsf);
 		
 		com.github.quickhull3d.Point3d[] points_hull = new com.github.quickhull3d.Point3d[pointsf.size()];
 		int itr = 0;

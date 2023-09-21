@@ -1,6 +1,6 @@
 package sandbox;
 
-import com.vis.radiomics.features.ImageFiltering;
+import com.vis.radiomics.main.ImageFiltering;
 
 import ij.ImagePlus;
 

@@ -1,11 +1,8 @@
-package com.vis.radiomics.features;
+package com.vis.radiomics.main;
 
 import javax.swing.JOptionPane;
 
 import org.apache.commons.math3.stat.StatUtils;
-
-import com.vis.radiomics.main.RadiomicsJ;
-import com.vis.radiomics.main.Utils;
 
 import ij.IJ;
 import ij.ImagePlus;

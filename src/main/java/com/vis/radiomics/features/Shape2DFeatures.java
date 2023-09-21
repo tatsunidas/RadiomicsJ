@@ -2,6 +2,7 @@ package com.vis.radiomics.features;
 
 import javax.swing.JOptionPane;
 
+import com.vis.radiomics.main.ImagePreprocessing;
 import com.vis.radiomics.main.Utils;
 
 import ij.ImagePlus;

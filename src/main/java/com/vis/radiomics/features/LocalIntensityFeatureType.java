@@ -1,5 +1,8 @@
 package com.vis.radiomics.features;
 
+/**
+ * @author tatsunidas
+ */
 public enum LocalIntensityFeatureType {
 	LocalIntensityPeak("VJGA"),
 	GlobalIntensityPeak("0F91"),
