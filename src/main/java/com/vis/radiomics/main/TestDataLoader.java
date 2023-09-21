@@ -4,7 +4,6 @@ import java.awt.color.ColorSpace;
 import java.awt.image.ColorModel;
 import java.awt.image.ComponentColorModel;
 import java.awt.image.DataBuffer;
-import java.awt.image.DataBufferShort;
 import java.io.File;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -18,15 +17,15 @@ import ij.process.ShortProcessor;
 
 public class TestDataLoader {
 	
-	static String parent_dir = "/data_sets-master/";
+	static String parent_dir = "data_sets-master/";
 	
 	public static ImagePlus[] digital_phantom1() {
 		String p2i = parent_dir+"ibsi_1_digital_phantom/nifti/image/phantom.nii.gz";
 		String p2m = parent_dir+"ibsi_1_digital_phantom/nifti/mask/mask.nii.gz";
 		try{
-	        URL url_i = TestDataLoader.class.getResource(p2i);
+	        URL url_i = TestDataLoader.class.getClassLoader().getResource(p2i);
 	        Object img = IJ.runPlugIn("Nifti_Reader", new File(url_i.toURI()).getAbsolutePath());
-	        URL url_m = TestDataLoader.class.getResource(p2m);
+	        URL url_m = TestDataLoader.class.getClassLoader().getResource(p2m);
 	        Object mask = IJ.runPlugIn("Nifti_Reader", new File(url_m.toURI()).getAbsolutePath());
 	        return new ImagePlus[] {(ImagePlus)img, (ImagePlus)mask};
 	    }catch(URISyntaxException ioe){
@@ -145,9 +144,9 @@ public class TestDataLoader {
 		String p2i = parent_dir+"ibsi_1_ct_radiomics_phantom/nifti/image/phantom.nii.gz";
 		String p2m = parent_dir+"ibsi_1_ct_radiomics_phantom/nifti/mask/mask.nii.gz";
 		try{
-	        URL url_i = TestDataLoader.class.getResource(p2i);
+	        URL url_i = TestDataLoader.class.getClassLoader().getResource(p2i);
 	        Object img = IJ.runPlugIn("Nifti_Reader", new File(url_i.toURI()).getAbsolutePath());
-	        URL url_m = TestDataLoader.class.getResource(p2m);
+	        URL url_m = TestDataLoader.class.getClassLoader().getResource(p2m);
 	        Object mask = IJ.runPlugIn("Nifti_Reader", new File(url_m.toURI()).getAbsolutePath());
 	        return new ImagePlus[] {(ImagePlus)img, (ImagePlus)mask};
 	    }catch(URISyntaxException ioe){

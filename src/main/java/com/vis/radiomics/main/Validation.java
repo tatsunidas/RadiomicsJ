@@ -32,6 +32,7 @@ import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.CellReference;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
+import ij.IJ;
 import ij.ImagePlus;
 import ij.measure.ResultsTable;
 
@@ -52,10 +53,23 @@ public class Validation {
 	public static final String ANSI_CYAN = "\u001B[36m";
 	
 	static final String referenceFile = "validation/IBSI_ValidationFile.xlsx";
-	static final String digitalPhantomSettingsParam = "validation/ParamsTestDigitalPhantom1.properties";
+	static final String digitalPhantomSettingsParam = "validation/ParamsTestDigitalPhantom1.properties";//3D basis
+//	static final String ConfigurationASettingsParam = "validation/ParamsTestCT_PAT1_Config_A.properties";//2D basis
+//	static final String ConfigurationBSettingsParam = "validation/ParamsTestCT_PAT1_Config_B.properties";//2D basis
+	static final String ConfigurationCSettingsParam = "validation/ParamsTestCT_PAT1_Config_C.properties";//3D basis
+	static final String ConfigurationDSettingsParam = "validation/ParamsTestCT_PAT1_Config_D.properties";//3D basis
+//	static final String ConfigurationESettingsParam = "validation/ParamsTestCT_PAT1_Config_E.properties";//tricubic spline interpolation is not implemented.
 	
 	public enum ValidationConfigType{
 		A,B,C,D,E,P//P(digital phantom1) 
+	}
+	
+	public enum ErrorRateType{
+		IgnorableErrors, //<= 5%
+		MinorErrors_Small,//<= 10%
+		MinorErrors_Medium,//<= 20%
+		MinorErrors_Large,//<= 30%
+		SeriousErrors//> 30%
 	}
 	
 	//answers
@@ -75,7 +89,8 @@ public class Validation {
 	
 	//debug
 	public static void main(String[] args) {
-		Validation.ibsiDigitalPhantom();
+//		Validation.ibsiDigitalPhantom();
+		Validation.ibsi_ct_PAT1(ValidationConfigType.C);
 	}
 	
 	/**
@@ -86,6 +101,21 @@ public class Validation {
 		ImagePlus[] imgAndMask = TestDataLoader.digital_phantom1_scratch();
 		try {
 			return testWithConfig(imgAndMask, ValidationConfigType.P, digitalPhantomSettingsParam );
+		} catch (Exception e) {
+			e.printStackTrace();
+			return false;
+		}
+	}
+	
+	public static boolean ibsi_ct_PAT1(ValidationConfigType type) {
+		String paramPath = loadSettingsPropertiesByConfigType(type);
+		if(paramPath == null) {
+			System.out.println("Incompatible Validation Configuration Type ! :"+type);
+			return false;
+		}
+		ImagePlus[] imgAndMask = TestDataLoader.sample_ct1();
+		try {
+			return testWithConfig(imgAndMask, type, paramPath);
 		} catch (Exception e) {
 			e.printStackTrace();
 			return false;
@@ -159,11 +189,20 @@ public class Validation {
 				System.err.println(h + " : result value is null or NaN.");
 				errors.add(h + " : result value is null or NaN.");
 			}else {
-				if(errorRateCheck(dv, ans, tole)) {
+				boolean validMatch = validMatch(dv, ans, tole);
+				if(validMatch) {
 					System.out.println(ANSI_CYAN+h+ " : Clear ( output: "+dv+", ans: "+ans+", tolerance: "+tole+" )");
 				}else {
-					System.err.println(ANSI_RED+h+ " : NotMatch ( output: "+dv+", ans: "+ans+", tolerance: "+tole+" )");
-					no_matches.add(h+ " : NotMatch ( output: "+dv+", ans: "+ans+", tolerance: "+tole+" )");
+					double error = errorRateCheck(dv, ans, tole);
+					ErrorRateType errorType = errorType(error);
+					String Color = null;
+					if(errorType == ErrorRateType.SeriousErrors || errorType == ErrorRateType.MinorErrors_Large) {
+						Color = ANSI_RED;
+					}else {
+						Color = ANSI_PURPLE;
+					}
+					System.err.println(Color+h+ " : NoMatch ( output: "+dv+", ans: "+ans+", tolerance: "+tole+" ) "+errorType+","+IJ.d2s(error, 3));
+					no_matches.add(h+ " : NoMatch ( output: "+dv+", ans: "+ans+", tolerance: "+tole+" ) "+errorType+","+IJ.d2s(error, 3));
 				}
 			}
 		}
@@ -334,22 +373,49 @@ public class Validation {
 		return familyName;
 	}
 	
-	private static boolean errorRateCheck(Double out, Double ans, Double tole) {
+	private static boolean validMatch(Double out, Double ans, Double tole) {
 		if((out >= (ans-tole)) && out <= (ans+tole)) {
 			return true;
 		}else {
-			return (out/ans) > 0.99;
+			double dif = Math.abs(out - ans);
+			return (dif/ans) < 0.01;//to avoid rounding error
 		}
 	}
 	
-//	static Double roundOff(Double out, Double ans) {
-//		double a = ans;
-//		double b = out;
-//		String numString = String.valueOf(a);
-//		int decimal = numString.substring(numString.indexOf(".")+1).length();
-//	    double roundOff = Math.round(b * Math.pow(10, decimal))/Math.pow(10, decimal);
-////		System.out.println(roundOff);
-//	    return roundOff;
-//	}
+	private static double errorRateCheck(Double out, Double ans, Double tole) {
+		double under_error = Math.abs(out-(ans - tole))/(ans - tole);
+		double top_error = Math.abs(out-(ans + tole))/(ans + tole);
+		if(under_error >= top_error) {
+			return top_error;
+		}else {
+			return under_error;
+		}
+	}
+	
+	private static ErrorRateType errorType(double errorRate) {
+		if(errorRate <= 0.05) {
+			return ErrorRateType.IgnorableErrors;
+		}else if(errorRate <= 0.10) {
+			return ErrorRateType.MinorErrors_Small;
+		}else if(errorRate <= 0.20) {
+			return ErrorRateType.MinorErrors_Medium;
+		}else if(errorRate <= 0.30) {
+			return ErrorRateType.MinorErrors_Large;
+		}else {
+			return ErrorRateType.SeriousErrors;
+		}
+	}
+	
+	static String loadSettingsPropertiesByConfigType(ValidationConfigType t) {
+		switch (t) {
+		case A:return null;
+		case B:return null;
+		case C:return ConfigurationCSettingsParam;
+		case D:return ConfigurationDSettingsParam;
+		case E:return null;
+		case P:return digitalPhantomSettingsParam;
+		default:return null;
+		}
+	}
 	
 }
