@@ -341,3 +341,6 @@ Tatsuaki Kobayashi
 
 2022/4/7 initial commit.
 
+# Cite this article
+
+Kobayashi, T. RadiomicsJ: a library to compute radiomic features. Radiol Phys Technol 15, 255–263 (2022). https://doi.org/10.1007/s12194-022-00664-4
