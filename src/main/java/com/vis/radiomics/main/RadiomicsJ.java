@@ -80,6 +80,11 @@ import ij.util.DicomTools;
  *
  */
 public class RadiomicsJ {
+	
+	/**
+	 * radiomicsj version
+	 */
+	public static String version = "2.1.2";
 
 	/**
 	 * 
@@ -95,7 +100,7 @@ public class RadiomicsJ {
 		options.addOption("h","help",false, "print usage information.");
 		options.addOption("d","debug",false, "debug mode");
 		options.addOption("t","test",false, "test mode");
-		options.addOption("tdt","test-data-type",true, "test data type, 0:digital_phantom1, 1:ct_sample1");
+		options.addOption("tdt","test-data-type",true, "test data type, 0:digital_phantom1, 1:ct_sample1(PAT1)");
 		
 		CommandLineParser parser = new DefaultParser();
 		CommandLine cmd = null;
@@ -239,10 +244,7 @@ public class RadiomicsJ {
 		}
 	}
 	
-	/**
-	 * radiomicsj version
-	 */
-	public static String version = "2.1.1";
+	
 	
 	/**
 	 * use test data
@@ -341,12 +343,11 @@ public class RadiomicsJ {
 	 */
 	public static Integer targetLabel = 1; //target mask label
 	
-	//TODO
 	/**
 	 * When calculate features, label value always to be this value.
 	 * Because to deal with partial volume effects from resampling. 
 	 */
-	public static final Integer label_ = 1;//label for compute
+	public static final Integer label_ = 1;//label to compute resampling
 	
 	/**
 	 * Standardize original images at preprocessing 

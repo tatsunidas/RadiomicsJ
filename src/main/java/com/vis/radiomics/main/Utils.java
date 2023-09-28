@@ -644,7 +644,7 @@ public class Utils {
 	/**
 	 * 
 	 * @param imp
-	 * @param isMask : if mask, should be input label one mask.
+	 * @param isMask : if mask, should be has label "1".
 	 * @param resampleX
 	 * @param resampleY
 	 * @param resampleZ
@@ -667,12 +667,11 @@ public class Utils {
 		}
 
 		/*
-		 * At IBSI PAT1 test, rounded dim was not match with reference.
+		 * From IBSI: The size of the interpolation grid is determined by rounding the
+		 * fractional grid size towards infinity, i.e. a ceiling operation. This
+		 * prevents the interpolation grid from disappearing for very small images, but
+		 * is otherwise an arbitrary choice.
 		 */
-//		int newW = (int)Math.round(w * (cal.pixelWidth / resampleX));
-//		int newH = (int)Math.round(h * (cal.pixelHeight / resampleY));
-//		int newS = (int)Math.round(s * (cal.pixelDepth / resampleZ));
-		
 		int newW = (int)Math.ceil(w * (cal.pixelWidth / resampleX));
 		int newH = (int)Math.ceil(h * (cal.pixelHeight / resampleY));
 		int newS = (int)Math.ceil(s * (cal.pixelDepth / resampleZ));
@@ -705,36 +704,26 @@ public class Utils {
 		int index;
 		for (i = 0; i < newW; i++) {
 			x = (i / ratio[0]);
-			if(x > w-1) x = w-1;
+//			if(x > w-1) x = w-1;
 			for (j = 0; j < newH; j++) {
 				y = (j / ratio[1]);
-				if(y > h-1) y = h-1;
+//				if(y > h-1) y = h-1;
 				for (k = 0; k < newS; k++) {
 					z = (k / ratio[2]);
-					if(z > s-1) z = s-1;
+//					if(z > s-1) z = s-1;
 					index = k * slice + j * newW + i;
-					float interp = (float) (TrilinearInterpolation2(voxels, w, h, s, x, y, z));
+					float interp = (float) (trilinearInterpolation(voxels, w, h, s, x, y, z));
 					if(!isMask) {//img
 						deformed[index] = interp;
 					}else {//mask
-//						double rangeMin = (double)(RadiomicsJ.label)-RadiomicsJ.mask_PartialVolumeThareshold;
-//						double rangeMax = (double)(RadiomicsJ.label)+RadiomicsJ.mask_PartialVolumeThareshold;
 						/*
-						 * label-threshold <= label < label+threshold
-						 */
-						/*
-						 * In IBSI, 
-						 * interp >= RadiomicsJ.mask_PartialVolumeThareshold
-						 * 
-						 * but this methods always need label 1 mask.
+						 * this methods always need mask has label "1".
 						 */
 						if(interp >= RadiomicsJ.mask_PartialVolumeThareshold) {
-//						if(interp >= rangeMin && interp < rangeMax) {
 							deformed[index] = (float)RadiomicsJ.label_;
 						}else {
 							deformed[index] = 0f;
 						}
-//						deformed[index] = interp;//debug
 					}
 				}
 			}
@@ -758,129 +747,10 @@ public class Utils {
 		return interp;
 	}
 	
-//	/**
-//	 * Test another procedure. but too slow.
-//	 * @param imp
-//	 * @param isMask
-//	 * @param resampleX
-//	 * @param resampleY
-//	 * @param resampleZ
-//	 * @return
-//	 */
-//	@Deprecated
-//	public static ImagePlus trilinearInterpolationNeo(ImagePlus imp, boolean isMask, double resampleX, double resampleY, double resampleZ) {
-//		if(imp == null){
-//			return null;
-//		}
-//		if(resampleX < 0d || resampleY < 0d || resampleZ < 0d) {
-//			return null;
-//		}
-//		Calibration cal = imp.getCalibration().copy();
-//		int w = imp.getWidth();
-//		int h = imp.getHeight();
-//		int s = imp.getStackSize();
-//		if(s == 1) {
-//			System.out.println("This stack is only one slice, please use Bilinear instead, return null!");
-//			return null;
-//		}
-//		int imageType = imp.getType();
-//		if(imageType != ImagePlus.GRAY8 && imageType != ImagePlus.GRAY16 && imageType != ImagePlus.GRAY32) {
-//			return null;
-//		}
-//
-//		int newW = (int)Math.ceil(w * (cal.pixelWidth / resampleX));
-//		int newH = (int)Math.ceil(h * (cal.pixelHeight / resampleY));
-//		int newS = (int)Math.ceil(s * (cal.pixelDepth / resampleZ));
-//		
-//		float ratio[] = new float[3];
-//		ratio[0] = (float)newW / (float)w;
-//		ratio[1] = (float)newH / (float)h;
-//		ratio[2] = (float)newS / (float)s;
-//		
-//		ImageStack triStack = new ImageStack(newW,newH);
-//		for(int z = 0;z<newS;z++) {
-//			ImageProcessor deformed = new FloatProcessor(newW, newH);
-//			for(int y = 0;y<newH;y++) {
-//				for(int x = 0;x<newW;x++) {
-//					double interpX = (x/ratio[0]);
-//					double interpY = (y/ratio[1]);
-//					double interpZ = (z/ratio[2]);
-//					if(interpX > w-1) interpX = w-1;
-//					if(interpY > h-1) interpY = h-1;
-//					if(interpZ > s-1) interpZ = s-1;
-//					float interp = (float) (TrilinearInterpolation3(imp, w, h, s, interpX, interpY, interpZ));
-//					if(!isMask) {//img
-//						deformed.setf(x, y, interp);
-//					}else {//mask
-//						double rangeMin = (double)(RadiomicsJ.label)-RadiomicsJ.mask_PartialVolumeThareshold;
-//						double rangeMax = (double)(RadiomicsJ.label)+RadiomicsJ.mask_PartialVolumeThareshold;
-//						/*
-//						 * label-threshold <= label < label+threshold
-//						 */
-//						/*
-//						 * In IBSI, 
-//						 * interp >= RadiomicsJ.mask_PartialVolumeThareshold
-//						 * 
-//						 * but this methods always need label 1 mask.
-//						 */
-////						if(interp >= RadiomicsJ.mask_PartialVolumeThareshold) {
-//						if(interp >= rangeMin && interp < rangeMax) {
-//							deformed.setf(x, y, (float)RadiomicsJ.label);
-//						}else {
-//							deformed.setf(x, y, 0f);
-//						}
-//					}
-//				}
-//			}
-//			triStack.addSlice(deformed);
-//		}
-//		ImagePlus interp = new ImagePlus("tri", triStack);
-//		cal.pixelWidth = resampleX;
-//		cal.pixelHeight = resampleY;
-//		cal.pixelDepth = resampleZ;
-//		interp.setCalibration(cal);
-//		return interp;
-//	}
-	
-	public static double TrilinearInterpolation(float[] oldV, int XN, int YN,
-			int ZN, double x, double y, double z) {
-		int i0, j0, k0, i1, j1, k1;
-		double dx, dy, dz, hx, hy, hz;
-		if (x < 0 || x > (XN - 1) || y < 0 || y > (YN - 1) || z < 0
-				|| z > (ZN - 1)) {
-			return 0;
-		} else {
-			j1 = (int) Math.ceil(x);
-			i1 = (int) Math.ceil(y);
-			k1 = (int) Math.ceil(z);
-			j0 = (int) Math.floor(x);
-			i0 = (int) Math.floor(y);
-			k0 = (int) Math.floor(z);
-			dx = x - j0;
-			dy = y - i0;
-			dz = z - k0;
-			
-			// Introduce more variables to reduce computation
-			hx = 1.0f - dx;
-			hy = 1.0f - dy;
-			hz = 1.0f - dz;
-			// Optimized below
-			int slice = XN * YN;
-			k0 *= slice;
-			k1 *= slice;
-			i0 *= XN;
-			i1 *= XN;
-			return   (((oldV[k0 + i0 + j0] * hx + oldV[k0 + i0 + j1] * dx) * hy 
-											+ (oldV[k0 + i1 + j0] * hx + oldV[k0 + i1 + j1] * dx) * dy) * hz 
-															+ ((oldV[k1 + i0 + j0] * hx + oldV[k1 + i0 + j1] * dx) * hy 
-																			+ (oldV[k1 + i1 + j0] * hx + oldV[k1 + i1 + j1] * dx) * dy)* dz);
-
-		}
-	}
 	
 	/**
 	 * This method will output the same result to TrilinearInterpolation() described above.
-	 * @param oldV : pre interpolation voxels
+	 * @param orgV : pre interpolation voxels
 	 * @param XN : pre interpolation image w
 	 * @param YN : pre interpolation image h
 	 * @param ZN : pre interpolation image slices
@@ -889,119 +759,63 @@ public class Utils {
 	 * @param z : interpolation z with pre interpolation image scale.
 	 * @return
 	 */
-	public static double TrilinearInterpolation2(float[] oldV, int XN, int YN, int ZN, double x, double y, double z) {
+	public static double trilinearInterpolation(float[] orgV, int XN, int YN, int ZN, double x, double y, double z) {
 		
 		int x0, y0, z0, x1, y1, z1;
 		double dx, dy, dz, hx, hy, hz;
 		
-		if (x < 0 || x > (XN - 1) || y < 0 || y > (YN - 1) || z < 0 || z > (ZN - 1)) {
-			return 0;
-		} else {
-			x1 = (int) Math.ceil(x);
-			y1 = (int) Math.ceil(y);
-			z1 = (int) Math.ceil(z);
-			x0 = (int) Math.floor(x);
-			y0 = (int) Math.floor(y);
-			z0 = (int) Math.floor(z);
-			
-			//this procedure will occur out of index when force2d.
-//			if(x != 0) {
-//				x1 = (int) Math.ceil(x);
-//				x0 = (int) Math.floor(x);
-//			}else {
-//				x1 = 1;
-//				x0 = 0;
-//			}
-//			if(y != 0) {
-//				y1 = (int) Math.ceil(y);
-//				y0 = (int) Math.floor(y);
-//			}else {
-//				y1 = 1;
-//				y0 = 0;
-//			}
-//			if(z != 0) {
-//				z1 = (int) Math.ceil(z);
-//				z0 = (int) Math.floor(z);
-//			}else {
-//				z1 = 1;
-//				z0 = 0;
-//			}
-
-//			dx = (x1-x0) != 0 ? ((x - x0)/(x1-x0)) : (x - x0);
-//			dy = (y1-y0) != 0 ? ((y - y0)/(y1-y0)) : (y - y0);
-//			dz = (z1-z0) != 0 ? ((z - z0)/(z1-z0)) : (z - z0);
-			dx = (x-x0);
-			dy = (y-y0);
-			dz = (z-z0);
-			
-//			System.out.println(dx+" "+dy+" "+dz);
-			
-			if (dx<0) {
-				x -= 1;
-				dx += 1;
-			}
-			if (dy<0){
-				y -= 1;
-				dy += 1;
-			}
-			if (dz<0){
-				z -= 1;
-				dz += 1;
-			}
-
-			// Introduce more variables to reduce computation
-			hx = 1.0f - dx;
-			hy = 1.0f - dy;
-			hz = 1.0f - dz;
-			
-			// Optimized below
-			int slice = XN * YN;
-			z0 *= slice;
-			z1 *= slice;
-			y0 *= XN;
-			y1 *= XN;
-			
-			float c000 = oldV[x0 + y0 + z0];
-			float c100 = oldV[x1 + y0 + z0];
-			float c001 = oldV[x0 + y0 + z1];
-			float c101 = oldV[x1 + y0 + z1];
-			float c010 = oldV[x0 + y1 + z0];
-			float c110 = oldV[x1 + y1 + z0];
-			float c011 = oldV[x0 + y1 + z1];
-			float c111 = oldV[x1 + y1 + z1];
-			
-			double c00 = c000*hx + c100*dx;
-			double c01 = c001*hx + c101*dx;
-			double c10 = c010*hx + c110*dx;
-			double c11 = c011*hx + c111*dx;
-			
-			double c0 = c00*hy + c10*dy;
-			double c1 = c01*hy + c11*dy;
-			
-			double pix = c0*hz + c1*dz;
-			
-			// trilinear interpolation
-//			double[] interpWeights = new double[8];
-//			interpWeights[0] = hx*hy*hz;
-//			interpWeights[1] = (1-hx)*(hy)*(hz);
-//			interpWeights[2] = (hx)*(1-hy)*(hz);
-//			interpWeights[3] = (hx)*(hy)*(1-hz);
-//			interpWeights[4] = (1-hx)*(1-hy)*(hz);
-//			interpWeights[5] = (hx)*(1-hy)*(1-hz);
-//			interpWeights[6] = (1-hx)*(hy)*(1-hz);
-//			interpWeights[7] = (1-hx)*(1-hy)*(1-hz);
-//			
-//			double pix = c000 * interpWeights[0];
-//			pix += c100 * interpWeights[1];
-//			pix += c010 * interpWeights[2];
-//			pix += c001 * interpWeights[3];
-//			pix += c110 * interpWeights[4];
-//			pix += c011 * interpWeights[5];
-//			pix += c101 * interpWeights[6];
-//			pix += c111 * interpWeights[7];
-			
-			return pix;
+		x1 = (int) Math.ceil(x);
+		y1 = (int) Math.ceil(y);
+		z1 = (int) Math.ceil(z);
+		x0 = (int) Math.floor(x);
+		y0 = (int) Math.floor(y);
+		z0 = (int) Math.floor(z);
+		
+		if(x1==x0 && y1==y0 && z1==z0) {
+			return getInterpolateVoxelValue(orgV, XN, YN, ZN, x0, y0, z0);
 		}
+		
+		dx = (x1-x0) != 0 ? (x - x0)/(x1-x0) : (x - x0);
+		dy = (y1-y0) != 0 ? (y - y0)/(y1-y0) : (y - y0);
+		dz = (z1-z0) != 0 ? (z - z0)/(z1-z0) : (z - z0);
+
+		hx = 1.0f - dx;
+		hy = 1.0f - dy;
+		hz = 1.0f - dz;
+		
+		float c000 = getInterpolateVoxelValue(orgV, XN, YN, ZN, x0, y0, z0);//orgV[x0 + y0 + z0];
+		float c100 = getInterpolateVoxelValue(orgV, XN, YN, ZN, x1, y0, z0);//orgV[x1 + y0 + z0];
+		float c001 = getInterpolateVoxelValue(orgV, XN, YN, ZN, x0, y0, z1);//orgV[x0 + y0 + z1];
+		float c101 = getInterpolateVoxelValue(orgV, XN, YN, ZN, x1, y0, z1);//orgV[x1 + y0 + z1];
+		float c010 = getInterpolateVoxelValue(orgV, XN, YN, ZN, x0, y1, z0);//orgV[x0 + y1 + z0];
+		float c110 = getInterpolateVoxelValue(orgV, XN, YN, ZN, x1, y1, z0);//orgV[x1 + y1 + z0];
+		float c011 = getInterpolateVoxelValue(orgV, XN, YN, ZN, x0, y1, z1);//orgV[x0 + y1 + z1];
+		float c111 = getInterpolateVoxelValue(orgV, XN, YN, ZN, x1, y1, z1);//orgV[x1 + y1 + z1];
+		
+		double c00 = c000*hx + c100*dx;
+		double c01 = c001*hx + c101*dx;
+		double c10 = c010*hx + c110*dx;
+		double c11 = c011*hx + c111*dx;
+		
+		double c0 = c00*hy + c10*dy;
+		double c1 = c01*hy + c11*dy;
+		
+		double pix = c0*hz + c1*dz;
+		
+		return pix;
+	}
+	
+	private static float getInterpolateVoxelValue(float[] orgV, int XN, int YN, int ZN, int x, int y, int z) {
+		if (x < 0 || y < 0 || z < 0) {
+			return 0f;
+		}
+		if(x > XN-1 || y > YN-1 || z > ZN-1) {
+			return 0f;
+		}
+		int slice = XN * YN;
+		z *= slice;
+		y *= XN;
+		return orgV[x+y+z];
 	}
 	
 	/*
@@ -1045,52 +859,6 @@ public class Utils {
 				(v111 + v100 + v010 + v001 - v110 - v101 - v011 - v000)*dx*dy*dz + v000 );
 	}
 	
-	
-//	public static double TrilinearInterpolation3(ImagePlus preImp, int preW, int preH, int preS, double x, double y, double z) {
-//		
-//		int x0, y0, z0, x1, y1, z1;
-//		double dx, dy, dz, hx, hy, hz;
-//		
-//		if (x < 0 || x > (preW - 1) || y < 0 || y > (preH - 1) || z < 0 || z > (preS - 1)) {
-//			return 0;
-//		} else {
-//			
-//			x1 = (int) Math.ceil(x);
-//			x0 = (int) Math.floor(x);
-//			y1 = (int) Math.ceil(y);
-//			y0 = (int) Math.floor(y);
-//			z1 = (int) Math.ceil(z);
-//			z0 = (int) Math.floor(z);
-//			
-//			dx = (x1-x0) != 0 ? (x - x0)/(x1-x0) : (x - x0);
-//			dy = (y1-y0) != 0 ? (y - y0)/(y1-y0) : (y - y0);
-//			dz = (z1-z0) != 0 ? (z - z0)/(z1-z0) : (z - z0);
-//			
-//			// Introduce more variables to reduce computation
-//			hx = 1.0f - dx;
-//			hy = 1.0f - dy;
-//			hz = 1.0f - dz;
-//			
-//			float c000 = isOutOfRange(new Point3i(x0, y0, z0), preW, preH, preS) ? 0f : preImp.getStack().getProcessor(z0+1).getPixelValue(x0,y0);
-//			float c100 = isOutOfRange(new Point3i(x1, y0, z0), preW, preH, preS) ? 0f : preImp.getStack().getProcessor(z0+1).getPixelValue(x1,y0);
-//			float c001 = isOutOfRange(new Point3i(x0, y0, z1), preW, preH, preS) ? 0f : preImp.getStack().getProcessor(z1+1).getPixelValue(x0,y0);
-//			float c101 = isOutOfRange(new Point3i(x1, y0, z1), preW, preH, preS) ? 0f : preImp.getStack().getProcessor(z1+1).getPixelValue(x1,y0);
-//			float c010 = isOutOfRange(new Point3i(x0, y1, z0), preW, preH, preS) ? 0f : preImp.getStack().getProcessor(z0+1).getPixelValue(x0,y1);
-//			float c110 = isOutOfRange(new Point3i(x1, y1, z0), preW, preH, preS) ? 0f : preImp.getStack().getProcessor(z0+1).getPixelValue(x1,y1);
-//			float c011 = isOutOfRange(new Point3i(x0, y1, z1), preW, preH, preS) ? 0f : preImp.getStack().getProcessor(z1+1).getPixelValue(x0,y1);
-//			float c111 = isOutOfRange(new Point3i(x1, y1, z1), preW, preH, preS) ? 0f : preImp.getStack().getProcessor(z1+1).getPixelValue(x1,y1);
-//			
-//			double c00 = c000*hx + c100*dx;
-//			double c01 = c001*hx + c101*dx;
-//			double c10 = c010*hx + c110*dx;
-//			double c11 = c011*hx + c111*dx;
-//			
-//			double c0 = c00*hy + c10*dy;
-//			double c1 = c01*hy + c11*dy;
-//			
-//			return c0*hz + c1*dz;
-//		}
-//	}
 	
 	/**
 	 * 

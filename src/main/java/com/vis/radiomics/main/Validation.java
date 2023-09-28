@@ -90,7 +90,8 @@ public class Validation {
 	//debug
 	public static void main(String[] args) {
 //		Validation.ibsiDigitalPhantom();
-		Validation.ibsi_ct_PAT1(ValidationConfigType.C);
+//		Validation.ibsi_ct_PAT1(ValidationConfigType.C);
+//		Validation.ibsi_ct_PAT1(ValidationConfigType.D);
 	}
 	
 	/**
