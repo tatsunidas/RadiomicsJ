@@ -534,18 +534,22 @@ public class Utils {
 		if(!isMask) {
 			if(RadiomicsJ.interpolation3D == RadiomicsJ.TRILINEAR) {
 				return trilinearInterpolation(imp, isMask, x, y, z);
-			}else if(RadiomicsJ.interpolation3D == ImageProcessor.NEAREST_NEIGHBOR){
+			}else if(RadiomicsJ.interpolation3D == RadiomicsJ.NEAREST_NEIGHBOR_3D){
 				return nearestNeighbourInterpolation(imp, isMask, x, y, z);
+			}else if(RadiomicsJ.interpolation3D == RadiomicsJ.TRICUBICSPLINE){
+				return tricubicSplineInterpolation(imp, isMask, x, y, z);
 			}
 			//add new interpolation methods
 		}else {
 			if(RadiomicsJ.interpolation_mask3D == RadiomicsJ.TRILINEAR) {
 				return trilinearInterpolation(imp, isMask, x, y, z);
-			}else if(RadiomicsJ.interpolation_mask3D == ImageProcessor.NEAREST_NEIGHBOR){
+			}else{
+				//force RadiomicsJ.NEAREST_NEIGHBOR_3D
 				return nearestNeighbourInterpolation(imp, isMask, x, y, z);
-			}else if(RadiomicsJ.interpolation_mask3D == RadiomicsJ.NONE_3D_INTERPOLATION){
-				return resample3d_withoutInterpolation(imp, x,y,z);
 			}
+//			else if(RadiomicsJ.interpolation_mask3D == RadiomicsJ.NONE_3D_INTERPOLATION){
+//				return resample3d_withoutInterpolation(imp, x,y,z);
+//			}
 			//add new interpolation methods
 		}
 		return null;
