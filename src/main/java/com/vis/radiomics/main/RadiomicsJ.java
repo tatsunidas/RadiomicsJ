@@ -313,9 +313,12 @@ public class RadiomicsJ {
 	 * interpolation for image.
 	 * NEAREST_NEIGHBOR=0, NONE=0, BILINEAR=1, BICUBIC=2;
 	 */
-	public static int interpolation2D = ImageProcessor.BICUBIC;
+	public static int interpolation2D = ImageProcessor.NEAREST_NEIGHBOR;
+	
 	
 	public static final int TRILINEAR = 100;
+	public static final int NEAREST_NEIGHBOR_3D = 101;
+	public static final int TRICUBICSPLINE = 102;
 	
 	/**
 	 * Custom simple interpolation.
@@ -323,10 +326,14 @@ public class RadiomicsJ {
 	 * This is not the same to 3D NEAREST NEIGHBOUR.
 	 *  
 	 */
+	@Deprecated
 	public static final int NONE_3D_INTERPOLATION = 999;
 	
 	public static int interpolation3D = TRILINEAR;
 	
+	/**
+	 * only use TRILINEAR or NEAREST_NEIGHBOR
+	 */
 	public static int interpolation_mask3D = TRILINEAR;
 	
 	/**
@@ -672,10 +679,9 @@ public class RadiomicsJ {
 					if(keyString.equals(SettingParams.INT_interpolation3D.name())) {
 						try{
 							Integer n = Integer.valueOf(val);
-							if(n < 0) {
-								n = 0;
+							if(n == TRILINEAR || n == NEAREST_NEIGHBOR_3D || n == TRICUBICSPLINE) {
+								RadiomicsJ.interpolation3D = n;
 							}
-							RadiomicsJ.interpolation3D = n;
 						}catch(NumberFormatException e) {
 							//keep default
 							continue;

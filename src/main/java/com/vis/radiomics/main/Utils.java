@@ -761,7 +761,8 @@ public class Utils {
 	 */
 	public static double trilinearInterpolation(float[] orgV, int XN, int YN, int ZN, double x, double y, double z) {
 		
-		int x0, y0, z0, x1, y1, z1;
+		int x0, y0, z0;
+		int x1, y1, z1;
 		double dx, dy, dz, hx, hy, hz;
 		
 		x1 = (int) Math.ceil(x);
@@ -772,7 +773,7 @@ public class Utils {
 		z0 = (int) Math.floor(z);
 		
 		if(x1==x0 && y1==y0 && z1==z0) {
-			return getInterpolateVoxelValue(orgV, XN, YN, ZN, x0, y0, z0);
+			return getVoxelInVolume(orgV, XN, YN, ZN, x0, y0, z0);
 		}
 		
 		dx = (x1-x0) != 0 ? (x - x0)/(x1-x0) : (x - x0);
@@ -783,15 +784,15 @@ public class Utils {
 		hy = 1.0f - dy;
 		hz = 1.0f - dz;
 		
-		float c000 = getInterpolateVoxelValue(orgV, XN, YN, ZN, x0, y0, z0);//orgV[x0 + y0 + z0];
-		float c100 = getInterpolateVoxelValue(orgV, XN, YN, ZN, x1, y0, z0);//orgV[x1 + y0 + z0];
-		float c001 = getInterpolateVoxelValue(orgV, XN, YN, ZN, x0, y0, z1);//orgV[x0 + y0 + z1];
-		float c101 = getInterpolateVoxelValue(orgV, XN, YN, ZN, x1, y0, z1);//orgV[x1 + y0 + z1];
-		float c010 = getInterpolateVoxelValue(orgV, XN, YN, ZN, x0, y1, z0);//orgV[x0 + y1 + z0];
-		float c110 = getInterpolateVoxelValue(orgV, XN, YN, ZN, x1, y1, z0);//orgV[x1 + y1 + z0];
-		float c011 = getInterpolateVoxelValue(orgV, XN, YN, ZN, x0, y1, z1);//orgV[x0 + y1 + z1];
-		float c111 = getInterpolateVoxelValue(orgV, XN, YN, ZN, x1, y1, z1);//orgV[x1 + y1 + z1];
-		
+		float c000 = getVoxelInVolume(orgV, XN, YN, ZN, x0, y0, z0);//orgV[x0 + y0 + z0];
+		float c100 = getVoxelInVolume(orgV, XN, YN, ZN, x1, y0, z0);//orgV[x1 + y0 + z0];
+		float c001 = getVoxelInVolume(orgV, XN, YN, ZN, x0, y0, z1);//orgV[x0 + y0 + z1];
+		float c101 = getVoxelInVolume(orgV, XN, YN, ZN, x1, y0, z1);//orgV[x1 + y0 + z1];
+		float c010 = getVoxelInVolume(orgV, XN, YN, ZN, x0, y1, z0);//orgV[x0 + y1 + z0];
+		float c110 = getVoxelInVolume(orgV, XN, YN, ZN, x1, y1, z0);//orgV[x1 + y1 + z0];
+		float c011 = getVoxelInVolume(orgV, XN, YN, ZN, x0, y1, z1);//orgV[x0 + y1 + z1];
+		float c111 = getVoxelInVolume(orgV, XN, YN, ZN, x1, y1, z1);//orgV[x1 + y1 + z1];
+				
 		double c00 = c000*hx + c100*dx;
 		double c01 = c001*hx + c101*dx;
 		double c10 = c010*hx + c110*dx;
@@ -805,7 +806,7 @@ public class Utils {
 		return pix;
 	}
 	
-	private static float getInterpolateVoxelValue(float[] orgV, int XN, int YN, int ZN, int x, int y, int z) {
+	private static float getVoxelInVolume(float[] orgV, int XN, int YN, int ZN, int x, int y, int z) {
 		if (x < 0 || y < 0 || z < 0) {
 			return 0f;
 		}
@@ -1033,6 +1034,145 @@ public class Utils {
 		} else {
 			return 0;
 		}
+	}
+	
+	public static ImagePlus tricubicSplineInterpolation(ImagePlus imp, boolean isMask, double resampleX, double resampleY, double resampleZ) {
+		if(imp == null){
+			return null;
+		}
+		if(resampleX < 0d || resampleY < 0d || resampleZ < 0d) {
+			return null;
+		}
+		Calibration cal = imp.getCalibration().copy();
+		int w = imp.getWidth();
+		int h = imp.getHeight();
+		int s = imp.getStackSize();
+		int imageType = imp.getType();
+		if(imageType != ImagePlus.GRAY8 && imageType != ImagePlus.GRAY16 && imageType != ImagePlus.GRAY32) {
+			return null;
+		}
+
+		/*
+		 * From IBSI: The size of the interpolation grid is determined by rounding the
+		 * fractional grid size towards infinity, i.e. a ceiling operation. This
+		 * prevents the interpolation grid from disappearing for very small images, but
+		 * is otherwise an arbitrary choice.
+		 */
+		int newW = (int)Math.ceil(w * (cal.pixelWidth / resampleX));
+		int newH = (int)Math.ceil(h * (cal.pixelHeight / resampleY));
+		int newS = (int)Math.ceil(s * (cal.pixelDepth / resampleZ));
+		
+		if(newS == s) {
+			//force use bilinear
+			return resample2D(imp, isMask, resampleX, resampleY, ImageProcessor.BICUBIC);
+		}
+		
+		float[] voxels = new float[w*h*s];
+		float[] deformed = new float[newW*newH*newS];
+		int itr = 0;
+		for (int z = 0; z < s; z++) {
+			ImageProcessor ip = imp.getStack().getProcessor(z+1);
+			for(int y = 0; y < h; y++) {
+				for(int x = 0; x < w; x++) {
+					voxels[itr++] = ip.getf(x, y);
+				}
+			}
+		}
+		
+		double x, y, z;
+		float ratio[] = new float[3];
+		ratio[0] = (float)newW / (float)w;
+		ratio[1] = (float)newH / (float)h;
+		ratio[2] = (float)newS / (float)s;
+		
+		int slice = newW * newH;
+		//cubic spline weight
+		float[][] sw = new float[256][4];
+		int sw_length = sw.length;
+		for (int i = 0; i < sw_length; i++) {
+			float dx = i/(float)sw_length;
+			float dx2 = dx*dx;
+			float dx_ = 1-dx;
+			float dx_2 = dx_*dx_;
+			sw[i][0] = dx_2*dx_/6;
+			sw[i][1] = 2/3f - 0.5f*dx2*(2-dx);
+			sw[i][2] = 2/3f - 0.5f*dx_2*(1+dx);
+			sw[i][3] = dx2*dx/6;
+		}
+		
+		int index;
+		for (int i = 0; i < newW; i++) {
+			x = (i / ratio[0]);
+			for (int j = 0; j < newH; j++) {
+				y = (j / ratio[1]);
+				for (int k = 0; k < newS; k++) {
+					z = (k / ratio[2]);
+					index = k * slice + j * newW + i;
+					float interp = (float) (tricubicSplineInterpolation(voxels, sw, w, h, s, x, y, z));
+					if(!isMask) {//img
+						deformed[index] = interp;
+					}else {//mask
+						/*
+						 * this methods always need mask has label "1".
+						 */
+						if(interp >= RadiomicsJ.mask_PartialVolumeThareshold) {
+							deformed[index] = (float)RadiomicsJ.label_;
+						}else {
+							deformed[index] = 0f;
+						}
+					}
+				}
+			}
+		}
+		ImageStack stack = new ImageStack(newW, newH);
+		for(int z2=0;z2<newS;z2++) {
+			float[] s_fp = new float[newW*newH];
+			int start = newW*newH*z2;
+			for(int s2=start;s2<start+slice;s2++) {
+				s_fp[s2-start] = deformed[s2];
+			}
+			ImageProcessor ip = new FloatProcessor(newW, newH, s_fp);
+			stack.addSlice(ip);
+		}	
+		ImagePlus interp = new ImagePlus("tri", stack);
+		cal.pixelWidth = resampleX;
+		cal.pixelHeight = resampleY;
+		cal.pixelDepth = resampleZ;
+		interp.setCalibration(cal);
+		interp.getCalibration().disableDensityCalibration();
+		return interp;
+	}
+	
+	public static double tricubicSplineInterpolation(float[] orgV, float[][] cubicSplineWeights, int XN, int YN, int ZN, double x, double y, double z) {
+		int x0, y0, z0;
+		double dx, dy, dz;
+		
+		x0 = (int) Math.floor(x);
+		y0 = (int) Math.floor(y);
+		z0 = (int) Math.floor(z);
+		
+		dx = (x - x0);
+		dy = (y - y0);
+		dz = (z - z0);
+		
+		float[] wx = cubicSplineWeights[(int) (dx*256)];
+		float[] wy = cubicSplineWeights[(int) (dy*256)];
+		float[] wz = cubicSplineWeights[(int) (dz*256)];
+
+		double vz = 0;
+		for (int zi = 0; zi < 4; zi++) {
+			float vy = 0;
+			for (int yi = 0; yi < 4; yi++) {
+				float vx = 0;
+				for (int xi = 0; xi < 4; xi++) {
+					float vx_ = wx[xi] * getVoxelInVolume(orgV, XN, YN, ZN, x0 + xi, y0 + yi, z0 + zi);
+					vx += vx_;
+				}
+				vy += wy[yi]*vx;
+			}
+			vz += wz[zi]*vy;
+		}
+		return vz;
 	}
 	
 	public static double DoubleDistance(double z0, double y0, double x0,
