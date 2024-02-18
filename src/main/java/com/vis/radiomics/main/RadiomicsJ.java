@@ -247,7 +247,7 @@ public class RadiomicsJ {
 	
 	
 	/**
-	 * use test data
+	 * debug setting
 	 */
 	public static boolean debug = false;
 	
@@ -322,7 +322,7 @@ public class RadiomicsJ {
 	
 	/**
 	 * Custom simple interpolation.
-	 * perform 2 dimentional NearestNeighbour to x,y,z.
+	 * perform 2 dimensional NearestNeighbour to x,y,z.
 	 * This is not the same to 3D NEAREST NEIGHBOUR.
 	 *  
 	 */
@@ -411,14 +411,12 @@ public class RadiomicsJ {
 	
 	/**
 	 * fixed bin size
-	 * calculate by (Xgl[max]-Xgl[min])+1.
 	 * see, Utils.getNumOfBinsByMinMaxRange()
 	 */
 	public static Integer nBins = 32;
 	
 	/**
 	 * fixed bin width
-	 * calculate by ((Xgl - Xgl[min])/binWidth)+1.
 	 * Value is should specified in unit.
 	 */
 	public static Double binWidth = 25d;//in unit.
