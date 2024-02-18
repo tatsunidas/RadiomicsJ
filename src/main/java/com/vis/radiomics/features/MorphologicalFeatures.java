@@ -686,6 +686,7 @@ public class MorphologicalFeatures {
 	
 	@SuppressWarnings("unused")
 	private Double getMaximum3DDiameterUsingConvHull() {
+		@SuppressWarnings("deprecation")
 		ImagePlus mask = new Convex_Hull3DTool().run(isoMask);
 		int w = mask.getWidth();
 		int h = mask.getHeight();
