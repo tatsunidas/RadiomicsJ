@@ -245,7 +245,7 @@ public class NGLDMFeatures {
 							int count = 0;
 							for (Point3i p : neighbor) {
 								ImageProcessor ip = discImg.getStack().getProcessor(p.z+1);
-								ImageProcessor mp = mask.getStack().getProcessor(p.z+1);
+								//ImageProcessor mp = mask.getStack().getProcessor(p.z+1);
 								float fv = ip.getf(p.x, p.y);
 								if(!Float.isNaN(fv)) {
 									if (Math.abs(grayLevel - ((int)fv)) <= alpha) {

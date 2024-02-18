@@ -22,7 +22,7 @@ public class Convex_Hull3DTool {
 	 *
 	 * @param ip image to process, must be labelled
 	 */
-	@SuppressWarnings("deprecation")
+	@Deprecated
 	public ImagePlus run(ImagePlus imp) {
 		Calibration cal = imp.getCalibration();
 		double resXY = 1.0;
