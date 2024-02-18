@@ -1,21 +1,31 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-  <modelVersion>4.0.0</modelVersion>
-  <groupId>com.vis.radiomics</groupId>
-  <artifactId>RadiomicsJ</artifactId>
-  <version>2.1.2-SNAPSHOT</version>
-  <name>RadiomicsJ</name>
-  <description>A library to compte radiomics features.</description>
-
-  <properties>
+  
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>com.vis.radiomics</groupId>
+	<artifactId>RadiomicsJ</artifactId>
+	<version>2.1.1-SNAPSHOT</version>
+	<name>RadiomicsJ</name>
+	<description>A library to compte radiomics features.</description>
+  
+	<properties>
 		<exec.mainClass>com.vis.radiomics.main.RadiomicsJ</exec.mainClass>
 		<jdk.version>8</jdk.version>
-		<java.version>8</java.version>
-		<maven.compiler.source>8</maven.compiler.source>
-		<maven.compiler.target>8</maven.compiler.target>
-		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+	  	<java.version>8</java.version>
+	  	<maven.compiler.source>8</maven.compiler.source>
+	  	<maven.compiler.target>8</maven.compiler.target>
+	  	<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+	  	<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+	  	<github.global.server>github</github.global.server>
 	</properties>
 	
+	<distributionManagement>
+		<repository>
+       	<id>internal.repo</id>
+        	<name>Temporary Staging Repository</name>
+        	<url>file://${project.build.directory}/master</url>
+    	</repository>
+	</distributionManagement>
+
 	<repositories>
 		<repository>
 			<id>scijava.public</id>
@@ -25,7 +35,57 @@
 	
 	<build>
 		<plugins>
-			<!-- download source code in Eclipse, best practice -->
+			<plugin>
+				<artifactId>maven-source-plugin</artifactId>
+				<version>3.3.0</version>
+		   		<executions>
+		       	<execution>
+		          		<id>attach-sources</id>
+			          <phase>deploy</phase>
+			          <goals><goal>jar-no-fork</goal></goals> 
+		        	</execution>
+		      	</executions>
+		   </plugin>
+		   <plugin> 
+		   		<artifactId>maven-javadoc-plugin</artifactId>
+		   		<version>3.3.0</version>
+		      	<executions> 
+		        	<execution> 
+		          		<id>attach-javadocs</id>
+		          		<phase>deploy</phase>
+		          		<goals><goal>jar</goal></goals> 
+		        	</execution> 
+		      	</executions> 
+			</plugin>
+			<plugin>
+			    <artifactId>maven-deploy-plugin</artifactId>
+			    <version>3.1.1</version>
+			    <configuration>
+			        <altDeploymentRepository>internal.repo::default::file://${project.build.directory}/master</altDeploymentRepository>
+			    </configuration>
+			</plugin>
+			<plugin>
+			    <groupId>com.github.github</groupId>
+			    <artifactId>site-maven-plugin</artifactId>
+			    <version>0.12</version>
+			    <configuration>
+			        <message>Maven artifacts for ${project.version}</message> <!-- git commit message -->
+			        <noJekyll>true</noJekyll>  <!-- disable webpage processing -->
+			        <outputDirectory>${project.build.directory}/master</outputDirectory> <!-- matches distribution management repository url above -->
+			        <branch>refs/heads/master</branch> <!-- remote branch name -->
+			        <includes><include>**/*</include></includes>
+			        <repositoryName>RadiomicsJ</repositoryName> <!-- github repo name -->
+			        <repositoryOwner>tatsunidas</repositoryOwner> <!-- organization or user name  -->
+			    </configuration>
+			    <executions> <!-- run site-maven-plugin's 'site' target as part of the build's normal 'deploy' phase -->
+			      <execution>
+			        <goals>
+			          <goal>site</goal>
+			        </goals>
+			        <phase>deploy</phase>
+			      </execution>
+			    </executions>
+			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-eclipse-plugin</artifactId>
@@ -51,7 +111,7 @@
 				<artifactId>maven-assembly-plugin</artifactId>
 				<version>3.3.0</version>
 				<configuration>
-					<finalName>RadiomicsJ-${version}</finalName>
+					<finalName>RadiomicsJ-${project.version}</finalName>
 					<descriptorRefs>
 						<!-- include all dependensies to jar -->
 						<descriptorRef>jar-with-dependencies</descriptorRef>
@@ -150,5 +210,4 @@
 			<version>4.1.2</version>
 		</dependency>
 	</dependencies>
-
 </project>
