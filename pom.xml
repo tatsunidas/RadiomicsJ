@@ -22,7 +22,7 @@
 		<repository>
        	<id>internal.repo</id>
         	<name>Temporary Staging Repository</name>
-        	<url>file://${project.build.directory}/master</url>
+        	<url>file://${project.build.directory}/mvn-repo</url>
     	</repository>
 	</distributionManagement>
 
@@ -61,7 +61,7 @@
 			    <artifactId>maven-deploy-plugin</artifactId>
 			    <version>3.1.1</version>
 			    <configuration>
-			        <altDeploymentRepository>internal.repo::default::file://${project.build.directory}/master</altDeploymentRepository>
+			        <altDeploymentRepository>internal.repo::default::file://${project.build.directory}/mvn-repo</altDeploymentRepository>
 			    </configuration>
 			</plugin>
 			<plugin>
@@ -71,7 +71,7 @@
 			    <configuration>
 			        <message>Maven artifacts for ${project.version}</message> <!-- git commit message -->
 			        <noJekyll>true</noJekyll>  <!-- disable webpage processing -->
-			        <outputDirectory>${project.build.directory}/master</outputDirectory> <!-- matches distribution management repository url above -->
+			        <outputDirectory>${project.build.directory}/mvn-repo</outputDirectory> <!-- matches distribution management repository url above -->
 			        <branch>refs/heads/master</branch> <!-- remote branch name -->
 			        <includes><include>**/*</include></includes>
 			        <repositoryName>RadiomicsJ</repositoryName> <!-- github repo name -->
