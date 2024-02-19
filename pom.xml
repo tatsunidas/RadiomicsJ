@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.vis.radiomics</groupId>
 	<artifactId>RadiomicsJ</artifactId>
-	<version>2.1.1-SNAPSHOT</version>
+	<version>2.1.2</version>
 	<name>RadiomicsJ</name>
 	<description>A library to compte radiomics features.</description>
   
@@ -20,9 +20,9 @@
 	
 	<distributionManagement>
 		<repository>
-       	<id>internal.repo</id>
-        	<name>Temporary Staging Repository</name>
-        	<url>file://${project.build.directory}/mvn-repo</url>
+       	<id>github</id>
+        	<name>tatsunidas</name>
+        	<url>https://maven.pkg.github.com/tatsunidas/RadiomicsJ</url>
     	</repository>
 	</distributionManagement>
 
@@ -41,8 +41,8 @@
 		   		<executions>
 		       	<execution>
 		          		<id>attach-sources</id>
-			          <phase>deploy</phase>
-			          <goals><goal>jar-no-fork</goal></goals> 
+			          <phase>package</phase>
+			          <goals><goal>jar</goal></goals> 
 		        	</execution>
 		      	</executions>
 		   </plugin>
@@ -52,39 +52,10 @@
 		      	<executions> 
 		        	<execution> 
 		          		<id>attach-javadocs</id>
-		          		<phase>deploy</phase>
+		          		<phase>package</phase>
 		          		<goals><goal>jar</goal></goals> 
 		        	</execution> 
 		      	</executions> 
-			</plugin>
-			<plugin>
-			    <artifactId>maven-deploy-plugin</artifactId>
-			    <version>3.1.1</version>
-			    <configuration>
-			        <altDeploymentRepository>internal.repo::default::file://${project.build.directory}/mvn-repo</altDeploymentRepository>
-			    </configuration>
-			</plugin>
-			<plugin>
-			    <groupId>com.github.github</groupId>
-			    <artifactId>site-maven-plugin</artifactId>
-			    <version>0.12</version>
-			    <configuration>
-			        <message>Maven artifacts for ${project.version}</message> <!-- git commit message -->
-			        <noJekyll>true</noJekyll>  <!-- disable webpage processing -->
-			        <outputDirectory>${project.build.directory}/mvn-repo</outputDirectory> <!-- matches distribution management repository url above -->
-			        <branch>refs/heads/master</branch> <!-- remote branch name -->
-			        <includes><include>**/*</include></includes>
-			        <repositoryName>RadiomicsJ</repositoryName> <!-- github repo name -->
-			        <repositoryOwner>tatsunidas</repositoryOwner> <!-- organization or user name  -->
-			    </configuration>
-			    <executions> <!-- run site-maven-plugin's 'site' target as part of the build's normal 'deploy' phase -->
-			      <execution>
-			        <goals>
-			          <goal>site</goal>
-			        </goals>
-			        <phase>deploy</phase>
-			      </execution>
-			    </executions>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
