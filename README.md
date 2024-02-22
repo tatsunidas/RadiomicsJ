@@ -31,7 +31,7 @@ RadiomicsJ performs resampling with:
 	NearestNeighbor2D  
 - [3D]  
 	Trilinear  
-	NearestNeighbor3D
+	NearestNeighbor3D  
 	TricubicBSpline/Polynomial
 
 ### Range filtering
