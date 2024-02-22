@@ -37,7 +37,7 @@ import ij.ImagePlus;
 import ij.measure.ResultsTable;
 
 /**
- * 
+ * Test to build using maven.
  * @author tatsunidas <t_kobayashi@vis-ionary.com>
  *
  */
@@ -58,7 +58,7 @@ public class Validation {
 //	static final String ConfigurationBSettingsParam = "validation/ParamsTestCT_PAT1_Config_B.properties";//2D basis
 	static final String ConfigurationCSettingsParam = "validation/ParamsTestCT_PAT1_Config_C.properties";//3D basis
 	static final String ConfigurationDSettingsParam = "validation/ParamsTestCT_PAT1_Config_D.properties";//3D basis
-//	static final String ConfigurationESettingsParam = "validation/ParamsTestCT_PAT1_Config_E.properties";//tricubic spline interpolation is not implemented.
+	static final String ConfigurationESettingsParam = "validation/ParamsTestCT_PAT1_Config_E.properties";//tricubic spline interpolation
 	
 	public enum ValidationConfigType{
 		A,B,C,D,E,P//P(digital phantom1) 
@@ -149,6 +149,7 @@ public class Validation {
 		System.out.println("===== ===== ===== ===== ===== =====\n");
 		String header[] = res.getHeadings();
 		ArrayList<String> no_matches = new ArrayList<>();
+		ArrayList<String> no_match_serius = new ArrayList<>();
 		ArrayList<String> errors = new ArrayList<>();
 		for(String h : header) {
 			String h2 = header2familyName_3D(h);
@@ -200,6 +201,7 @@ public class Validation {
 					String Color = null;
 					if(errorType == ErrorRateType.SeriousErrors || errorType == ErrorRateType.MinorErrors_Large) {
 						Color = ANSI_RED;
+						no_match_serius.add(h+ " : NoMatch ( output: "+dv+", ans: "+ans+", tolerance: "+tole+" ) "+errorType+","+IJ.d2s(error, 3));
 					}else {
 						Color = ANSI_PURPLE;
 					}
@@ -208,8 +210,16 @@ public class Validation {
 				}
 			}
 		}
-		if(no_matches.size() == 0 && errors.size()==0) {
+		if(no_match_serius.isEmpty() && errors.size()==0) {
 			System.out.println(ANSI_CYAN+"All Clear, congrats !");
+			
+			System.out.println("\n===============================================");
+			System.out.println("NO MATCHES (including strict/accurate calculation)");
+			System.out.println("===============================================");
+			System.out.println("\n"+ANSI_RED+"Please check these features...");
+			for(String msg:no_matches) {
+				System.out.println(msg);
+			}
 			return true;
 		}else {
 			System.out.println("\n===============================================");

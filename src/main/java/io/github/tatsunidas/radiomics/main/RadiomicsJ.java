@@ -241,7 +241,7 @@ public class RadiomicsJ {
 	/**
 	 * radiomicsj version
 	 */
-	public static String version = "2.1.2";
+	public static String version = "2.1.3";
 	
 	/**
 	 * use test data
@@ -254,38 +254,50 @@ public class RadiomicsJ {
 	public static final String resultWindowTitle = "Radiomics Features";
 	
 	/**
-	 * original input images
+	 * original input images (stack)
 	 */
 	private ImagePlus originalImp;
+	
+	/**
+	 * original input masks (stack)
+	 */
 	private ImagePlus originalMask;
 	
 	/**
-	 * analysis images using float processor.
+	 * Analysis images using float processor.
 	 */
 	private ImagePlus currentImp;
+	
+	/**
+	 * Analysis masks using float processor.
+	 */
 	private ImagePlus currentMask;
 	
 	/**
 	 * resampled images
 	 */
 	private ImagePlus resampledImp;
+	
+	/**
+	 * resampled masks
+	 */
 	private ImagePlus resampledMask;
 	
 	/**
+	 * Resegmented mask by;
 	 * 1: range filter
 	 * 2: remove outliers
 	 */
 	private ImagePlus resegmentedMask;
 	
 	/**
-	 * after discretised
+	 * discretise images
 	 */
 	public static ImagePlus discretiseImp;
 	
 	/**
-	 * isovoxelized (x,y,z)(w,h,d) mask.
-	 * here, w = h = d.
-	 * created after resampling and re-segmenting.
+	 * isovoxelized mask.
+	 * created after resampling and re-segment.
 	 */
 	protected static ImagePlus isoMask;
 	
@@ -309,7 +321,7 @@ public class RadiomicsJ {
 	
 	/**
 	 * interpolation for image.
-	 * NEAREST_NEIGHBOR=0, NONE=0, BILINEAR=1, BICUBIC=2;
+	 * NEAREST_NEIGHBOR=0, BILINEAR=1, BICUBIC=2;
 	 */
 	public static int interpolation2D = ImageProcessor.NEAREST_NEIGHBOR;
 	public static int interpolation_mask2D = ImageProcessor.NEAREST_NEIGHBOR;
@@ -324,7 +336,7 @@ public class RadiomicsJ {
 	public static int interpolation_mask3D = TRILINEAR;
 	
 	/**
-	 * re-identify mask label value in voxles after interploration.
+	 * re-identify mask label value in voxels after interpolation.
 	 * mask label >= mask, and mask < (mask label+PartialVolumeThareshold)
 	 */
 	public static double mask_PartialVolumeThareshold = 0.5;
@@ -411,14 +423,20 @@ public class RadiomicsJ {
 	
 	static double[] resamplingFactorXYZ=null;
 	
+	/**
+	 * num of bins to calculate IVH features under FBN discrete.
+	 */
 	public static Integer IVH_binCount = 1000;
+	
+	/**
+	 * bin width to calculate IVH features under FBS discrete.
+	 */
 	public static Double IVH_binWidth = 2.5;
 	
 	/**
-	 * IVH have perticluar values both binCount and binWidth.
 	 * IVH_mode 0 : no discrete
-	 * IVH mode 1 : binWidth discrete and performed on continuous operation.
-	 * IVH mode 2 : binCount discrete without continuous operation.
+	 * IVH mode 1 : binWidth discrete
+	 * IVH mode 2 : binCount discrete
 	 */
 	public static Integer IVH_mode = 0;
 	
@@ -442,11 +460,20 @@ public class RadiomicsJ {
 	 */
 	public static Integer deltaNGLevelDM = 1;//distance
 	
+	/**
+	 * (Not implemented)
+	 * weighting norm type
+	 */
 	public static final String[] weighting_norms = new String[] { "no_weighting", "manhattan", "euclidian", "infinity" };
+	
+	/**
+	 * (Not implemented)
+	 * weighting norm
+	 */
 	public static String weightingNorm = null;
 	
 	/**
-	 * to calculate fractal D.
+	 * To calculate fractal D.
 	 * default [2,3,4,6,8,12,16,32,64]
 	 * null-able.
 	 */
@@ -463,9 +490,25 @@ public class RadiomicsJ {
 	public static boolean activate_no_default_features = false;
 	
 	//features
+	
+	/**
+	 * if true, calculate operational info and output to result table.
+	 */
 	boolean BOOL_enableOperationalInfo = true;
+	
+	/**
+	 * if true, calculate diagnostics info (voxel info) and output to result table.
+	 */
 	boolean BOOL_enableDiagnostics = true;
+	
+	/**
+	 * if true, calculate morphological features and output to result table.
+	 */
 	boolean BOOL_enableMorphological = true;
+	
+	/**
+	 * and so on
+	 */
 	boolean BOOL_enableLocalIntensityFeatures = true;
 	boolean BOOL_enableIntensityBasedStatistics = true;
 	boolean BOOL_enableIntensityHistogram = true;
@@ -477,6 +520,10 @@ public class RadiomicsJ {
 	boolean BOOL_enableNGTDM = true;
 	boolean BOOL_enableNGLDM = true;
 	boolean BOOL_enableFractal = true;
+	
+	/**
+	 * Not implemented.
+	 */
 	boolean BOOL_enableHomological = false;
 	
 	/**
@@ -492,6 +539,15 @@ public class RadiomicsJ {
 	
 	/**
 	 * deprecated features
+	 * 
+	 * These features cannot calculate.
+	 * 
+	 * MorphologicalFeatureType.VolumeDensity_OrientedMinimumBoundingBox
+	 * MorphologicalFeatureType.AreaDensity_OrientedMinimumBoundingBox
+	 * MorphologicalFeatureType.VolumeDensity_MinimumVolumeEnclosingEllipsoid
+	 * MorphologicalFeatureType.AreaDensity_MinimumVolumeEnclosingEllipsoid
+	 * IntensityVolumeHistogramFeatureType.AreaUnderTheIVHCurve
+	 * NGLDMFeatureType.DependenceCountPercentage
 	 */
 	public static final String[] excluded_list = new String[] {
 			/*Morphplogical feature*/
@@ -509,20 +565,34 @@ public class RadiomicsJ {
 	 * No default features are not included as default.
 	 * because calculation cost(time) much high (take too long time to calculate).
 	 * if you use these features, turn on activate_include_no_default=true.
+	 * 
+	 * MorphologicalFeatureType.MoransIIndex
+	 * MorphologicalFeatureType.GearysCMeasure
 	 */
 	public static final String[] no_default_list = new String[] {
 			MorphologicalFeatureType.MoransIIndex.name(),
 			MorphologicalFeatureType.GearysCMeasure.name(),
 	};
 	
+	/**
+	 * Default constructor
+	 */
 	public RadiomicsJ() {
 		initExcludeList();
 	}
 	
+	/**
+	 * if true, debug mode on
+	 * @param debug
+	 */
 	public void setDebug(boolean debug) {
 		RadiomicsJ.debug = debug;
 	}
 	
+	/**
+	 * initialize exclude features list.
+	 * 
+	 */
 	private void initExcludeList() {
 		excluded = new HashSet<String>();
 		for(String excludedName : excluded_list) {
@@ -535,10 +605,18 @@ public class RadiomicsJ {
 		}
 	}
 	
+	/**
+	 * 
+	 * @return excluded features
+	 */
 	public HashSet<String> getExcludedFeatures(){
 		return excluded;
 	}
-		
+	
+	/**
+	 * 
+	 * @param name feature name
+	 */
 	public void removeExcludedFeatures(String name) {
 		if(excluded.contains(name)) {
 			ArrayList<String> remove = new ArrayList<String>();
@@ -547,12 +625,19 @@ public class RadiomicsJ {
 		}
 	}
 	
+	/**
+	 * 
+	 */
 	public void activateNoDefaultFeatures() {
 		for(String name:no_default_list) {
 			removeExcludedFeatures(name);
 		}
 	}
 	
+	/**
+	 * 
+	 * @param propFilePath
+	 */
 	public void loadSettings(String propFilePath) {
 		if (propFilePath == null) {
 			return;
@@ -581,7 +666,7 @@ public class RadiomicsJ {
 	
 	/**
 	 * 
-	 * @param propFilePathInResource: validation/***.properties (no need slash"/" in head) 
+	 * @param propFilePathInResource validation/***.properties (no need slash"/" in head) 
 	 */
 	public void loadSettingsFromResource(String propFilePathInResource) {
 		if (propFilePathInResource == null) {
@@ -612,6 +697,10 @@ public class RadiomicsJ {
 		loadSettings(prop);
 	}
 	
+	/**
+	 * Load calculation settings
+	 * @param prop properties
+	 */
 	public void loadSettings(Properties prop) {
 		if(prop == null) {
 			System.out.println("properties file is null. Calculation is performed by using default.");
@@ -964,8 +1053,7 @@ public class RadiomicsJ {
 	}
 	
 	/**
-	 * create copy original as float processor,
-	 * and replace target label to analysis mask label(1).
+	 * create copy as float processor, and replace target label to analysis mask label(1).
 	 * @param originalImp
 	 * @param originalMask
 	 * @param targetLabel
@@ -1086,16 +1174,15 @@ public class RadiomicsJ {
 		if(resegmentedMask == null) {
 			resegmentedMask = Utils.createMaskCopy(mask);
 		}
-		
 		return resegmentedMask;
 	}
 	
 	/**
-	 * create discretized image.
+	 * create discretise image.
 	 * 
-	 * @param resampled : after preprocess()
-	 * @param resegmentedMask : after preprocess()
-	 * @param targetLabel : If preprocessAnalysisReady() performed before, targetLabel should be "1".
+	 * @param resampled resampled image stack
+	 * @param resegmentedMask resampled and resegmented mask stack
+	 * @param targetLabel if preprocessAnalysisReady() performed before, targetLabel should be "1".
 	 * @return
 	 * @throws Exception
 	 */
@@ -1113,6 +1200,14 @@ public class RadiomicsJ {
 		return discretiseImp;
 	}
 	
+	/**
+	 * 
+	 * @param imgSeriesFileFolder
+	 * @param maskSeriesFileFolder
+	 * @param targetLabel
+	 * @return ResultsTable
+	 * @throws Exception
+	 */
 	public ResultsTable execute(File imgSeriesFileFolder, File maskSeriesFileFolder, Integer targetLabel) throws Exception {
 		if(activate_no_default_features) {
 			activateNoDefaultFeatures();
@@ -1193,6 +1288,14 @@ public class RadiomicsJ {
 		}
 	}
 	
+	/**
+	 * 
+	 * @param img
+	 * @param mask
+	 * @param targetLabel
+	 * @return ResultsTable
+	 * @throws Exception
+	 */
 	public ResultsTable execute(ImagePlus img, ImagePlus mask, Integer targetLabel) throws Exception {
 		if(activate_no_default_features) {
 			activateNoDefaultFeatures();
@@ -1204,6 +1307,14 @@ public class RadiomicsJ {
 		}
 	}
 	
+	/**
+	 * 3D basis feature extraction.
+	 * @param img
+	 * @param mask
+	 * @param targetLabel
+	 * @return ResuktsTable
+	 * @throws Exception
+	 */
 	public ResultsTable extractAll(ImagePlus img, ImagePlus mask, Integer targetLabel) throws Exception {
 		originalImp = img;
 		originalMask = mask;
@@ -1219,8 +1330,9 @@ public class RadiomicsJ {
 	
 	
 	/**
+	 * Extract features slice by slice (2D basis without any aggregation)
 	 * images and masks file names should be same or set sortable names pair (it can keep order images and masks list).
-	 * extract features slice by slice
+	 * 
 	 * @throws Exception 
 	 */
 	public ResultsTable extractAllSlice(File[] images, File[] masks, Integer targetLabel) throws Exception {
@@ -1287,7 +1399,7 @@ public class RadiomicsJ {
 	}
 	
 	/**
-	 * extract features slice by slice
+	 * Extract features slice by slice (2D basis without any aggregation)
 	 * @param images : stack series images
 	 * @param masks : stack series masks
 	 * @return
@@ -1340,11 +1452,11 @@ public class RadiomicsJ {
 	}
 	
 	/**
-	 * 
+	 * perform computations
 	 * @param img
 	 * @param mask
 	 * @param targetLabel : if preprocess() is done, set to (1)
-	 * @return
+	 * @return ResultsTable
 	 * @throws Exception
 	 */
 	public ResultsTable compute(ImagePlus img, ImagePlus mask, Integer targetLabel) throws Exception {
