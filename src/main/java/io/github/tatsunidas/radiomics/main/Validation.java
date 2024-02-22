@@ -13,7 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
  */
-package com.vis.radiomics.main;
+package io.github.tatsunidas.radiomics.main;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -89,8 +89,8 @@ public class Validation {
 	
 	//debug
 	public static void main(String[] args) {
-//		Validation.ibsiDigitalPhantom();
-		Validation.ibsi_ct_PAT1(ValidationConfigType.C);
+		Validation.ibsiDigitalPhantom();
+//		Validation.ibsi_ct_PAT1(ValidationConfigType.C);
 	}
 	
 	/**
@@ -98,7 +98,8 @@ public class Validation {
 	 * @return all clear or not
 	 */
 	public static boolean ibsiDigitalPhantom() {
-		ImagePlus[] imgAndMask = TestDataLoader.digital_phantom1_scratch();
+//		ImagePlus[] imgAndMask = TestDataLoader.digital_phantom1_scratch();
+		ImagePlus[] imgAndMask = TestDataLoader.digital_phantom1();
 		try {
 			return testWithConfig(imgAndMask, ValidationConfigType.P, digitalPhantomSettingsParam );
 		} catch (Exception e) {
@@ -139,11 +140,12 @@ public class Validation {
 		radi.setDebug(true);
 
 		ResultsTable res = radi.execute(ds[0], ds[1],RadiomicsJ.targetLabel);
+		
 		if(RadiomicsJ.debug)
 			System.out.println("\nFinish calculating features without any error !\n");
 		
 		System.out.println("===== ===== ===== ===== ===== =====");
-		System.out.println("START VALIDATION");
+		System.out.println("          START VALIDATION");
 		System.out.println("===== ===== ===== ===== ===== =====\n");
 		String header[] = res.getHeadings();
 		ArrayList<String> no_matches = new ArrayList<>();

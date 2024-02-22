@@ -1,13 +1,12 @@
 package radiomics;
 
-import com.vis.radiomics.features.*;
-import com.vis.radiomics.main.RadiomicsJ;
-import com.vis.radiomics.main.TestDataLoader;
-import com.vis.radiomics.main.Utils;
-
 import ij.ImagePlus;
 import ij.process.ByteProcessor;
 import ij.process.ImageProcessor;
+import io.github.tatsunidas.radiomics.features.*;
+import io.github.tatsunidas.radiomics.main.RadiomicsJ;
+import io.github.tatsunidas.radiomics.main.TestDataLoader;
+import io.github.tatsunidas.radiomics.main.Utils;
 
 public class TestGLRLMFeatures {
 	

@@ -2,6 +2,9 @@ package radiomics;
 
 import ij.ImagePlus;
 import ij.measure.ResultsTable;
+import io.github.tatsunidas.radiomics.main.RadiomicsJ;
+import io.github.tatsunidas.radiomics.main.TestDataLoader;
+import io.github.tatsunidas.radiomics.main.Utils;
 
 import org.apache.poi.ss.usermodel.Sheet;
 
@@ -17,10 +20,6 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.CellReference;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-
-import com.vis.radiomics.main.RadiomicsJ;
-import com.vis.radiomics.main.TestDataLoader;
-import com.vis.radiomics.main.Utils;
 
 public class TestRadiomicsJ {
 	

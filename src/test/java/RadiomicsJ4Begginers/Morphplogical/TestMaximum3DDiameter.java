@@ -1,10 +1,9 @@
 package RadiomicsJ4Begginers.Morphplogical;
 
-import com.vis.radiomics.features.MorphologicalFeatureType;
-import com.vis.radiomics.features.MorphologicalFeatures;
-import com.vis.radiomics.main.TestDataLoader;
-
 import ij.ImagePlus;
+import io.github.tatsunidas.radiomics.features.MorphologicalFeatureType;
+import io.github.tatsunidas.radiomics.features.MorphologicalFeatures;
+import io.github.tatsunidas.radiomics.main.TestDataLoader;
 
 public class TestMaximum3DDiameter {
 

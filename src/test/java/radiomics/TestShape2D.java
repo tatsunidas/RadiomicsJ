@@ -1,11 +1,10 @@
 package radiomics;
 
-import com.vis.radiomics.features.Shape2DFeatureType;
-import com.vis.radiomics.features.Shape2DFeatures;
-import com.vis.radiomics.main.RadiomicsJ;
-import com.vis.radiomics.main.TestDataLoader;
-
 import ij.ImagePlus;
+import io.github.tatsunidas.radiomics.features.Shape2DFeatureType;
+import io.github.tatsunidas.radiomics.features.Shape2DFeatures;
+import io.github.tatsunidas.radiomics.main.RadiomicsJ;
+import io.github.tatsunidas.radiomics.main.TestDataLoader;
 
 public class TestShape2D {
 

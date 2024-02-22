@@ -1,9 +1,6 @@
-package com.vis.radiomics.features;
+package io.github.tatsunidas.radiomics.features;
 
 import javax.swing.JOptionPane;
-
-import com.vis.radiomics.main.ImagePreprocessing;
-import com.vis.radiomics.main.Utils;
 
 import ij.ImagePlus;
 import ij.gui.Roi;
@@ -12,6 +9,8 @@ import ij.measure.Measurements;
 import ij.measure.ResultsTable;
 import ij.plugin.filter.Analyzer;
 import ij.process.ImageStatistics;
+import io.github.tatsunidas.radiomics.main.ImagePreprocessing;
+import io.github.tatsunidas.radiomics.main.Utils;
 
 /**
  * 

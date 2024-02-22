@@ -1,4 +1,4 @@
-package com.vis.radiomics.main;
+package io.github.tatsunidas.radiomics.main;
 
 import java.awt.color.ColorSpace;
 import java.awt.image.ColorModel;
@@ -17,13 +17,14 @@ import ij.process.ShortProcessor;
 
 public class TestDataLoader {
 	
+	static ClassLoader loader = Thread.currentThread().getContextClassLoader();
 	static String parent_dir = "data_sets-master/";
 	
 	public static ImagePlus[] digital_phantom1() {
 		String p2i = parent_dir+"ibsi_1_digital_phantom/nifti/image/phantom.nii.gz";
 		String p2m = parent_dir+"ibsi_1_digital_phantom/nifti/mask/mask.nii.gz";
 		try{
-	        URL url_i = TestDataLoader.class.getClassLoader().getResource(p2i);
+	        URL url_i = loader.getResource(p2i);
 	        Object img = IJ.runPlugIn("Nifti_Reader", new File(url_i.toURI()).getAbsolutePath());
 	        URL url_m = TestDataLoader.class.getClassLoader().getResource(p2m);
 	        Object mask = IJ.runPlugIn("Nifti_Reader", new File(url_m.toURI()).getAbsolutePath());
@@ -40,7 +41,7 @@ public class TestDataLoader {
 				false /* hasAlpha */, false /* isAlphaPremultiplied */, ColorModel.OPAQUE /* transparency */,
 				DataBuffer.TYPE_BYTE);
 		/*
-		 * image
+		 * Matrix
 		 */
 		// slice 0
 		short[] r0_0 = new short[] { 1, 4, 4, 1, 1 };
@@ -164,7 +165,7 @@ public class TestDataLoader {
 		String p2i = parent_dir+"ibsi_1_validation/nifti/STS_"+name_id+"/"+modality+"_image.nii.gz";
 		String p2m = parent_dir+"ibsi_1_validation/nifti/STS_"+name_id+"/"+modality+"_mask.nii.gz";
 		try{
-	        URL url_i = TestDataLoader.class.getResource(p2i);
+	        URL url_i = loader.getResource(p2i);
 	        Object img = IJ.runPlugIn("Nifti_Reader", new File(url_i.toURI()).getAbsolutePath());
 	        URL url_m = TestDataLoader.class.getResource(p2m);
 	        Object mask = IJ.runPlugIn("Nifti_Reader", new File(url_m.toURI()).getAbsolutePath());

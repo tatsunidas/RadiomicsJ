@@ -1,10 +1,9 @@
 package radiomics;
 
-import com.vis.radiomics.features.*;
-import com.vis.radiomics.main.RadiomicsJ;
-import com.vis.radiomics.main.TestDataLoader;
-
 import ij.ImagePlus;
+import io.github.tatsunidas.radiomics.features.*;
+import io.github.tatsunidas.radiomics.main.RadiomicsJ;
+import io.github.tatsunidas.radiomics.main.TestDataLoader;
 
 public class TestIntensityBasedStatisticalFeatures {
 	

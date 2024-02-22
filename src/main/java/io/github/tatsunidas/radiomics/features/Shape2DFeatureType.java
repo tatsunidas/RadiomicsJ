@@ -1,4 +1,4 @@
-package com.vis.radiomics.features;
+package io.github.tatsunidas.radiomics.features;
 
 public enum Shape2DFeatureType {
 	PixelSurface("0"),

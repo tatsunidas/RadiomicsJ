@@ -1,7 +1,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>com.vis.radiomics</groupId>
+	<groupId>io.github.tatsunidas</groupId>
 	<!-- keep lowercase -->
 	<artifactId>radiomicsj</artifactId>
 	<version>2.1.2</version>
@@ -47,7 +47,7 @@
 		        	</execution>
 		      	</executions>
 		   </plugin>
-		   <!--plugin> 
+		   <plugin> 
 		   		<artifactId>maven-javadoc-plugin</artifactId>
 		   		<version>3.3.0</version>
 		      	<executions> 
@@ -57,7 +57,7 @@
 		          		<goals><goal>jar</goal></goals> 
 		        	</execution> 
 		      	</executions> 
-			</plugin-->
+			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-eclipse-plugin</artifactId>
@@ -78,14 +78,13 @@
 				</configuration>
 			</plugin>
 			<!-- Make this jar executable -->
-			<plugin>
+			<!--plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-assembly-plugin</artifactId>
 				<version>3.3.0</version>
 				<configuration>
 					<finalName>RadiomicsJ-${project.version}</finalName>
 					<descriptorRefs>
-						<!-- include all dependensies to jar -->
 						<descriptorRef>jar-with-dependencies</descriptorRef>
 					</descriptorRefs>
 					<archive>
@@ -96,7 +95,6 @@
 				</configuration>
 				<executions>
 					<execution>
-						<!-- id tag is someting string you want -->
 						<id>make-assembly</id>
 						<phase>package</phase>
 						<goals>
@@ -104,7 +102,7 @@
 						</goals>
 					</execution>
 				</executions>
-			</plugin>
+			</plugin-->
 		</plugins>
 	</build>
 	
@@ -113,14 +111,7 @@
 		<dependency>
 			<groupId>net.imagej</groupId>
 			<artifactId>ij</artifactId>
-			<version>1.54f</version>
-		</dependency>
-		
-		<!-- https://mvnrepository.com/artifact/sc.fiji/VIB_ -->
-		<dependency>
-			<groupId>sc.fiji</groupId>
-			<artifactId>VIB_</artifactId>
-			<version>3.0.4-SNAPSHOT</version>
+			<version>1.54h</version>
 		</dependency>
 		
 		<!-- https://mvnrepository.com/artifact/com.github.mcib3d/mcib3d-plugins -->
@@ -136,39 +127,6 @@
 			</exclusions>
 		</dependency>
 		
-		<!-- https://mvnrepository.com/artifact/org.apache.commons/commons-math3 -->
-		<dependency>
-			<groupId>org.apache.commons</groupId>
-			<artifactId>commons-math3</artifactId>
-			<version>3.6.1</version>
-		</dependency>
-		
-		<!-- https://mvnrepository.com/artifact/com.github.quickhull3d/quickhull3d -->
-		<!-- https://mvnrepository.com/artifact/net.imagej/imagej-ops -->
-		<dependency>
-			<groupId>net.imagej</groupId>
-			<artifactId>imagej-ops</artifactId>
-			<version>0.46.1</version>
-		</dependency>
-		
-		<dependency>
-			<groupId>net.imagej</groupId>
-			<artifactId>imagej-mesh</artifactId>
-			<version>0.8.2-SNAPSHOT</version>
-		</dependency>
-		
-		<dependency>
-			<groupId>net.imglib2</groupId>
-			<artifactId>imglib2-ij</artifactId>
-			<version>2.0.0-beta-47-SNAPSHOT</version>
-			<exclusions>
-				<exclusion>
-					<groupId>net.imagej</groupId>
-					<artifactId>ij</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-		
 		<!-- https://mvnrepository.com/artifact/commons-cli/commons-cli -->
 		<dependency>
 			<groupId>commons-cli</groupId>
@@ -176,10 +134,24 @@
 			<version>1.5.0</version>
 		</dependency>
 		
+		<!-- https://mvnrepository.com/artifact/org.apache.commons/commons-math3 -->
+		<dependency>
+		    <groupId>org.apache.commons</groupId>
+		    <artifactId>commons-math3</artifactId>
+		    <version>3.6.1</version>
+		</dependency>
+
+		<!-- To read validation excel file-->
 		<dependency>
 			<groupId>org.apache.poi</groupId>
 			<artifactId>poi-ooxml</artifactId>
 			<version>4.1.2</version>
+			<exclusions>
+				<exclusion>
+					<groupId>org.apache.commons</groupId>
+					<artifactId>commons-math3</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 	</dependencies>
 </project>

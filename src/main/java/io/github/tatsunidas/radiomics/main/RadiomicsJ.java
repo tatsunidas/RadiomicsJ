@@ -1,5 +1,5 @@
 /*
- * Copyright [2022] [Tatsuaki Kobayashi]
+ * Copyright 2022 Tatsuaki Kobayashi
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
  */
-package com.vis.radiomics.main;
+package io.github.tatsunidas.radiomics.main;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -37,42 +37,41 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.ParseException;
 
-import com.vis.radiomics.features.DiagnosticsInfo;
-import com.vis.radiomics.features.DiagnosticsInfoType;
-import com.vis.radiomics.features.FractalFeatureType;
-import com.vis.radiomics.features.FractalFeatures;
-import com.vis.radiomics.features.GLCMFeatureType;
-import com.vis.radiomics.features.GLCMFeatures;
-import com.vis.radiomics.features.GLDZMFeatureType;
-import com.vis.radiomics.features.GLDZMFeatures;
-import com.vis.radiomics.features.GLRLMFeatureType;
-import com.vis.radiomics.features.GLRLMFeatures;
-import com.vis.radiomics.features.GLSZMFeatureType;
-import com.vis.radiomics.features.GLSZMFeatures;
-import com.vis.radiomics.features.IntensityBasedStatisticalFeatureType;
-import com.vis.radiomics.features.IntensityBasedStatisticalFeatures;
-import com.vis.radiomics.features.IntensityHistogramFeatureType;
-import com.vis.radiomics.features.IntensityHistogramFeatures;
-import com.vis.radiomics.features.IntensityVolumeHistogramFeatureType;
-import com.vis.radiomics.features.IntensityVolumeHistogramFeatures;
-import com.vis.radiomics.features.LocalIntensityFeatureType;
-import com.vis.radiomics.features.LocalIntensityFeatures;
-import com.vis.radiomics.features.MorphologicalFeatureType;
-import com.vis.radiomics.features.MorphologicalFeatures;
-import com.vis.radiomics.features.NGLDMFeatureType;
-import com.vis.radiomics.features.NGLDMFeatures;
-import com.vis.radiomics.features.NGTDMFeatureType;
-import com.vis.radiomics.features.NGTDMFeatures;
-import com.vis.radiomics.features.OperationalInfoFeatures;
-import com.vis.radiomics.features.Shape2DFeatureType;
-import com.vis.radiomics.features.Shape2DFeatures;
-
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.measure.ResultsTable;
 import ij.process.ImageProcessor;
 import ij.util.DicomTools;
+import io.github.tatsunidas.radiomics.features.DiagnosticsInfo;
+import io.github.tatsunidas.radiomics.features.DiagnosticsInfoType;
+import io.github.tatsunidas.radiomics.features.FractalFeatureType;
+import io.github.tatsunidas.radiomics.features.FractalFeatures;
+import io.github.tatsunidas.radiomics.features.GLCMFeatureType;
+import io.github.tatsunidas.radiomics.features.GLCMFeatures;
+import io.github.tatsunidas.radiomics.features.GLDZMFeatureType;
+import io.github.tatsunidas.radiomics.features.GLDZMFeatures;
+import io.github.tatsunidas.radiomics.features.GLRLMFeatureType;
+import io.github.tatsunidas.radiomics.features.GLRLMFeatures;
+import io.github.tatsunidas.radiomics.features.GLSZMFeatureType;
+import io.github.tatsunidas.radiomics.features.GLSZMFeatures;
+import io.github.tatsunidas.radiomics.features.IntensityBasedStatisticalFeatureType;
+import io.github.tatsunidas.radiomics.features.IntensityBasedStatisticalFeatures;
+import io.github.tatsunidas.radiomics.features.IntensityHistogramFeatureType;
+import io.github.tatsunidas.radiomics.features.IntensityHistogramFeatures;
+import io.github.tatsunidas.radiomics.features.IntensityVolumeHistogramFeatureType;
+import io.github.tatsunidas.radiomics.features.IntensityVolumeHistogramFeatures;
+import io.github.tatsunidas.radiomics.features.LocalIntensityFeatureType;
+import io.github.tatsunidas.radiomics.features.LocalIntensityFeatures;
+import io.github.tatsunidas.radiomics.features.MorphologicalFeatureType;
+import io.github.tatsunidas.radiomics.features.MorphologicalFeatures;
+import io.github.tatsunidas.radiomics.features.NGLDMFeatureType;
+import io.github.tatsunidas.radiomics.features.NGLDMFeatures;
+import io.github.tatsunidas.radiomics.features.NGTDMFeatureType;
+import io.github.tatsunidas.radiomics.features.NGTDMFeatures;
+import io.github.tatsunidas.radiomics.features.OperationalInfoFeatures;
+import io.github.tatsunidas.radiomics.features.Shape2DFeatureType;
+import io.github.tatsunidas.radiomics.features.Shape2DFeatures;
 
 /**
  * 
@@ -242,7 +241,7 @@ public class RadiomicsJ {
 	/**
 	 * radiomicsj version
 	 */
-	public static String version = "2.1.1";
+	public static String version = "2.1.2";
 	
 	/**
 	 * use test data
@@ -281,14 +280,15 @@ public class RadiomicsJ {
 	/**
 	 * after discretised
 	 */
-	public static ImagePlus discretisedImp;
+	public static ImagePlus discretiseImp;
 	
-//	/**
-//	 * isovoxelized (1,1,1) mask
-//	 * created after resampling and re-segmenting.
-//	 */
-//	protected static ImagePlus isoMask;
-//	
+	/**
+	 * isovoxelized (x,y,z)(w,h,d) mask.
+	 * here, w = h = d.
+	 * created after resampling and re-segmenting.
+	 */
+	protected static ImagePlus isoMask;
+	
 //	/**
 //	 * resegmented voxels in Roi.
 //	 * if normalized is on, insert normalized voxels
@@ -296,8 +296,8 @@ public class RadiomicsJ {
 //	protected static double[] resegmented_voxels;
 //	
 //	/**
-//	 * resegmented and discretised voxels in Roi.
-//	 * if normalized is on, insert normalized voxels
+//	 * re-segment and discretize voxels in Roi.
+//	 * if normalized is on, as normalized voxels
 //	 */
 //	protected static double[] resegmented_discretised_voxels;
 	
@@ -311,20 +311,16 @@ public class RadiomicsJ {
 	 * interpolation for image.
 	 * NEAREST_NEIGHBOR=0, NONE=0, BILINEAR=1, BICUBIC=2;
 	 */
-	public static int interpolation2D = ImageProcessor.BICUBIC;
+	public static int interpolation2D = ImageProcessor.NEAREST_NEIGHBOR;
+	public static int interpolation_mask2D = ImageProcessor.NEAREST_NEIGHBOR;
 	
-	public static final int TRILINEAR = 100;
 	
-	/**
-	 * Custom simple interpolation.
-	 * perform 2 dimentional NearestNeighbour to x,y,z.
-	 * This is not the same to 3D NEAREST NEIGHBOUR.
-	 *  
-	 */
-	public static final int NONE_3D_INTERPOLATION = 999;
+	public static final int TRILINEAR = 100;//3D
+	public static final int NEAREST3D = 101;//3D
+	public static final int TRICUBIC_SPLINE = 102;//3D
+	public static final int TRICUBIC_POLYNOMIAL = 103;//3D
 	
 	public static int interpolation3D = TRILINEAR;
-	
 	public static int interpolation_mask3D = TRILINEAR;
 	
 	/**
@@ -335,18 +331,17 @@ public class RadiomicsJ {
 	
 	/**
 	 * 1 - 255 : enable label number.
-	 * Target label value.
+	 * Target label value to specify voxels in roi.
 	 * When preprocess, mask is created by this label.
-	 * Then mask pixel value was convert to (1) which is difined by label_.
+	 * Then mask pixel value was convert to (1) which is defined by following label_.
 	 */
-	public static Integer targetLabel = 1; //target mask label
+	public static Integer targetLabel = 1;
 	
-	//TODO
 	/**
-	 * When calculate features, label value always to be this value.
-	 * Because to deal with partial volume effects from resampling. 
+	 * When calculate features, label value always to be 1.
+	 * Because to deal with partial volume effects by resampling. 
 	 */
-	public static final Integer label_ = 1;//label for compute
+	public static final Integer label_ = 1;//label to compute
 	
 	/**
 	 * Standardize original images at preprocessing 
@@ -397,41 +392,54 @@ public class RadiomicsJ {
 	public static Double rangeMax = null;// in unit value.
 
 	/**
-	 * if true, binCount discretising is performed (and binWidth is ignored).
+	 * if true, binCount discrete is performed (and binWidth is ignored).
 	 */
 	public static boolean BOOL_USE_FixedBinNumber = true;
 	
 	/**
-	 * fixed bin size
-	 * calculate by (Xgl[max]-Xgl[min])+1.
+	 * fixed bin size ( 32 default, 6 to 64 is suitable range).
 	 * see, Utils.getNumOfBinsByMinMaxRange()
 	 */
 	public static Integer nBins = 32;
 	
 	/**
 	 * fixed bin width
-	 * calculate by ((Xgl - Xgl[min])/binWidth)+1.
+	 * to calculate nBins ((Xgl - Xgl[min])/binWidth)+1.
 	 * Value is should specified in unit.
 	 */
 	public static Double binWidth = 25d;//in unit.
 	
 	static double[] resamplingFactorXYZ=null;
 	
-	/**
-	 * be careful, 
-	 * IVH have perticluar values both binCount and binWidth.
-	 * IVH_mode 0 : no disretise
-	 * IVH mode 1 : binWidth discretising and performed on continuous operation.
-	 * IVH mode 2 : binCount discretising without continuous operation.
-	 */
 	public static Integer IVH_binCount = 1000;
 	public static Double IVH_binWidth = 2.5;
+	
+	/**
+	 * IVH have perticluar values both binCount and binWidth.
+	 * IVH_mode 0 : no discrete
+	 * IVH mode 1 : binWidth discrete and performed on continuous operation.
+	 * IVH mode 2 : binCount discrete without continuous operation.
+	 */
 	public static Integer IVH_mode = 0;
 	
-	//texture hyper-param
-	public static Integer alpha = 0;//NGLDM coarseness
-	public static Integer deltaGLCM = 1;//distance
+	/**
+	 * Texture param:NGLDM coarseness
+	 */
+	public static Integer alpha = 0;
+	
+	/**
+	 * Texture param:GLCM delta (distance)
+	 */
+	public static Integer deltaGLCM = 1;
+	
+	/**
+	 * Texture param: NGTDM delta (distance)
+	 */
 	public static Integer deltaNGToneDM = 1;//distance
+	
+	/**
+	 * Texture param:NGLDM delta (distance)
+	 */
 	public static Integer deltaNGLevelDM = 1;//distance
 	
 	public static final String[] weighting_norms = new String[] { "no_weighting", "manhattan", "euclidian", "infinity" };
@@ -439,12 +447,13 @@ public class RadiomicsJ {
 	
 	/**
 	 * to calculate fractal D.
+	 * default [2,3,4,6,8,12,16,32,64]
 	 * null-able.
 	 */
 	public static int[] box_sizes = null;
 	
 	/**
-	 * calculate slice by slice
+	 * calculate slice by slice and no aggregation.
 	 */
 	public static boolean force2D = false;
 	
@@ -476,6 +485,9 @@ public class RadiomicsJ {
 	 */
 	boolean BOOL_enableShape2D = false;
 	
+	/**
+	 * Handle to specify features will be excluded.
+	 */
 	private HashSet<String> excluded;
 	
 	/**
@@ -656,18 +668,18 @@ public class RadiomicsJ {
 							continue;
 						}
 					}
-//					if(keyString.equals(SettingParams.INT_interpolation_mask2D.name())) {
-//						try{
-//							Integer n = Integer.valueOf(val);
-//							if(n < 0 || n > 2) {
-//								n = 0;
-//							}
-//							RadiomicsJ.interpolation_mask2D = n;
-//						}catch(NumberFormatException e) {
-//							//keep default
-//							continue;
-//						}
-//					}
+					if(keyString.equals(SettingParams.INT_interpolation_mask2D.name())) {
+						try{
+							Integer n = Integer.valueOf(val);
+							if(n < 0 || n > 2) {
+								n = 0;
+							}
+							RadiomicsJ.interpolation_mask2D = n;
+						}catch(NumberFormatException e) {
+							//keep default
+							continue;
+						}
+					}
 					if(keyString.equals(SettingParams.INT_interpolation3D.name())) {
 						try{
 							Integer n = Integer.valueOf(val);
@@ -1088,17 +1100,17 @@ public class RadiomicsJ {
 	 * @throws Exception
 	 */
 	public ImagePlus preprocessDiscretise(ImagePlus resampled, ImagePlus resegmentedMask, Integer targetLabel) throws Exception {
-		discretisedImp = null;
+		discretiseImp = null;
 		if(BOOL_USE_FixedBinNumber) {
-			discretisedImp = Utils.discrete(resampled, resegmentedMask, targetLabel, RadiomicsJ.nBins);
+			discretiseImp = Utils.discrete(resampled, resegmentedMask, targetLabel, RadiomicsJ.nBins);
 		}else {
 			/*
 			 * Fixed Bin Width
 			 */
-			discretisedImp = Utils.discreteByBinWidth(resampled, resegmentedMask, targetLabel, binWidth);
-			RadiomicsJ.nBins = Utils.getNumOfBinsByMax(discretisedImp, resegmentedMask, targetLabel);
+			discretiseImp = Utils.discreteByBinWidth(resampled, resegmentedMask, targetLabel, binWidth);
+			RadiomicsJ.nBins = Utils.getNumOfBinsByMax(discretiseImp, resegmentedMask, targetLabel);
 		}
-		return discretisedImp;
+		return discretiseImp;
 	}
 	
 	public ResultsTable execute(File imgSeriesFileFolder, File maskSeriesFileFolder, Integer targetLabel) throws Exception {

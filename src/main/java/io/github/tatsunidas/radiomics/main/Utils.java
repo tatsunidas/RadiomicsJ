@@ -1,5 +1,5 @@
 /*
- * Copyright [2022] [Tatsuaki Kobayashi]
+ * Copyright 2022 Tatsuaki Kobayashi
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
  */
-package com.vis.radiomics.main;
+package io.github.tatsunidas.radiomics.main;
 
 import java.awt.Font;
 import java.util.ArrayList;
@@ -24,8 +24,7 @@ import java.util.StringTokenizer;
 import org.apache.commons.math3.stat.StatUtils;
 import org.scijava.vecmath.Point3i;
 
-import com.vis.radiomics.plugins.fiji.Reslice_Z;
-
+import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.Plot;
@@ -45,6 +44,13 @@ import ij.process.ImageStatistics;
  *
  */
 public class Utils {
+	
+	//debug
+	public static void main(String[] args) {
+		ImagePlus[] im = TestDataLoader.digital_phantom1();
+		ImagePlus resample = resample3D(im[1], true, 0.2, 0.2, 0.2, RadiomicsJ.TRICUBIC_POLYNOMIAL);
+		IJ.saveAs(resample, "tif", "test_spline");
+	}
 	
 	public static boolean isValidNumOfBinsForGrayScale(int type, int numOfBins) {
 		if (type == ImagePlus.GRAY8) {
@@ -399,57 +405,63 @@ public class Utils {
 //		}
 //	}
 	
-	public static ImagePlus isoVoxelizeNoInterpolation(ImagePlus imp) {
-		if(imp == null) {
-			return null;
-		}
-		imp.deleteRoi();
-		Calibration cal = imp.getCalibration();
-		if(cal == null) {
-			return imp;
-		}
-		double vx = cal.pixelWidth;
-		double vy = cal.pixelHeight;
-		double vz = cal.pixelDepth;
-		if(vx == 1.0 && vy == 1.0 && vz == 1.0) {
-			return imp;
-		}
-		double isoVoxelSize = 1.0;
-		//z
-		ImagePlus rz = Reslice_Z.resliceMask(imp, isoVoxelSize);
-		//y
-		ImagePlus ry = Reslice_Z.resliceMask(stackHorizontalRotation(rz), isoVoxelSize);
-		//x
-		ImagePlus rx = Reslice_Z.resliceMask(stackVerticalRotation(ry), isoVoxelSize);
-		//
-		return backDirectionAfterHorizonVirticalRotation(rx);
-	}
+//	public static ImagePlus isoVoxelizeNoInterpolation(ImagePlus imp) {
+//		if(imp == null) {
+//			return null;
+//		}
+//		imp.deleteRoi();
+//		Calibration cal = imp.getCalibration();
+//		if(cal == null) {
+//			return imp;
+//		}
+//		double vx = cal.pixelWidth;
+//		double vy = cal.pixelHeight;
+//		double vz = cal.pixelDepth;
+//		if(vx == 1.0 && vy == 1.0 && vz == 1.0) {
+//			return imp;
+//		}
+//		double isoVoxelSize = 1.0;
+//		//z
+//		ImagePlus rz = Reslice_Z.resliceMask(imp, isoVoxelSize);
+//		//y
+//		ImagePlus ry = Reslice_Z.resliceMask(stackHorizontalRotation(rz), isoVoxelSize);
+//		//x
+//		ImagePlus rx = Reslice_Z.resliceMask(stackVerticalRotation(ry), isoVoxelSize);
+//		//
+//		return backDirectionAfterHorizonVirticalRotation(rx);
+//	}
 	
-	public static ImagePlus resample3DWithoutInterpolation(ImagePlus imp, double x,double y, double z) {
-		if(imp == null) {
-			return null;
-		}
-		imp.deleteRoi();
-		Calibration cal = imp.getCalibration();
-		if(cal == null) {
-			return imp;
-		}
-		double vx = cal.pixelWidth;
-		double vy = cal.pixelHeight;
-		double vz = cal.pixelDepth;
-		if(vx == x && vy == y && vz == z) {
-			return imp;
-		}
-		//z
-		ImagePlus rz = Reslice_Z.resliceMask(imp, z);
-		//y
-		ImagePlus ry = Reslice_Z.resliceMask(stackHorizontalRotation(rz), y);
-		//x
-		ImagePlus rx = Reslice_Z.resliceMask(stackVerticalRotation(ry), x);
-		//
-		return backDirectionAfterHorizonVirticalRotation(rx);
-	}
+//	public static ImagePlus resample3DWithoutInterpolation(ImagePlus imp, double x,double y, double z) {
+//		if(imp == null) {
+//			return null;
+//		}
+//		imp.deleteRoi();
+//		Calibration cal = imp.getCalibration();
+//		if(cal == null) {
+//			return imp;
+//		}
+//		double vx = cal.pixelWidth;
+//		double vy = cal.pixelHeight;
+//		double vz = cal.pixelDepth;
+//		if(vx == x && vy == y && vz == z) {
+//			return imp;
+//		}
+//		//z
+//		ImagePlus rz = Reslice_Z.resliceMask(imp, z);
+//		//y
+//		ImagePlus ry = Reslice_Z.resliceMask(stackHorizontalRotation(rz), y);
+//		//x
+//		ImagePlus rx = Reslice_Z.resliceMask(stackVerticalRotation(ry), x);
+//		//
+//		return backDirectionAfterHorizonVirticalRotation(rx);
+//	}
 	
+	/**
+	 * Iso voxelize by voxel width.
+	 * @param imp
+	 * @param isMask
+	 * @return
+	 */
 	public static ImagePlus isoVoxelizeWithInterpolation(ImagePlus imp, boolean isMask) {
 		if(imp == null) {
 			return null;
@@ -459,13 +471,16 @@ public class Utils {
 		if(cal == null) {
 			return imp;
 		}
-		double vx = cal.pixelWidth;
-		double vy = cal.pixelHeight;
-		double vz = cal.pixelDepth;
-		if(vx == 1.0 && vy == 1.0 && vz == 1.0) {
+		//round from 0.000000"0"
+		double vx = ((double)Math.round(cal.pixelWidth * Math.pow(10, 7)))/Math.pow(10, 7);
+		double vy = ((double)Math.round(cal.pixelHeight * Math.pow(10, 7)))/Math.pow(10, 7);
+		double vz = ((double)Math.round(cal.pixelDepth * Math.pow(10, 7)))/Math.pow(10, 7);
+		
+		if(vx == vy && vy == vz) {
+			//already ISO
 			return imp;
 		}
-		double isoVoxelSize = 1.0;
+		double isoVoxelSize = cal.pixelWidth;
 		return resample3D(imp, isMask, isoVoxelSize, isoVoxelSize, isoVoxelSize);
 	}
 	
@@ -522,7 +537,7 @@ public class Utils {
 	}
 	
 	/**
-	 * 
+	 * Resamplig using RadiomicsJ property setting.
 	 * @param imp
 	 * @param isMask
 	 * @param x : new resample voxels width
@@ -531,24 +546,35 @@ public class Utils {
 	 * @return
 	 */
 	public static ImagePlus resample3D(ImagePlus imp, boolean isMask, double x, double y, double z) {
+		
+		if(RadiomicsJ.interpolation3D == RadiomicsJ.TRILINEAR) {
+			return trilinearInterpolation(imp, isMask, x, y, z);
+		}else if(RadiomicsJ.interpolation3D == RadiomicsJ.NEAREST3D){
+			return nearestNeighbourInterpolation(imp, x, y, z);
+		}
+		
 		if(!isMask) {
-			if(RadiomicsJ.interpolation3D == RadiomicsJ.TRILINEAR) {
-				return trilinearInterpolation(imp, isMask, x, y, z);
-			}else if(RadiomicsJ.interpolation3D == ImageProcessor.NEAREST_NEIGHBOR){
-				return nearestNeighbourInterpolation(imp, isMask, x, y, z);
+			if(RadiomicsJ.interpolation3D == RadiomicsJ.TRICUBIC_SPLINE){
+				return tricubicSplineInterporation(imp, x, y, z);
+			}else if(RadiomicsJ.interpolation3D == RadiomicsJ.TRICUBIC_POLYNOMIAL) {
+				return tricubicPolynomialInterporation(imp, x, y, z);
 			}
-			//add new interpolation methods
-		}else {
-			if(RadiomicsJ.interpolation_mask3D == RadiomicsJ.TRILINEAR) {
-				return trilinearInterpolation(imp, isMask, x, y, z);
-			}else if(RadiomicsJ.interpolation_mask3D == ImageProcessor.NEAREST_NEIGHBOR){
-				return nearestNeighbourInterpolation(imp, isMask, x, y, z);
-			}else if(RadiomicsJ.interpolation_mask3D == RadiomicsJ.NONE_3D_INTERPOLATION){
-				return resample3d_withoutInterpolation(imp, x,y,z);
-			}
-			//add new interpolation methods
 		}
 		return null;
+	}
+	
+	public static ImagePlus resample3D(ImagePlus imp, boolean isMask, double x, double y, double z, int interpType) {
+		if(interpType == RadiomicsJ.TRILINEAR) {
+			return trilinearInterpolation(imp, isMask, x, y, z);
+		}else if(interpType == RadiomicsJ.NEAREST3D) {
+			return nearestNeighbourInterpolation(imp, x, y, z);
+		}else if(interpType == RadiomicsJ.TRICUBIC_SPLINE) {
+			return tricubicSplineInterporation(imp, x, y, z);
+		}else if(interpType == RadiomicsJ.TRICUBIC_POLYNOMIAL) {
+			return tricubicPolynomialInterporation(imp, x, y, z);
+		}else {
+			return null;
+		}
 	}
 	
 	/**
@@ -557,38 +583,38 @@ public class Utils {
 	 * Use trilinear interpolation instead.
 	 * see, resample3D().
 	 */
-	public static ImagePlus resample3d_withoutInterpolation(ImagePlus imp, double x, double y, double z) {
-		if(imp == null) {
-			return null;
-		}
-		imp.deleteRoi();
-		Calibration cal = imp.getCalibration().copy();
-		if(cal == null) {
-			return imp;
-		}
-		double vx = cal.pixelWidth;
-		double vy = cal.pixelHeight;
-		double vz = cal.pixelDepth;
-		if(vx == x && vy == y && vz == z) {
-			return imp;
-		}
-		if(x == 0 || y == 0 || z == 0) {
-			System.out.println("please set valid number of x,y,z. These values are not allowed zero.");
-			return null;
-		}
-		//z
-		ImagePlus rz = Reslice_Z.resliceMask(imp, z);
-		//y
-		ImagePlus ry = Reslice_Z.resliceMask(stackHorizontalRotation(rz), y);
-		//x
-		ImagePlus rx = Reslice_Z.resliceMask(stackVerticalRotation(ry), x);
-		ImagePlus resampled = backDirectionAfterHorizonVirticalRotation(rx);
-		cal.pixelWidth = x;
-		cal.pixelHeight = y;
-		cal.pixelDepth = z;
-		resampled.setCalibration(cal);
-		return resampled;
-	}
+//	public static ImagePlus resample3d_withoutInterpolation(ImagePlus imp, double x, double y, double z) {
+//		if(imp == null) {
+//			return null;
+//		}
+//		imp.deleteRoi();
+//		Calibration cal = imp.getCalibration().copy();
+//		if(cal == null) {
+//			return imp;
+//		}
+//		double vx = cal.pixelWidth;
+//		double vy = cal.pixelHeight;
+//		double vz = cal.pixelDepth;
+//		if(vx == x && vy == y && vz == z) {
+//			return imp;
+//		}
+//		if(x == 0 || y == 0 || z == 0) {
+//			System.out.println("please set valid number of x,y,z. These values are not allowed zero.");
+//			return null;
+//		}
+//		//z
+//		ImagePlus rz = Reslice_Z.resliceMask(imp, z);
+//		//y
+//		ImagePlus ry = Reslice_Z.resliceMask(stackHorizontalRotation(rz), y);
+//		//x
+//		ImagePlus rx = Reslice_Z.resliceMask(stackVerticalRotation(ry), x);
+//		ImagePlus resampled = backDirectionAfterHorizonVirticalRotation(rx);
+//		cal.pixelWidth = x;
+//		cal.pixelHeight = y;
+//		cal.pixelDepth = z;
+//		resampled.setCalibration(cal);
+//		return resampled;
+//	}
 	
 	/**
 	 * use trilinear interpolation instead.
@@ -599,56 +625,56 @@ public class Utils {
 	 * @param z
 	 * @return
 	 */
-	@Deprecated
-	public static ImagePlus resampleWithNoMaskInterpolation(ImagePlus imp, boolean isMask, double x, double y, double z) {
-		if(imp == null) {
-			return null;
-		}
-		imp.deleteRoi();
-		Calibration cal = imp.getCalibration();
-		if(cal == null) {
-			return imp;
-		}
-		double vx = cal.pixelWidth;
-		double vy = cal.pixelHeight;
-		double vz = cal.pixelDepth;
-		if(vx == x && vy == y && vz == z) {
-			return imp;
-		}
-		if(x == 0 || y == 0 || z == 0) {
-			System.out.println("please set valid number of x,y,z. These values are not allowed zero.");
-			return null;
-		}
-		if(!isMask) {
-			//z
-			ImagePlus rz = Reslice_Z.resliceUsingInterpolation(imp, isMask, z);
-			//y
-			ImagePlus ry = Reslice_Z.resliceUsingInterpolation(stackHorizontalRotation(rz), isMask, y);
-			//x
-			ImagePlus rx = Reslice_Z.resliceUsingInterpolation(stackVerticalRotation(ry), isMask, x);
-			//
-			return backDirectionAfterHorizonVirticalRotation(rx);
-		}else {
-			//z
-			ImagePlus rz = Reslice_Z.resliceMask(imp, z);
-			//y
-			ImagePlus ry = Reslice_Z.resliceMask(stackHorizontalRotation(rz), y);
-			//x
-			ImagePlus rx = Reslice_Z.resliceMask(stackVerticalRotation(ry), x);
-			//
-			return backDirectionAfterHorizonVirticalRotation(rx);
-		}
-	}
+//	@Deprecated
+//	public static ImagePlus resampleWithNoMaskInterpolation(ImagePlus imp, boolean isMask, double x, double y, double z) {
+//		if(imp == null) {
+//			return null;
+//		}
+//		imp.deleteRoi();
+//		Calibration cal = imp.getCalibration();
+//		if(cal == null) {
+//			return imp;
+//		}
+//		double vx = cal.pixelWidth;
+//		double vy = cal.pixelHeight;
+//		double vz = cal.pixelDepth;
+//		if(vx == x && vy == y && vz == z) {
+//			return imp;
+//		}
+//		if(x == 0 || y == 0 || z == 0) {
+//			System.out.println("please set valid number of x,y,z. These values are not allowed zero.");
+//			return null;
+//		}
+//		if(!isMask) {
+//			//z
+//			ImagePlus rz = Reslice_Z.resliceUsingInterpolation(imp, isMask, z);
+//			//y
+//			ImagePlus ry = Reslice_Z.resliceUsingInterpolation(stackHorizontalRotation(rz), isMask, y);
+//			//x
+//			ImagePlus rx = Reslice_Z.resliceUsingInterpolation(stackVerticalRotation(ry), isMask, x);
+//			//
+//			return backDirectionAfterHorizonVirticalRotation(rx);
+//		}else {
+//			//z
+//			ImagePlus rz = Reslice_Z.resliceMask(imp, z);
+//			//y
+//			ImagePlus ry = Reslice_Z.resliceMask(stackHorizontalRotation(rz), y);
+//			//x
+//			ImagePlus rx = Reslice_Z.resliceMask(stackVerticalRotation(ry), x);
+//			//
+//			return backDirectionAfterHorizonVirticalRotation(rx);
+//		}
+//	}
 	
 	
 	/**
 	 * 
 	 * @param imp
-	 * @param isMask : if mask, should be input label one mask.
+	 * @param isMask : if mask, should be have label one(1).
 	 * @param resampleX
 	 * @param resampleY
 	 * @param resampleZ
-	 * @return
+	 * @return resampled stack
 	 */
 	public static ImagePlus trilinearInterpolation(ImagePlus imp, boolean isMask, double resampleX, double resampleY, double resampleZ) {
 		if(imp == null){
@@ -676,11 +702,6 @@ public class Utils {
 		int newW = (int)Math.ceil(w * (cal.pixelWidth / resampleX));
 		int newH = (int)Math.ceil(h * (cal.pixelHeight / resampleY));
 		int newS = (int)Math.ceil(s * (cal.pixelDepth / resampleZ));
-		
-		if(newS == s) {
-			//force use bilinear
-			return resample2D(imp, isMask, resampleX, resampleY, ImageProcessor.BILINEAR);
-		}
 		
 		float[] voxels = new float[w*h*s];
 		float[] deformed = new float[newW*newH*newS];
@@ -717,24 +738,17 @@ public class Utils {
 					if(!isMask) {//img
 						deformed[index] = interp;
 					}else {//mask
-//						double rangeMin = (double)(RadiomicsJ.label)-RadiomicsJ.mask_PartialVolumeThareshold;
-//						double rangeMax = (double)(RadiomicsJ.label)+RadiomicsJ.mask_PartialVolumeThareshold;
-						/*
-						 * label-threshold <= label < label+threshold
-						 */
 						/*
 						 * In IBSI, 
 						 * interp >= RadiomicsJ.mask_PartialVolumeThareshold
 						 * 
-						 * but this methods always need label 1 mask.
+						 * this methods always need label 1 mask.
 						 */
 						if(interp >= RadiomicsJ.mask_PartialVolumeThareshold) {
-//						if(interp >= rangeMin && interp < rangeMax) {
 							deformed[index] = (float)RadiomicsJ.label_;
 						}else {
 							deformed[index] = 0f;
 						}
-//						deformed[index] = interp;//debug
 					}
 				}
 			}
@@ -758,89 +772,6 @@ public class Utils {
 		return interp;
 	}
 	
-//	/**
-//	 * Test another procedure. but too slow.
-//	 * @param imp
-//	 * @param isMask
-//	 * @param resampleX
-//	 * @param resampleY
-//	 * @param resampleZ
-//	 * @return
-//	 */
-//	@Deprecated
-//	public static ImagePlus trilinearInterpolationNeo(ImagePlus imp, boolean isMask, double resampleX, double resampleY, double resampleZ) {
-//		if(imp == null){
-//			return null;
-//		}
-//		if(resampleX < 0d || resampleY < 0d || resampleZ < 0d) {
-//			return null;
-//		}
-//		Calibration cal = imp.getCalibration().copy();
-//		int w = imp.getWidth();
-//		int h = imp.getHeight();
-//		int s = imp.getStackSize();
-//		if(s == 1) {
-//			System.out.println("This stack is only one slice, please use Bilinear instead, return null!");
-//			return null;
-//		}
-//		int imageType = imp.getType();
-//		if(imageType != ImagePlus.GRAY8 && imageType != ImagePlus.GRAY16 && imageType != ImagePlus.GRAY32) {
-//			return null;
-//		}
-//
-//		int newW = (int)Math.ceil(w * (cal.pixelWidth / resampleX));
-//		int newH = (int)Math.ceil(h * (cal.pixelHeight / resampleY));
-//		int newS = (int)Math.ceil(s * (cal.pixelDepth / resampleZ));
-//		
-//		float ratio[] = new float[3];
-//		ratio[0] = (float)newW / (float)w;
-//		ratio[1] = (float)newH / (float)h;
-//		ratio[2] = (float)newS / (float)s;
-//		
-//		ImageStack triStack = new ImageStack(newW,newH);
-//		for(int z = 0;z<newS;z++) {
-//			ImageProcessor deformed = new FloatProcessor(newW, newH);
-//			for(int y = 0;y<newH;y++) {
-//				for(int x = 0;x<newW;x++) {
-//					double interpX = (x/ratio[0]);
-//					double interpY = (y/ratio[1]);
-//					double interpZ = (z/ratio[2]);
-//					if(interpX > w-1) interpX = w-1;
-//					if(interpY > h-1) interpY = h-1;
-//					if(interpZ > s-1) interpZ = s-1;
-//					float interp = (float) (TrilinearInterpolation3(imp, w, h, s, interpX, interpY, interpZ));
-//					if(!isMask) {//img
-//						deformed.setf(x, y, interp);
-//					}else {//mask
-//						double rangeMin = (double)(RadiomicsJ.label)-RadiomicsJ.mask_PartialVolumeThareshold;
-//						double rangeMax = (double)(RadiomicsJ.label)+RadiomicsJ.mask_PartialVolumeThareshold;
-//						/*
-//						 * label-threshold <= label < label+threshold
-//						 */
-//						/*
-//						 * In IBSI, 
-//						 * interp >= RadiomicsJ.mask_PartialVolumeThareshold
-//						 * 
-//						 * but this methods always need label 1 mask.
-//						 */
-////						if(interp >= RadiomicsJ.mask_PartialVolumeThareshold) {
-//						if(interp >= rangeMin && interp < rangeMax) {
-//							deformed.setf(x, y, (float)RadiomicsJ.label);
-//						}else {
-//							deformed.setf(x, y, 0f);
-//						}
-//					}
-//				}
-//			}
-//			triStack.addSlice(deformed);
-//		}
-//		ImagePlus interp = new ImagePlus("tri", triStack);
-//		cal.pixelWidth = resampleX;
-//		cal.pixelHeight = resampleY;
-//		cal.pixelDepth = resampleZ;
-//		interp.setCalibration(cal);
-//		return interp;
-//	}
 	
 	public static double TrilinearInterpolation(float[] oldV, int XN, int YN,
 			int ZN, double x, double y, double z) {
@@ -890,21 +821,22 @@ public class Utils {
 	 * @return
 	 */
 	public static double TrilinearInterpolation2(float[] oldV, int XN, int YN, int ZN, double x, double y, double z) {
-		
+
 		int x0, y0, z0, x1, y1, z1;
 		double dx, dy, dz, hx, hy, hz;
-		
+
 		if (x < 0 || x > (XN - 1) || y < 0 || y > (YN - 1) || z < 0 || z > (ZN - 1)) {
 			return 0;
-		} else {
-			x1 = (int) Math.ceil(x);
-			y1 = (int) Math.ceil(y);
-			z1 = (int) Math.ceil(z);
-			x0 = (int) Math.floor(x);
-			y0 = (int) Math.floor(y);
-			z0 = (int) Math.floor(z);
-			
-			//this procedure will occur out of index when force2d.
+		}
+
+		x1 = (int) Math.ceil(x);
+		y1 = (int) Math.ceil(y);
+		z1 = (int) Math.ceil(z);
+		x0 = (int) Math.floor(x);
+		y0 = (int) Math.floor(y);
+		z0 = (int) Math.floor(z);
+
+		// this procedure will occur out of index when force2d.
 //			if(x != 0) {
 //				x1 = (int) Math.ceil(x);
 //				x0 = (int) Math.floor(x);
@@ -930,82 +862,59 @@ public class Utils {
 //			dx = (x1-x0) != 0 ? ((x - x0)/(x1-x0)) : (x - x0);
 //			dy = (y1-y0) != 0 ? ((y - y0)/(y1-y0)) : (y - y0);
 //			dz = (z1-z0) != 0 ? ((z - z0)/(z1-z0)) : (z - z0);
-			dx = (x-x0);
-			dy = (y-y0);
-			dz = (z-z0);
-			
-//			System.out.println(dx+" "+dy+" "+dz);
-			
-			if (dx<0) {
-				x -= 1;
-				dx += 1;
-			}
-			if (dy<0){
-				y -= 1;
-				dy += 1;
-			}
-			if (dz<0){
-				z -= 1;
-				dz += 1;
-			}
+		dx = (x - x0);
+		dy = (y - y0);
+		dz = (z - z0);
 
-			// Introduce more variables to reduce computation
-			hx = 1.0f - dx;
-			hy = 1.0f - dy;
-			hz = 1.0f - dz;
-			
-			// Optimized below
-			int slice = XN * YN;
-			z0 *= slice;
-			z1 *= slice;
-			y0 *= XN;
-			y1 *= XN;
-			
-			float c000 = oldV[x0 + y0 + z0];
-			float c100 = oldV[x1 + y0 + z0];
-			float c001 = oldV[x0 + y0 + z1];
-			float c101 = oldV[x1 + y0 + z1];
-			float c010 = oldV[x0 + y1 + z0];
-			float c110 = oldV[x1 + y1 + z0];
-			float c011 = oldV[x0 + y1 + z1];
-			float c111 = oldV[x1 + y1 + z1];
-			
-			double c00 = c000*hx + c100*dx;
-			double c01 = c001*hx + c101*dx;
-			double c10 = c010*hx + c110*dx;
-			double c11 = c011*hx + c111*dx;
-			
-			double c0 = c00*hy + c10*dy;
-			double c1 = c01*hy + c11*dy;
-			
-			double pix = c0*hz + c1*dz;
-			
-			// trilinear interpolation
-//			double[] interpWeights = new double[8];
-//			interpWeights[0] = hx*hy*hz;
-//			interpWeights[1] = (1-hx)*(hy)*(hz);
-//			interpWeights[2] = (hx)*(1-hy)*(hz);
-//			interpWeights[3] = (hx)*(hy)*(1-hz);
-//			interpWeights[4] = (1-hx)*(1-hy)*(hz);
-//			interpWeights[5] = (hx)*(1-hy)*(1-hz);
-//			interpWeights[6] = (1-hx)*(hy)*(1-hz);
-//			interpWeights[7] = (1-hx)*(1-hy)*(1-hz);
-//			
-//			double pix = c000 * interpWeights[0];
-//			pix += c100 * interpWeights[1];
-//			pix += c010 * interpWeights[2];
-//			pix += c001 * interpWeights[3];
-//			pix += c110 * interpWeights[4];
-//			pix += c011 * interpWeights[5];
-//			pix += c101 * interpWeights[6];
-//			pix += c111 * interpWeights[7];
-			
-			return pix;
+		if (dx < 0) {
+			x -= 1;
+			dx += 1;
 		}
+		if (dy < 0) {
+			y -= 1;
+			dy += 1;
+		}
+		if (dz < 0) {
+			z -= 1;
+			dz += 1;
+		}
+
+		// Introduce more variables to reduce computation
+		hx = 1.0f - dx;
+		hy = 1.0f - dy;
+		hz = 1.0f - dz;
+
+		// Optimized below
+		int slice = XN * YN;
+		z0 *= slice;
+		z1 *= slice;
+		y0 *= XN;
+		y1 *= XN;
+
+		float c000 = oldV[x0 + y0 + z0];
+		float c100 = oldV[x1 + y0 + z0];
+		float c001 = oldV[x0 + y0 + z1];
+		float c101 = oldV[x1 + y0 + z1];
+		float c010 = oldV[x0 + y1 + z0];
+		float c110 = oldV[x1 + y1 + z0];
+		float c011 = oldV[x0 + y1 + z1];
+		float c111 = oldV[x1 + y1 + z1];
+
+		double c00 = c000 * hx + c100 * dx;
+		double c01 = c001 * hx + c101 * dx;
+		double c10 = c010 * hx + c110 * dx;
+		double c11 = c011 * hx + c111 * dx;
+
+		double c0 = c00 * hy + c10 * dy;
+		double c1 = c01 * hy + c11 * dy;
+
+		double pix = c0 * hz + c1 * dz;
+
+		return pix;
 	}
 	
-	/*
-	 * same result of above.
+	/**
+	 * same result TrilinearInterpolation2.
 	 */
 	@SuppressWarnings("unused")
 	private static double TrilinearInterpolation4(float[] preVoxels, int preW, int preH, int preS, double x, double y, double z) {
@@ -1045,53 +954,6 @@ public class Utils {
 				(v111 + v100 + v010 + v001 - v110 - v101 - v011 - v000)*dx*dy*dz + v000 );
 	}
 	
-	
-//	public static double TrilinearInterpolation3(ImagePlus preImp, int preW, int preH, int preS, double x, double y, double z) {
-//		
-//		int x0, y0, z0, x1, y1, z1;
-//		double dx, dy, dz, hx, hy, hz;
-//		
-//		if (x < 0 || x > (preW - 1) || y < 0 || y > (preH - 1) || z < 0 || z > (preS - 1)) {
-//			return 0;
-//		} else {
-//			
-//			x1 = (int) Math.ceil(x);
-//			x0 = (int) Math.floor(x);
-//			y1 = (int) Math.ceil(y);
-//			y0 = (int) Math.floor(y);
-//			z1 = (int) Math.ceil(z);
-//			z0 = (int) Math.floor(z);
-//			
-//			dx = (x1-x0) != 0 ? (x - x0)/(x1-x0) : (x - x0);
-//			dy = (y1-y0) != 0 ? (y - y0)/(y1-y0) : (y - y0);
-//			dz = (z1-z0) != 0 ? (z - z0)/(z1-z0) : (z - z0);
-//			
-//			// Introduce more variables to reduce computation
-//			hx = 1.0f - dx;
-//			hy = 1.0f - dy;
-//			hz = 1.0f - dz;
-//			
-//			float c000 = isOutOfRange(new Point3i(x0, y0, z0), preW, preH, preS) ? 0f : preImp.getStack().getProcessor(z0+1).getPixelValue(x0,y0);
-//			float c100 = isOutOfRange(new Point3i(x1, y0, z0), preW, preH, preS) ? 0f : preImp.getStack().getProcessor(z0+1).getPixelValue(x1,y0);
-//			float c001 = isOutOfRange(new Point3i(x0, y0, z1), preW, preH, preS) ? 0f : preImp.getStack().getProcessor(z1+1).getPixelValue(x0,y0);
-//			float c101 = isOutOfRange(new Point3i(x1, y0, z1), preW, preH, preS) ? 0f : preImp.getStack().getProcessor(z1+1).getPixelValue(x1,y0);
-//			float c010 = isOutOfRange(new Point3i(x0, y1, z0), preW, preH, preS) ? 0f : preImp.getStack().getProcessor(z0+1).getPixelValue(x0,y1);
-//			float c110 = isOutOfRange(new Point3i(x1, y1, z0), preW, preH, preS) ? 0f : preImp.getStack().getProcessor(z0+1).getPixelValue(x1,y1);
-//			float c011 = isOutOfRange(new Point3i(x0, y1, z1), preW, preH, preS) ? 0f : preImp.getStack().getProcessor(z1+1).getPixelValue(x0,y1);
-//			float c111 = isOutOfRange(new Point3i(x1, y1, z1), preW, preH, preS) ? 0f : preImp.getStack().getProcessor(z1+1).getPixelValue(x1,y1);
-//			
-//			double c00 = c000*hx + c100*dx;
-//			double c01 = c001*hx + c101*dx;
-//			double c10 = c010*hx + c110*dx;
-//			double c11 = c011*hx + c111*dx;
-//			
-//			double c0 = c00*hy + c10*dy;
-//			double c1 = c01*hy + c11*dy;
-//			
-//			return c0*hz + c1*dz;
-//		}
-//	}
-	
 	/**
 	 * 
 	 * @param imp
@@ -1101,29 +963,27 @@ public class Utils {
 	 * @param resampleZ
 	 * @return
 	 */
-	public static ImagePlus nearestNeighbourInterpolation(ImagePlus imp, boolean isMask, double resampleX, double resampleY, double resampleZ) {
+	public static ImagePlus nearestNeighbourInterpolation(ImagePlus imp, double resampleX, double resampleY, double resampleZ) {
 		if(imp == null){
 			return null;
 		}
-		if(resampleX < 0d || resampleY < 0d || resampleZ < 0d) {
+		if(resampleX <= 0d || resampleY <= 0d || resampleZ <= 0d) {
 			return null;
 		}
 		Calibration cal = imp.getCalibration().copy();
 		int w = imp.getWidth();
 		int h = imp.getHeight();
-		int s = imp.getStackSize();
-		if(s == 1) {
-			System.out.println("This stack is only one slice, please use Bilinear instead, return null!");
-			return null;
-		}
+		int s = imp.getNSlices();
+
 		int imageType = imp.getType();
 		if(imageType != ImagePlus.GRAY8 && imageType != ImagePlus.GRAY16 && imageType != ImagePlus.GRAY32) {
+			System.out.println("This Image Type is not applicable to resample 3D.");
 			return null;
 		}
 
-		int newW = (int)Math.round(w * (cal.pixelWidth / resampleX));
-		int newH = (int)Math.round(h * (cal.pixelHeight / resampleY));
-		int newS = (int)Math.round(s * (cal.pixelDepth / resampleZ));
+		int newW = (int)Math.ceil(w * (cal.pixelWidth / resampleX));
+		int newH = (int)Math.ceil(h * (cal.pixelHeight / resampleY));
+		int newS = (int)Math.ceil(s * (cal.pixelDepth / resampleZ));
 		
 		float[] voxels = new float[w*h*s];
 		float[] deformed = new float[newW*newH*newS];
@@ -1149,24 +1009,19 @@ public class Utils {
 		int index;
 		for (i = 0; i < newW; i++) {
 			x = (i / ratio[0]);
-			if(x > w-1) x = w-1;
+			if (x > w - 1)
+				x = w - 1;
 			for (j = 0; j < newH; j++) {
 				y = (j / ratio[1]);
-				if(y > h-1) y = h-1;
+				if (y > h - 1)
+					y = h - 1;
 				for (k = 0; k < newS; k++) {
 					z = (k / ratio[2]);
-					if(z > s-1) z = s-1;
+					if (z > s - 1)
+						z = s - 1;
 					index = k * slice + j * newW + i;
 					float interp = (float) (NNInterpolation(voxels, w, h, s, x, y, z));
-					if(!isMask) {//img
-						deformed[index] = interp;
-					}else {//mask
-//						double rangeMin = (RadiomicsJ.label)-RadiomicsJ.mask_PartialVolumeThareshold;
-//						double rangeMax = (RadiomicsJ.label)+RadiomicsJ.mask_PartialVolumeThareshold;
-						if(interp > RadiomicsJ.mask_PartialVolumeThareshold) {
-							deformed[index] = (float)RadiomicsJ.label_;
-						}
-					}
+					deformed[index] = interp;
 				}
 			}
 		}
@@ -1194,77 +1049,350 @@ public class Utils {
 	public static double NNInterpolation(float[] oldV, int XN, int YN, int ZN, double x, double y, double z) {
 		double d000 = 0.0, d001 = 0.0, d010 = 0.0, d011 = 0.0;
 		double d100 = 0.0, d101 = 0.0, d110 = 0.0, d111 = 0.0;
-		double value = 0.0, dist = 0.0;
-		int x0 = (int) x, y0 = (int) y, z0 = (int) z;
-		int x1 = x0 + 1, y1 = y0 + 1, z1 = z0 + 1;
-
-		/*
-		 * if (x == (double) (XN - 1)) x1 = XN - 1; if (y == (double) (YN - 1)) y1 = YN
-		 * - 1; if (z == (double) (ZN - 1)) z1 = ZN - 1;
-		 */
-
-		if (!((x0 < 0) || (x1 > (XN - 1)) || (y0 < 0) || (y1 > (YN - 1)) || (z0 < 0) || (z1 > (ZN - 1)))) {
-			d000 = DoubleDistance(z, y, x, (double) z0, (double) y0, (double) x0);
-			d100 = DoubleDistance(z, y, x, (double) z0, (double) y0, (double) x1);
-			d010 = DoubleDistance(z, y, x, (double) z0, (double) y1, (double) x0);
-			d110 = DoubleDistance(z, y, x, (double) z0, (double) y1, (double) x1);
-
-			d001 = DoubleDistance(z, y, x, (double) z1, (double) y0, (double) x0);
-			d101 = DoubleDistance(z, y, x, (double) z1, (double) y0, (double) x1);
-			d011 = DoubleDistance(z, y, x, (double) z1, (double) y1, (double) x0);
-			d111 = DoubleDistance(z, y, x, (double) z1, (double) y1, (double) x1);
-
-			dist = d000;
-			int slice = XN * YN;
-			// value = oldV.getDouble(x0, y0, z0);
-			value = oldV[z0 * slice + y0 * XN + x0];
-
-			if (dist > d001) {
-				dist = d001;
-				// value = oldV.getDouble(x0, y0, z1);
-				value = oldV[z1 * slice + y0 * XN + x0];
-			}
-
-			if (dist > d010) {
-				dist = d010;
-				// value = oldV.getDouble(x0, y1, z0);
-				value = oldV[z0 * slice + y1 * XN + x0];
-			}
-
-			if (dist > d011) {
-				dist = d011;
-				// value = oldV.getDouble(x0, y1, z1);
-				value = oldV[z1 * slice + y1 * XN + x0];
-			}
-
-			if (dist > d100) {
-				dist = d100;
-				// value = oldV.getDouble(x1, y0, z0);
-				value = oldV[z0 * slice + y0 * XN + x1];
-			}
-
-			if (dist > d101) {
-				dist = d101;
-				// value = oldV.getDouble(x1, y0, z1);
-				value = oldV[z1 * slice + y0 * XN + x1];
-			}
-
-			if (dist > d110) {
-				dist = d110;
-				// value = oldV.getDouble(x1, y1, z0);
-				value = oldV[z0 * slice + y1 * XN + x1];
-			}
-
-			if (dist > d111) {
-				dist = d111;
-				// value = oldV.getDouble(x1, y1, z1);
-				value = oldV[z1 * slice + y1 * XN + x1];
-			}
-
-			return value;
-		} else {
+		
+		int x1 = (int) Math.ceil(x);
+		int y1 = (int) Math.ceil(y);
+		int z1 = (int) Math.ceil(z);
+		int x0 = (int) Math.floor(x);
+		int y0 = (int) Math.floor(y);
+		int z0 = (int) Math.floor(z);
+		
+		if ((x0 < 0) || (x1 > (XN - 1)) || (y0 < 0) || (y1 > (YN - 1)) || (z0 < 0) || (z1 > (ZN - 1))) {
 			return 0;
 		}
+
+		d000 = DoubleDistance(z, y, x, (double) z0, (double) y0, (double) x0);
+		d100 = DoubleDistance(z, y, x, (double) z0, (double) y0, (double) x1);
+		d010 = DoubleDistance(z, y, x, (double) z0, (double) y1, (double) x0);
+		d110 = DoubleDistance(z, y, x, (double) z0, (double) y1, (double) x1);
+
+		d001 = DoubleDistance(z, y, x, (double) z1, (double) y0, (double) x0);
+		d101 = DoubleDistance(z, y, x, (double) z1, (double) y0, (double) x1);
+		d011 = DoubleDistance(z, y, x, (double) z1, (double) y1, (double) x0);
+		d111 = DoubleDistance(z, y, x, (double) z1, (double) y1, (double) x1);
+		double[] app = new double[]{d000, d100, d010, d110, d001, d101, d011, d111};
+		double max = StatUtils.max(app);
+		int slice = XN * YN;
+		if(max >= d000) {
+			return oldV[z0 * slice + y0 * XN + x0];
+		}else if(max >= d100) {
+			return oldV[z0 * slice + y0 * XN + x1];
+		}else if(max >= d010) {
+			return oldV[z0 * slice + y1 * XN + x0];
+		}else if(max >= d110) {
+			return oldV[z0 * slice + y1 * XN + x1];
+		}else if(max >= d001) {
+			return oldV[z1 * slice + y0 * XN + x0];
+		}else if(max >= d101) {
+			return oldV[z1 * slice + y0 * XN + x1];
+		}else if(max >= d011) {
+			return oldV[z1 * slice + y1 * XN + x0];
+		}else {
+			return oldV[z1 * slice + y1 * XN + x1];
+		}
+	}
+	
+	public static ImagePlus tricubicSplineInterporation(ImagePlus imp, double resampleX, double resampleY, double resampleZ){
+		if(imp == null){
+			return null;
+		}
+		if(resampleX < 0d || resampleY < 0d || resampleZ < 0d) {
+			return null;
+		}
+		Calibration cal = imp.getCalibration().copy();
+		int w = imp.getWidth();
+		int h = imp.getHeight();
+		int s = imp.getStackSize();
+		int imageType = imp.getType();
+		if(imageType != ImagePlus.GRAY8 && imageType != ImagePlus.GRAY16 && imageType != ImagePlus.GRAY32) {
+			return null;
+		}
+		
+		float[][] sw = initializeCubicSplineWeights(256);
+
+		int newW = (int)Math.ceil(w * (cal.pixelWidth / resampleX));
+		int newH = (int)Math.ceil(h * (cal.pixelHeight / resampleY));
+		int newS = (int)Math.ceil(s * (cal.pixelDepth / resampleZ));
+		
+		float[] voxels = new float[w*h*s];
+		float[] deformed = new float[newW*newH*newS];
+		int itr = 0;
+		for (int z = 0; z < s; z++) {
+			ImageProcessor ip = imp.getStack().getProcessor(z+1);
+			for(int y = 0; y < h; y++) {
+				for(int x = 0; x < w; x++) {
+					voxels[itr++] = ip.getf(x, y);
+				}
+			}
+		}
+		
+		int i, j, k;
+		double x, y, z;
+		float ratio[] = new float[3];
+		ratio[0] = (float)newW / (float)w;
+		ratio[1] = (float)newH / (float)h;
+		ratio[2] = (float)newS / (float)s;
+		
+		int slice = newW * newH;
+		int index;
+		for (i = 0; i < newW; i++) {
+			x = (i / ratio[0]);
+			if(x > w-1) x = w-1;
+			for (j = 0; j < newH; j++) {
+				y = (j / ratio[1]);
+				if(y > h-1) y = h-1;
+				for (k = 0; k < newS; k++) {
+					z = (k / ratio[2]);
+					if(z > s-1) z = s-1;
+					index = k * slice + j * newW + i;
+					float interp = (float) (TricubicSplineInterporation(voxels,sw, w, h, s, x, y, z));
+					deformed[index] = interp;
+				}
+			}
+		}
+		ImageStack stack = new ImageStack(newW, newH);
+		for(int z2=0;z2<newS;z2++) {
+			float[] s_fp = new float[newW*newH];
+			int start = newW*newH*z2;
+			for(int s2=start;s2<start+slice;s2++) {
+				s_fp[s2-start] = deformed[s2];
+			}
+			ImageProcessor ip = new FloatProcessor(newW, newH, s_fp);
+			stack.addSlice(ip);
+		}	
+		ImagePlus interp = new ImagePlus("tri", stack);
+		cal.pixelWidth = resampleX;
+		cal.pixelHeight = resampleY;
+		cal.pixelDepth = resampleZ;
+		interp.setCalibration(cal);
+		interp.getCalibration().disableDensityCalibration();
+		return interp;
+	}
+	
+	public static ImagePlus tricubicPolynomialInterporation(ImagePlus imp, double resampleX, double resampleY, double resampleZ){
+		if(imp == null){
+			return null;
+		}
+		if(resampleX < 0d || resampleY < 0d || resampleZ < 0d) {
+			return null;
+		}
+		Calibration cal = imp.getCalibration().copy();
+		int w = imp.getWidth();
+		int h = imp.getHeight();
+		int s = imp.getStackSize();
+		int imageType = imp.getType();
+		if(imageType != ImagePlus.GRAY8 && imageType != ImagePlus.GRAY16 && imageType != ImagePlus.GRAY32) {
+			return null;
+		}
+		
+		float[][] pw = initializeCubicPolynomialWeights(256);
+
+		int newW = (int)Math.ceil(w * (cal.pixelWidth / resampleX));
+		int newH = (int)Math.ceil(h * (cal.pixelHeight / resampleY));
+		int newS = (int)Math.ceil(s * (cal.pixelDepth / resampleZ));
+		
+		float[] voxels = new float[w*h*s];
+		float[] deformed = new float[newW*newH*newS];
+		int itr = 0;
+		for (int z = 0; z < s; z++) {
+			ImageProcessor ip = imp.getStack().getProcessor(z+1);
+			for(int y = 0; y < h; y++) {
+				for(int x = 0; x < w; x++) {
+					voxels[itr++] = ip.getf(x, y);
+				}
+			}
+		}
+		
+		int i, j, k;
+		double x, y, z;
+		float ratio[] = new float[3];
+		ratio[0] = (float)newW / (float)w;
+		ratio[1] = (float)newH / (float)h;
+		ratio[2] = (float)newS / (float)s;
+		
+		int slice = newW * newH;
+		int index;
+		for (i = 0; i < newW; i++) {
+			x = (i / ratio[0]);
+			if(x > w-1) x = w-1;
+			for (j = 0; j < newH; j++) {
+				y = (j / ratio[1]);
+				if(y > h-1) y = h-1;
+				for (k = 0; k < newS; k++) {
+					z = (k / ratio[2]);
+					if(z > s-1) z = s-1;
+					index = k * slice + j * newW + i;
+					float interp = (float) (TricubicPolynomialInterporation(voxels,pw, w, h, s, x, y, z));
+					deformed[index] = interp;
+				}
+			}
+		}
+		ImageStack stack = new ImageStack(newW, newH);
+		for(int z2=0;z2<newS;z2++) {
+			float[] s_fp = new float[newW*newH];
+			int start = newW*newH*z2;
+			for(int s2=start;s2<start+slice;s2++) {
+				s_fp[s2-start] = deformed[s2];
+			}
+			ImageProcessor ip = new FloatProcessor(newW, newH, s_fp);
+			stack.addSlice(ip);
+		}	
+		ImagePlus interp = new ImagePlus("tri", stack);
+		cal.pixelWidth = resampleX;
+		cal.pixelHeight = resampleY;
+		cal.pixelDepth = resampleZ;
+		interp.setCalibration(cal);
+		interp.getCalibration().disableDensityCalibration();
+		return interp;
+	}
+	
+	/**
+	 * Spline interpolation using cubic (3 dimensional) B-spline curve.
+	 * 
+	 * @param oldV original stack voxels
+	 * @param sw spline weights
+	 * @param XN original image width
+	 * @param YN original image height
+	 * @param ZN original image slices
+	 * @param x coordinate x to interpolation
+	 * @param y coordinate y to interpolation
+	 * @param z coordinate z to interpolation
+	 * @return
+	 */
+	static float TricubicSplineInterporation(float[] oldV, float[][] sw, int XN, int YN, int ZN, double x, double y, double z) {
+		int x0 = (int) Math.floor(x);
+		int y0 = (int) Math.floor(y);
+		int z0 = (int) Math.floor(z);
+		double dz = z - z0;
+		double dy = y - y0;
+		double dx = x - x0;
+		float[] wx = sw[(int) (dx*sw.length)];
+		float[] wy = sw[(int) (dy*sw.length)];
+		float[] wz = sw[(int) (dz*sw.length)];
+		
+		int slice = XN * YN;
+		float vz = 0;
+		int z_itr = 0;
+		for (int zi = -1; zi <= 2; zi++) {
+			int z_ = z0+zi;
+			if(z_ < 0) {
+				z_ = 0;
+			}
+			if(z_ >= ZN) {
+				z_ = ZN-1;
+			}
+			float vy = 0;
+			int y_itr = 0;
+			for (int yi = -1; yi <= 2; yi++) {
+				int y_ = y0+yi;
+				if(y_ < 0) {
+					y_ = 0;
+				}
+				if(y_ >= YN) {
+					y_ = YN-1;
+				}
+				float vx = 0;
+				int x_itr = 0;
+				for(int xi = -1; xi <= 2; xi++) {
+					int x_ = x0+xi;
+					if(x_ < 0) {
+						x_ = 0;
+					}
+					if(x_ >= XN) {
+						x_ = XN-1;
+					}
+					vx += oldV[z_ * slice + y_ * XN + x_]* wx[x_itr++];
+				}
+				vy += wy[y_itr++]*vx;
+			}
+			vz += wz[z_itr++]*vy;
+		}
+		return vz;
+	}
+	
+	static float TricubicPolynomialInterporation(float[] oldV, float[][] pw, int XN, int YN, int ZN, double x, double y, double z) {
+		int x0 = (int) Math.floor(x);
+		int y0 = (int) Math.floor(y);
+		int z0 = (int) Math.floor(z);
+		double dz = z - z0;
+		double dy = y - y0;
+		double dx = x - x0;
+		float[] wx = pw[(int) (dx*pw.length)];
+		float[] wy = pw[(int) (dy*pw.length)];
+		float[] wz = pw[(int) (dz*pw.length)];
+		
+		int slice = XN * YN;
+		float vz = 0;
+		int z_itr = 0;
+		for (int zi = -1; zi <= 2; zi++) {
+			int z_ = z0+zi;
+			if(z_ < 0) {
+				z_ = 0;
+			}
+			if(z_ >= ZN) {
+				z_ = ZN-1;
+			}
+			float vy = 0;
+			int y_itr = 0;
+			for (int yi = -1; yi <= 2; yi++) {
+				int y_ = y0+yi;
+				if(y_ < 0) {
+					y_ = 0;
+				}
+				if(y_ >= YN) {
+					y_ = YN-1;
+				}
+				float vx = 0;
+				int x_itr = 0;
+				for(int xi = -1; xi <= 2; xi++) {
+					int x_ = x0+xi;
+					if(x_ < 0) {
+						x_ = 0;
+					}
+					if(x_ >= XN) {
+						x_ = XN-1;
+					}
+					vx += oldV[z_ * slice + y_ * XN + x_]* wx[x_itr++];
+				}
+				vy += wy[y_itr++]*vx;
+			}
+			vz += wz[z_itr++]*vy;
+		}
+		return vz;
+	}
+	
+	static float[][] initializeCubicPolynomialWeights(int resolution) {
+		float[][] pw = new float[resolution][4];
+		for (int i = 0; i < resolution; i++) {
+			float dx = i/(float)resolution;
+			float dx2 = dx*dx;
+			float dx3 = dx*dx2;
+			pw[i][0] = (  -dx3 + 2*dx2 - dx)/2;
+			pw[i][1] = ( 3*dx3 - 5*dx2 + 2 )/2;
+			pw[i][2] = (-3*dx3 + 4*dx2 + dx)/2;
+			pw[i][3] = (   dx3 -   dx2)/2;
+		}
+		return pw;
+	}
+	
+	/**
+	 * https://shoichimidorikawa.github.io/Lec/CG-Math/Bspline.pdf
+	 * 
+	 * @param resolution (discrete distance points between n0 to n1) 256 as default.
+	 * @return spline weights by 4 points
+	 */
+	static float[][] initializeCubicSplineWeights(int resolution) {
+		float[][] sw = new float[resolution][4];
+		for (int i = 0; i < resolution; i++) {
+			float dx = i/(float)resolution;
+			float dx2 = dx*dx;
+			float dx3 = dx*dx*dx;
+			sw[i][0] = (-dx3 + 3*dx2 -3*dx + 1)/6;
+			sw[i][1] = (3*dx3 - 6*dx2 +4)/6;
+			sw[i][2] = (-3*dx3 + 3*dx2 + 3*dx +1)/6;
+			sw[i][3] = dx3/6;
+		}
+		return sw;
 	}
 	
 	public static double DoubleDistance(double z0, double y0, double x0,
@@ -1346,6 +1474,15 @@ public class Utils {
 		return res;
 	}
 	
+	/**
+	 * ImagePlus rz = Reslice_Z.reslice(imp, isoVoxelSize);
+	 * ImagePlus ry = Reslice_Z.reslice(stackHorizontalRotation(rz), isoVoxelSize);
+	 * ImagePlus rx = Reslice_Z.reslice(stackVerticalRotation(ry), isoVoxelSize);
+	 * ImagePlus aligned = backDirectionAfterHorizonVirticalRotation(rx);
+	 * 
+	 * @param imp
+	 * @return orientation aligned stack
+	 */
 	public static ImagePlus backDirectionAfterHorizonVirticalRotation(ImagePlus imp){
 		if(imp == null) {
 			return null;
@@ -1382,11 +1519,14 @@ public class Utils {
 	}
 	
 	/**
-	 * nBins, for one by one intensity step histogram.
-	 * discretization interval is 1.
 	 * 
-	 * NOTE
-	 * This method does NOT produce nBins for Continuous calibrated image intensities, see ISBI manual.
+	 * nBins, one by one intensity step histogram.
+	 * discrete interval is 1.
+	 * 
+	 * @param img
+	 * @param mask
+	 * @param label
+	 * @return number of bins
 	 */
 	public static Integer getNumOfBinsByMinMaxRange(ImagePlus img, ImagePlus mask, int label) {
 		double[] voxels = Utils.getVoxels(img, mask, label);//get voxels in Roi
@@ -1395,6 +1535,14 @@ public class Utils {
 		return (int)((max - min)+1);
 	}
 	
+	/**
+	 * Calculate num of bins by max value of discrete stack.
+	 * 
+	 * @param discrete stack
+	 * @param mask
+	 * @param label
+	 * @return number of bins
+	 */
 	public static Integer getNumOfBinsByMax(ImagePlus discretisedImg, ImagePlus mask, int label) {
 		double[] voxels = Utils.getVoxels(discretisedImg, mask, label);//get voxels in Roi
 		return (int)StatUtils.max(voxels);//max voxels in Roi
@@ -1402,17 +1550,16 @@ public class Utils {
 	
 	
 	/**
-	 * create discretied image of inside roi.
+	 * create discrete image of inside the roi.
 	 * external roi voxel value is set to Float.NaN.
 	 * 
-	 * Fixed bin number (FBN) : IBSI recommended. radiomicsj default (see, RadiomicsJ.BOOL_PreferredBinCount=true).
-	 * Fixed bin size (FBS) = nBis determined by binWidth(ifyou use binWidth, please set to RadiomicsJ.BOOL_PreferredBinCount=false).
+	 * Fixed bin number (FBN) : radiomicsj default.
 	 * 
 	 * @param org
 	 * @param mask
 	 * @param label
 	 * @param nBins
-	 * @return
+	 * @return discrete stack
 	 * @throws Exception
 	 */
 	public static ImagePlus discrete(ImagePlus org, ImagePlus mask, int label, int nBins) throws Exception {

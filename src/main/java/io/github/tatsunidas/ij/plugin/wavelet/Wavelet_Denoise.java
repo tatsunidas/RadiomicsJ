@@ -6,7 +6,7 @@
  *     http://creativecommons.org/publicdomain/zero/1.0/
  */
 
-package com.vis.radiomics.plugins.wavelet;
+package io.github.tatsunidas.ij.plugin.wavelet;
 
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -33,6 +33,7 @@ import ij.process.ImageProcessor;
 
 /**
  * @author Martin Capek
+ * @author tatsunidas
  */
 public class Wavelet_Denoise implements PlugInFilter, DialogListener, WindowListener {
 
