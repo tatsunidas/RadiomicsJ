@@ -1,4 +1,4 @@
-package com.vis.radiomics.plugins.wavelet;
+package io.github.tatsunidas.ij.plugin.wavelet;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;

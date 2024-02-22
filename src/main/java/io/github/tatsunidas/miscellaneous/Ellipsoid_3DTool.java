@@ -1,10 +1,11 @@
-package com.vis.radiomics.plugins.fiji;
+package io.github.tatsunidas.miscellaneous;
 
 import ij.ImagePlus;
 import ij.measure.Calibration;
 import ij.plugin.Thresholder;
 import ij.process.FloodFiller;
 import ij.process.ImageProcessor;
+import io.github.tatsunidas.radiomics.main.Utils;
 import mcib3d.geom.*;
 import mcib3d.image3d.ImageInt;
 import mcib3d.utils.ArrayUtil;
@@ -12,9 +13,7 @@ import mcib3d.utils.ArrayUtil;
 import java.text.NumberFormat;
 import java.util.HashMap;
 
-import com.vis.radiomics.main.Utils;
-
-/*
+/**
  * https://github.com/mcib3d/mcib3d-plugins/blob/master/src/main/java/mcib_plugins/Ellipsoids_3D.java
  */
 public class Ellipsoid_3DTool {

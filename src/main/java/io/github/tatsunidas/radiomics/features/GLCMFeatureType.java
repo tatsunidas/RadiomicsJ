@@ -1,4 +1,4 @@
-package com.vis.radiomics.features;
+package io.github.tatsunidas.radiomics.features;
 
 /**
  * 3.6.1 Joint maximum GYBY

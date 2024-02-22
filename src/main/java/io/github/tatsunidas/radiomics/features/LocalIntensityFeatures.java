@@ -13,7 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
  */
-package com.vis.radiomics.features;
+package io.github.tatsunidas.radiomics.features;
 
 import java.util.ArrayList;
 
@@ -22,11 +22,10 @@ import javax.swing.JOptionPane;
 import org.apache.commons.math3.stat.StatUtils;
 import org.scijava.vecmath.Point3i;
 
-import com.vis.radiomics.main.ImagePreprocessing;
-import com.vis.radiomics.main.Utils;
-
 import ij.ImagePlus;
 import ij.measure.Calibration;
+import io.github.tatsunidas.radiomics.main.ImagePreprocessing;
+import io.github.tatsunidas.radiomics.main.Utils;
 
 /**
  * 

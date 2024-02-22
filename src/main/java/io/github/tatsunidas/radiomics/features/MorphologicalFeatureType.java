@@ -1,4 +1,4 @@
-package com.vis.radiomics.features;
+package io.github.tatsunidas.radiomics.features;
 
 /*
  * 3.1.1 Volume (mesh) RNU0 

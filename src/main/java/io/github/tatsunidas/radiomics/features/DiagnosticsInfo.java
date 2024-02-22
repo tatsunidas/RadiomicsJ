@@ -1,11 +1,10 @@
-package com.vis.radiomics.features;
+package io.github.tatsunidas.radiomics.features;
 
 import java.util.HashMap;
 
-import com.vis.radiomics.main.RadiomicsJ;
-import com.vis.radiomics.main.Utils;
-
 import ij.ImagePlus;
+import io.github.tatsunidas.radiomics.main.RadiomicsJ;
+import io.github.tatsunidas.radiomics.main.Utils;
 
 /**
  * Diagnostics-initial image	Image dimension x

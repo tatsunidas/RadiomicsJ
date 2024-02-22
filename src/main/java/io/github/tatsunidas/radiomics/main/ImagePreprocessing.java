@@ -1,4 +1,4 @@
-package com.vis.radiomics.main;
+package io.github.tatsunidas.radiomics.main;
 
 import javax.swing.JOptionPane;
 

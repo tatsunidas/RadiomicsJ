@@ -13,7 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
  */
-package com.vis.radiomics.features;
+package io.github.tatsunidas.radiomics.features;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -23,12 +23,11 @@ import javax.swing.JOptionPane;
 
 import org.scijava.vecmath.Point3i;
 
-import com.vis.radiomics.main.ImagePreprocessing;
-import com.vis.radiomics.main.RadiomicsJ;
-import com.vis.radiomics.main.Utils;
-
 import ij.ImagePlus;
 import ij.measure.Calibration;
+import io.github.tatsunidas.radiomics.main.ImagePreprocessing;
+import io.github.tatsunidas.radiomics.main.RadiomicsJ;
+import io.github.tatsunidas.radiomics.main.Utils;
 
 /**
  * GrayLevelSizeZoneMatrix
@@ -110,8 +109,8 @@ public class GLSZMFeatures {
 			Collections.sort(angle_ids);
 			
 			// discretised by roi mask.
-			if(RadiomicsJ.discretisedImp != null) {
-				discImg = RadiomicsJ.discretisedImp;
+			if(RadiomicsJ.discretiseImp != null) {
+				discImg = RadiomicsJ.discretiseImp;
 			}else {
 				if(useBinCount) {
 					discImg = Utils.discrete(this.img, this.mask, this.label, this.nBins);

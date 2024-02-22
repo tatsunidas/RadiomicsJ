@@ -13,11 +13,10 @@
    See the License for the specific language governing permissions and
    limitations under the License.
  */
-package com.vis.radiomics.features;
+package io.github.tatsunidas.radiomics.features;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 
 import javax.swing.JOptionPane;
@@ -32,23 +31,16 @@ import org.apache.commons.math3.stat.correlation.Covariance;
 import org.scijava.vecmath.Point3f;
 
 import com.github.quickhull3d.QuickHull3D;
-import com.vis.radiomics.main.ImagePreprocessing;
-import com.vis.radiomics.main.RadiomicsJ;
-import com.vis.radiomics.main.Utils;
-import com.vis.radiomics.plugins.fiji.Convex_Hull3DTool;
-import com.vis.radiomics.plugins.fiji.Ellipsoid_3DTool;
 
 import customnode.CustomTriangleMesh;
 import ij.ImagePlus;
 import ij.measure.Calibration;
-import ij.process.ByteProcessor;
 import ij.process.ImageProcessor;
+import io.github.tatsunidas.miscellaneous.Ellipsoid_3DTool;
+import io.github.tatsunidas.radiomics.main.ImagePreprocessing;
+import io.github.tatsunidas.radiomics.main.RadiomicsJ;
+import io.github.tatsunidas.radiomics.main.Utils;
 import marchingcubes.MCTriangulator;
-import net.imagej.mesh.Meshes;
-import net.imagej.mesh.Triangle;
-import net.imagej.ops.geom.geom3d.DefaultConvexHull3D;
-import net.imglib2.RandomAccessibleInterval;
-import net.imglib2.img.display.imagej.ImageJFunctions;
 
 /**
  * 3.1 Morphological features HCUG
@@ -90,10 +82,15 @@ public class MorphologicalFeatures {
 	
 	ImagePlus orgImg;
 	ImagePlus orgMask;
-	/*
-	 * iso voxels
+	
+	/**
+	 * (1mm,1mm,1mm) iso voxel mask to compute mesh.
+	 * In RadiomicsJ, using (1mm,1mm,1mm) even if resampled when pre-processing.
 	 */
-	ImagePlus isoMask;
+	ImagePlus isoMask;//ALWAYS 1, 1, 1 mm
+	
+	final double isoSize = 1.0;
+	
 	Calibration orgCal;// backup
 	int label;
 	double[] voxels;
@@ -124,7 +121,7 @@ public class MorphologicalFeatures {
 				return;
 			}
 		}else {
-			// create full face mask
+			// if null, create full face mask
 			mask = ImagePreprocessing.createMask(img.getWidth(), img.getHeight(), img.getNSlices(), null, this.label,img.getCalibration().pixelWidth, img.getCalibration().pixelHeight,img.getCalibration().pixelDepth);
 		}
 		orgCal = img.getCalibration().copy();
@@ -132,9 +129,9 @@ public class MorphologicalFeatures {
 		mask.getCalibration().disableDensityCalibration();
 		orgImg = img;
 		orgMask = mask;
-		isoMask = Utils.isoVoxelizeWithInterpolation(orgMask, true);
-		ImagePlus isoMaskCopy = Utils.createMaskCopyAsGray8(isoMask, this.label);
-		
+		isoMask = Utils.resample3D(mask, true, isoSize, isoSize, isoSize);
+		//to 8 but
+		isoMask = Utils.createMaskCopyAsGray8(isoMask, this.label);
 		//create mesh first.
 		int threshold = this.label-1;
 		boolean[] channels = { true, false, false }; // r,g,b, but only used r because image is always binary 8 bit.
@@ -145,14 +142,14 @@ public class MorphologicalFeatures {
 		 * triangles, while a high number results in a smooth mesh with fewer triangles.
 		 * 
 		 * In the case of digital phantom1,
-		 * when resampling fator set to 1, can not get same result in IBSI.
-		 * it set to 2, can get same IBSI result.
+		 * it set to 2 and (1,1,1) iso voxelize combination setting yields same IBSI result.
 		 */
 		int resamplingF = 2; // 1 to N.
 		@SuppressWarnings("unchecked")
 		// should be use iso mask copy.
-		List<Point3f> points = mct.getTriangles(isoMaskCopy, threshold, channels, resamplingF);
+		List<Point3f> points = mct.getTriangles(isoMask, threshold, channels, resamplingF);
 		this.points = points;
+		//original voxels
 		voxels = Utils.getVoxels(orgImg, orgMask, this.label);
 	}
 	
@@ -230,16 +227,7 @@ public class MorphologicalFeatures {
 		if(this.mesh_v != null) {
 			return mesh_v;
 		}
-		if(this.mct != null && this.points != null) {
-			CustomTriangleMesh mesh = new CustomTriangleMesh(this.points);
-			mesh_v = (double) mesh.getVolume();
-			if(mesh_v < 0) {
-				mesh_v *= -1.0; //correct negative value 
-			}
-			mesh = null;
-			return mesh_v;
-		}
-		ImagePlus mask = Utils.createMaskCopyAsGray8(isoMask, this.label);//needed
+		ImagePlus mask = Utils.createMaskCopyAsGray8(isoMask, this.label);
 		int threshold = this.label-1;
 		boolean[] channels = { true, false, false }; // r,g,b, but only used r because image is always binary 8 bit.
 		mct = new MCTriangulator();
@@ -265,29 +253,6 @@ public class MorphologicalFeatures {
 		return mesh_v;
 	}
 	
-	/*
-	 * IMPORTANT : this method only used for convex-full
-	 * for convex
-	 */
-	private Double getVolumeByMesh(ImagePlus isoMaskCopy) {
-		int threshold = this.label-1;
-		boolean[] channels = { true, false, false }; // r,g,b, but only used r because image is always binary 8 bit.
-		//only in method. do not replace fields mct. 
-		MCTriangulator mct = new MCTriangulator();
-		int resamplingF = 1; // 1 to N.
-		@SuppressWarnings("unchecked")
-		List<Point3f> points = mct.getTriangles(isoMaskCopy, threshold, channels, resamplingF);
-		// calculate volume
-		CustomTriangleMesh mesh = new CustomTriangleMesh(points);
-		Double v = (double) mesh.getVolume();
-		if(v < 0) {
-			v *= -1.0; //correct negative value 
-		}
-		mesh = null;
-		mct = null;
-		points = null;
-		return v;
-	}
 	
 	private Double getVolumeByVoxelCounting() {
 		if(voxels == null) {
@@ -345,9 +310,9 @@ public class MorphologicalFeatures {
 		boolean[] channels = { true, false, false }; // r,g,b, but only used r because image is always binary 8 bit.
 		mct = new MCTriangulator();
 		/*
-		 * resample factor set to 1,
+		 * When resample factor set to 1,
 		 * can not get same result IBSI digital phantom1.
-		 * set to 2, get same result. 
+		 * set to 2, can get same result. 
 		 */
 		int resamplingF = 2; // 1 to N.
 		@SuppressWarnings("unchecked")
@@ -405,93 +370,13 @@ public class MorphologicalFeatures {
 		return surfaceArea;
 	}
 	
-	/*
-	 * IMPORTANT : this method only used for convex-full
-	 * for convex
-	 */
-	private Double getSurfaceAreaByMesh(ImagePlus isoMaskCopy) {
-		int threshold = this.label-1;
-		boolean[] channels = { true, false, false }; // r,g,b, but only used r because image is always binary 8 bit.
-		//do not replace fields mct !
-		MCTriangulator mct = new MCTriangulator();
-		int resamplingF = 2; // 1 to N.
-		@SuppressWarnings("unchecked")
-		List<Point3f> points = mct.getTriangles(isoMaskCopy, threshold, channels, resamplingF);
-		Double sumArea = 0d;
-		final int nPoints = points.size();
-		final Point3f origin = new Point3f((float)orgCal.xOrigin, (float)orgCal.yOrigin, (float)orgCal.zOrigin);
-//		System.out.println("Calculating surface area.., num of points : " + nPoints / 3);
-		for (int n = 0; n < nPoints; n += 3) {
-			// https://github.com/mdoube/BoneJ/blob/17ee483603afa8a7efb745512be60a29e093c94e/src/org/doube/geometry/Vectors.java#L19
-			final Point3f point0 = points.get(n);
-			final Point3f point1 = points.get(n+1);
-			final Point3f point2  = points.get(n+2);
-			final double x1 = (point1.x - point0.x);
-			final double y1 = (point1.y - point0.y);
-			final double z1 = (point1.z - point0.z);
-			final double x2 = (point2.x - point0.x);
-			final double y2 = (point2.y - point0.y);
-			final double z2 = (point2.z - point0.z);
-			final Point3f crossVector = new Point3f();
-			crossVector.x = (float) (y1 * z2 - z1 * y2);
-			crossVector.y = (float) (z1 * x2 - x1 * z2);
-			crossVector.z = (float) (x1 * y2 - y1 * x2);
-			final double deltaArea = 0.5 * crossVector.distance(origin);
-			sumArea += deltaArea;
-		}
-		mct = null;
-		points = null;
-		return sumArea;
-	}
-	
-	@SuppressWarnings("unused")
-	@Deprecated
-	private Double getSurfaceAreaByMeshUsingNonIsoVoxels() {
-		ImagePlus mask = Utils.createMaskCopy(orgMask);// non ISO voxel
-		mask.getProcessor().setBinaryThreshold();
-		ByteProcessor mask8bit = mask.createThresholdMask();
-		ImagePlus mask8bitImp = mask.createImagePlus();
-		mask8bitImp.setProcessor(mask8bit);
-		mask8bitImp.setCalibration(orgCal);//set calibration
-		int threshold = 255;
-		boolean[] channels = { true, false, false }; // r,g,b, but only used r because image is always binary 8 bit.
-		mct = new MCTriangulator();
-		int resamplingF = 1; // 1 to N.
-		@SuppressWarnings("unchecked")
-		List<Point3f> points = mct.getTriangles(mask8bitImp, threshold, channels, resamplingF);
-		Double sumArea = 0d;
-		final int nPoints = points.size();
-		final Point3f origin = new Point3f((float)orgCal.xOrigin, (float)orgCal.yOrigin, (float)orgCal.zOrigin);
-//		System.out.println("Calculating surface area.., num of points : " + nPoints / 3);
-		for (int n = 0; n < nPoints; n += 3) {
-			// https://github.com/mdoube/BoneJ/blob/17ee483603afa8a7efb745512be60a29e093c94e/src/org/doube/geometry/Vectors.java#L19
-			final Point3f point0 = points.get(n);
-			final Point3f point1 = points.get(n+1);
-			final Point3f point2  = points.get(n+2);
-			final double x1 = orgCal.pixelWidth * (point1.x - point0.x);
-			final double y1 = orgCal.pixelHeight * (point1.y - point0.y);
-			final double z1 = orgCal.pixelDepth * (point1.z - point0.z);
-			final double x2 = orgCal.pixelWidth * (point2.x - point0.x);
-			final double y2 = orgCal.pixelHeight * (point2.y - point0.y);
-			final double z2 = orgCal.pixelDepth * (point2.z - point0.z);
-			final Point3f crossVector = new Point3f();
-			crossVector.x = (float) (y1 * z2 - z1 * y2);
-			crossVector.y = (float) (z1 * x2 - x1 * z2);
-			crossVector.z = (float) (x1 * y2 - y1 * x2);
-			final double deltaArea = 0.5 * crossVector.distance(origin);
-			sumArea += deltaArea;
-		}
-		mct = null;
-		mask = null;
-		points = null;
-		return sumArea;
-	}
 	
 	private Double getSurfaceToVolumeRatio() {
 		double a = getSurfaceAreaByMesh();
 		double v = getVolumeByMesh();
 		return a/v;
 	}
+	
 	
 	private Double getCompactness1() {
 		double a = getSurfaceAreaByMesh();
@@ -684,45 +569,6 @@ public class MorphologicalFeatures {
 		return max;
 	}
 	
-	@SuppressWarnings("unused")
-	private Double getMaximum3DDiameterUsingConvHull() {
-		@SuppressWarnings("deprecation")
-		ImagePlus mask = new Convex_Hull3DTool().run(isoMask);
-		int w = mask.getWidth();
-		int h = mask.getHeight();
-		int s = mask.getNSlices();
-		double max = 0;
-		for(int z1=0; z1<s; z1++) {
-			for(int y1=0; y1<h; y1++) {
-				for(int x1=0; x1<w; x1++) {
-					//calc all voxels
-					if((int)mask.getStack().getProcessor(z1+1).getPixelValue(x1, y1)!=label) {
-						continue;
-					}
-					for(int z2=0; z2<s; z2++) {
-						for(int y2=0; y2<h; y2++) {
-							for(int x2=0; x2<w; x2++) {
-//								mask.setSlice(z2+1);
-								if((int)mask.getStack().getProcessor(z2+1).getPixelValue(x2, y2)!=label) {
-									continue;
-								}
-								double qx = Math.pow(x1-x2, 2);
-								double qy = Math.pow(y1-y2, 2);
-								double qz = Math.pow(z1-z2, 2);
-								double d = Math.sqrt(qx+qy+qz);
-								if(max < d) {
-									max = d;
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-		return max;
-	}
-	
-	
 	private Double getMaximum3DDiameterByMesh() {
 		if(this.mct != null && this.points != null) {
 			Double max = 0d;
@@ -792,7 +638,7 @@ public class MorphologicalFeatures {
 	 * if you use orgMask, do not replace mct and points.
 	 */
 	@SuppressWarnings("unused")
-	private Double getMaximum3DDiameterByMeshByOriginal() {
+	private Double getMaximum3DDiameterByMeshUsingOriginal() {
 		ImagePlus mask = Utils.createMaskCopyAsGray8(orgMask,this.label);//for validation sheet basis.
 		int threshold = label-1;
 		boolean[] channels = { true, false, false }; // r,g,b, but only used r because image is always binary 8 bit.
@@ -1685,41 +1531,6 @@ public class MorphologicalFeatures {
 		return null;
 	}
 	
-	/*
-	 * deprecated
-	 * This feature is also called solidity 
-	 */
-	@SuppressWarnings("unused")
-	@Deprecated
-	private Double getVolumeDensityByConvexHull(){
-		ImagePlus mask = Utils.createMaskCopyAsGray8(isoMask,this.label);
-		Convex_Hull3DTool cht = new Convex_Hull3DTool();
-		//will return 16 bit
-		ImagePlus maskConvex = cht.run(mask);//keep iso voxel
-		maskConvex = Utils.createMaskCopyAsGray8(maskConvex,this.label);
-		double v = getVolumeByMesh();
-		double v_convex = getVolumeByMesh(maskConvex);
-		cht = null;
-		mask = null;
-		maskConvex =null;
-		return v/v_convex;
-	}
-	
-	@SuppressWarnings("unused")
-	@Deprecated
-	private Double getAreaDensityByConvexHull(){
-		ImagePlus mask = Utils.createMaskCopyAsGray8(isoMask,this.label);
-		Convex_Hull3DTool cht = new Convex_Hull3DTool();
-		ImagePlus maskConvex = cht.run(mask);//keep iso voxel
-		maskConvex = Utils.createMaskCopyAsGray8(maskConvex,this.label);
-		double a = getSurfaceAreaByMesh();
-		double a_convex = getSurfaceAreaByMesh(maskConvex);
-		cht = null;
-		mask = null;
-		maskConvex = null;
-		return a/a_convex;
-	}
-	
 	private Double getAreaDensityByConvexHull2() {
 		double a = getSurfaceAreaByMesh();
 		ImagePlus mask = Utils.createMaskCopyAsGray8(isoMask,this.label);
@@ -1759,8 +1570,9 @@ public class MorphologicalFeatures {
 		return Math.abs(a/a_convexhull);
 	}
 	
-	/*
+	/**
 	 * used : com.github.quickhull3d
+	 * This feature is also called solidity
 	 */
 	private Double getVolumeDensityByConvexHull2() {
 		ImagePlus mask = Utils.createMaskCopyAsGray8(isoMask,this.label);
@@ -1809,40 +1621,6 @@ public class MorphologicalFeatures {
 		return v/vh;
 	}
 	
-	@SuppressWarnings("unused")
-	@Deprecated
-	private Double getVolumeDensityByConvexHull3() {
-		ImagePlus mask = Utils.createMaskCopyAsGray8(isoMask,this.label);
-		int threshold = this.label-1;
-		boolean[] channels = { true, false, false }; // r,g,b, but only used r because image is always binary 8 bit.
-		MCTriangulator mct = new MCTriangulator();
-		int resamplingF = 2; // 1 to N.
-		@SuppressWarnings("unchecked")
-		List<org.scijava.vecmath.Point3f> pointsf = mct.getTriangles(mask, threshold, channels, resamplingF);
-		CustomTriangleMesh mesh = new CustomTriangleMesh(pointsf);
-		double v = Math.abs(mesh.getVolume());
-//		System.out.println(v);//556
-		@SuppressWarnings("rawtypes")
-		RandomAccessibleInterval rai = ImageJFunctions.wrapReal(mask);
-//		Mesh m = new DefaultMarchingCubes<>().calculate(rai);//Meshes.marchingCubes(rai);
-		@SuppressWarnings("unchecked")
-		net.imagej.mesh.Mesh m = Meshes.marchingCubes(rai,threshold);
-		DefaultConvexHull3D hull = new DefaultConvexHull3D();
-		net.imagej.mesh.Mesh m_hull = hull.calculate(m);
-		List<org.scijava.vecmath.Point3f> hull_p = new ArrayList<>();
-		Iterator<Triangle> iter = m_hull.triangles().iterator();
-		while(iter.hasNext()) {		
-			Triangle p = (Triangle) iter.next();
-			hull_p.add(new Point3f(p.v0xf(), p.v0yf(), p.v0zf()));	
-			hull_p.add(new Point3f(p.v1xf(), p.v1yf(), p.v1zf()));	
-			hull_p.add(new Point3f(p.v2xf(), p.v2yf(), p.v2zf()));	
-		}
-//		System.out.println(hull_p.size());//150
-		CustomTriangleMesh mesh_hull = new CustomTriangleMesh(hull_p);
-		double hv = mesh_hull.getVolume();
-//		System.out.println(hv);//838
-		return v/hv;//0.66
-	}
 	
 	/**
 	 * As simillar feature, the RawIntegratedDensity is exists. this is the same integrated intensity without density calibration.

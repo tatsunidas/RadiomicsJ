@@ -13,19 +13,22 @@
    See the License for the specific language governing permissions and
    limitations under the License.
  */
+
+package io.github.tatsunidas.ij.plugin;
+
 import ij.*;
 import ij.gui.*;
 import ij.plugin.*;
+import io.github.tatsunidas.radiomics.main.RadiomicsJ;
+import io.github.tatsunidas.radiomics.main.SettingParams;
 import ij.measure.ResultsTable;
 
 import java.awt.*;
 import java.util.*;
 
-import com.vis.radiomics.main.RadiomicsJ;
-import com.vis.radiomics.main.SettingParams;
-
 /**
- * First, you put RadiomicsJ libs (radiomicsj and jogamp-fat) to plugins/libs directly (without including any folder)
+ * Using ImageJ (not Fiji).
+ * First, you put RadiomicsJ libs (radiomicsj and jogamp-fat) to plugins/jars directly (without including any folder)
  * Second, put this file in plugins folder e.g., plugins/examples
  * Third, open this java file from imagej PlugIn> Compile and Run.
  * Finally, restart IJ and open image and mask, then run PlugIn>Examples>My_RadiomicsJPlugin

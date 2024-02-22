@@ -1,4 +1,4 @@
-package com.vis.radiomics.features;
+package io.github.tatsunidas.radiomics.features;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -6,11 +6,10 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 
-import com.vis.radiomics.main.RadiomicsJ;
-
 import ij.IJ;
 import ij.ImagePlus;
 import ij.util.DicomTools;
+import io.github.tatsunidas.radiomics.main.RadiomicsJ;
 
 public class OperationalInfoFeatures {
 	

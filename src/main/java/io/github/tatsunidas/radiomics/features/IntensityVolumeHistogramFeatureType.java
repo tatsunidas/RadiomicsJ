@@ -1,4 +1,4 @@
-package com.vis.radiomics.features;
+package io.github.tatsunidas.radiomics.features;
 
 public enum IntensityVolumeHistogramFeatureType {
 	VolumeAtIntensityFraction10("BC2M_1"),

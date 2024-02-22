@@ -13,7 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
  */
-package com.vis.radiomics.features;
+package io.github.tatsunidas.radiomics.features;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -23,13 +23,12 @@ import javax.swing.JOptionPane;
 
 import org.apache.commons.math3.stat.StatUtils;
 
-import com.vis.radiomics.main.ImagePreprocessing;
-import com.vis.radiomics.main.RadiomicsJ;
-import com.vis.radiomics.main.Utils;
-
 import ij.IJ;
 import ij.ImagePlus;
 import ij.measure.Calibration;
+import io.github.tatsunidas.radiomics.main.ImagePreprocessing;
+import io.github.tatsunidas.radiomics.main.RadiomicsJ;
+import io.github.tatsunidas.radiomics.main.Utils;
 
 /**
  * 3.6.1 Joint maximum GYBY 3.6.2 Joint average 60VM 3.6.3 Joint variance UR99
@@ -144,8 +143,8 @@ public class GLCMFeatures {
 			orgCal = orgImg.getCalibration();
 			orgMask = mask;
 			// discretised by roi mask.
-			if(RadiomicsJ.discretisedImp != null) {
-				discImg = RadiomicsJ.discretisedImp;
+			if(RadiomicsJ.discretiseImp != null) {
+				discImg = RadiomicsJ.discretiseImp;
 			}else {
 				if(useBinCount) {
 					discImg = Utils.discrete(orgImg, orgMask, this.label, this.nBins);

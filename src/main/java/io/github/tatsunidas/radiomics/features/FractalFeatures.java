@@ -13,20 +13,19 @@
    See the License for the specific language governing permissions and
    limitations under the License.
  */
-package com.vis.radiomics.features;
+package io.github.tatsunidas.radiomics.features;
 
 import java.util.Arrays;
 import java.util.HashMap;
 import javax.swing.JOptionPane;
-
-import com.vis.radiomics.main.ImagePreprocessing;
-import com.vis.radiomics.main.Utils;
 
 import ij.ImagePlus;
 import ij.gui.Roi;
 import ij.measure.Calibration;
 import ij.measure.CurveFitter;
 import ij.util.Tools;
+import io.github.tatsunidas.radiomics.main.ImagePreprocessing;
+import io.github.tatsunidas.radiomics.main.Utils;
 
 /**
 Calculate the so-called "capacity" fractal dimension.  The algorithm
