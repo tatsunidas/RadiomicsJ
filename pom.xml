@@ -8,6 +8,29 @@
 	<version>2.1.3</version>
 	<name>RadiomicsJ</name>
 	<description>A library to compte radiomics features.</description>
+	<url>https://github.com/tatsunidas/RadiomicsJ</url>
+	
+	<licenses>
+	  <license>
+	    <name>The Apache License, Version 2.0</name>
+	    <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+	  </license>
+	</licenses>
+	
+	<developers>
+    	<developer>
+      		<name>Tatsuaki Kobayashi</name>
+      		<email>t_kobayashi@vis-ionary.com</email>
+      		<organization>Visionry Imaging Services, Inc.</organization>
+      		<organizationUrl>https://www.vis-ionary.com</organizationUrl>
+    	</developer>
+	</developers>
+	
+	<scm>
+		<connection>scm:git:git://github.com/tatsunidas/RadiomicsJ.git</connection>
+	  	<developerConnection>scm:git:ssh://github.com/tatsunidas/RadiomicsJ.git</developerConnection>
+	  	<url>http://github.com/tatsunidas/RadiomicsJ/tree/master</url>
+	</scm>
   
 	<properties>
 		<exec.mainClass>com.vis.radiomics.main.RadiomicsJ</exec.mainClass>
@@ -38,6 +61,16 @@
 	<build>
 		<plugins>
 			<plugin>
+          		<groupId>org.sonatype.central</groupId>
+          		<artifactId>central-publishing-maven-plugin</artifactId>
+          		<version>0.3.0</version>
+          		<extensions>true</extensions>
+          		<configuration>
+            		<publishingServerId>central</publishingServerId>
+            		<tokenAuth>true</tokenAuth>
+          		</configuration>
+        	</plugin>
+			<plugin>
 				<artifactId>maven-source-plugin</artifactId>
 				<version>3.3.0</version>
 		   		<executions>
@@ -51,6 +84,12 @@
 		   <plugin> 
 		   		<artifactId>maven-javadoc-plugin</artifactId>
 		   		<version>3.3.0</version>
+		   		<configuration>
+                	<additionalOptions>
+						<!-- slip strict check java doc-->
+                    	<additionalOption>-Xdoclint:none</additionalOption>
+                	</additionalOptions>
+            	</configuration>
 		      	<executions> 
 		        	<execution> 
 		          		<id>attach-javadocs</id>
