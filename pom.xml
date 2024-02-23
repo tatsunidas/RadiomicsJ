@@ -100,7 +100,7 @@
 		   		<version>3.3.0</version>
 		   		<configuration>
                 	<additionalOptions>
-						<!-- slip strict check java doc-->
+						<!-- skip strict check java doc-->
                     	<additionalOption>-Xdoclint:none</additionalOption>
                 	</additionalOptions>
             	</configuration>
