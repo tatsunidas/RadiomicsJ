@@ -13,6 +13,7 @@ public class TestRadiomicsJ {
 
 	@Test
 	public void test() {
-		assertFalse(Validation.ibsiDigitalPhantom());
+		//validation success will return true. 
+		assertFalse(Validation.ibsiDigitalPhantom()==false);
 	}
 }
