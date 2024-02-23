@@ -6,9 +6,19 @@ It is using the imagej for the image processing backend.
 ## Environment
 
 - Maven3
+- Java AdoptOpenJDK1.8 or 1.11.
+
+## Dependencies
+
+See, pom.xml.
 - ImageJ 1.53 or above
 - VIB_ libs from Fiji.
-- Java AdoptOpenJDK1.8 or 1.11.
+- commons-math3
+- apache-poi
+
+Externals
+- jog-fat.jar
+- nifti_io.jar
 
 ## Image-Preprocessing
 
@@ -22,7 +32,7 @@ RadiomicsJ performs resampling with:
 - [3D]  
 	Trilinear  
 	NearestNeighbor3D  
-	NoInterpolation3D (processing NearestNeighbor2D 3 times for x,y,z)
+	TricubicBSpline/Polynomial
 
 ### Range filtering
 
@@ -304,7 +314,7 @@ As more details, see following correspondence tables.
 
 # How to use
 
-If you wants quick example with GUI, see [RadiomicsJ IJ-PlugIn](https://sites.google.com/vis-ionary.com/public/ij-plugin_radiomicsj).  
+If you want quick example with GUI, see [RadiomicsJ IJ-PlugIn](https://sites.google.com/vis-ionary.com/public/ij-plugin_radiomicsj).  
 Else,  
 
 ```  
