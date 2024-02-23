@@ -315,8 +315,12 @@ As more details, see following correspondence tables.
 # How to use
 
 If you want quick example with GUI, see [RadiomicsJ IJ-PlugIn](https://sites.google.com/vis-ionary.com/public/ij-plugin_radiomicsj).  
-Else,  
 
+```
+<groupId>io.github.tatsunidas</groupId>
+<artifactId>radiomicsj</artifactId>
+<version>2.1.3</version>
+```
 ```  
 int targetLabel = 1;
 ImagePlus images = new ImagePlus(path to images);
