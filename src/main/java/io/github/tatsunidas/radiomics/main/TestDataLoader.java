@@ -14,6 +14,7 @@ import ij.ImageStack;
 import ij.measure.Calibration;
 import ij.process.ByteProcessor;
 import ij.process.ShortProcessor;
+import io.github.tatsunidas.ij.plugin.nifti.Nifti_Reader;
 
 public class TestDataLoader {
 	
@@ -21,18 +22,21 @@ public class TestDataLoader {
 	static String parent_dir = "data_sets-master/";
 	
 	public static ImagePlus[] digital_phantom1() {
-		String p2i = parent_dir+"ibsi_1_digital_phantom/nifti/image/phantom.nii.gz";
-		String p2m = parent_dir+"ibsi_1_digital_phantom/nifti/mask/mask.nii.gz";
-		try{
-	        URL url_i = loader.getResource(p2i);
-	        Object img = IJ.runPlugIn("Nifti_Reader", new File(url_i.toURI()).getAbsolutePath());
-	        URL url_m = TestDataLoader.class.getClassLoader().getResource(p2m);
-	        Object mask = IJ.runPlugIn("Nifti_Reader", new File(url_m.toURI()).getAbsolutePath());
-	        return new ImagePlus[] {(ImagePlus)img, (ImagePlus)mask};
-	    }catch(URISyntaxException ioe){
-	        ioe.printStackTrace();
-	    }   
-	    return null;
+		String p2i = parent_dir + "ibsi_1_digital_phantom/nifti/image/";
+		String i_name = "phantom.nii.gz";
+		String p2m = parent_dir + "ibsi_1_digital_phantom/nifti/mask/";
+		String m_name = "mask.nii.gz";
+		URL url_i = loader.getResource(p2i);
+		URL url_m = loader.getResource(p2m);
+		Nifti_Reader reader = new Nifti_Reader();
+		try {
+			ImagePlus img = reader.load(new File(url_i.toURI()).getAbsolutePath(), i_name);
+			ImagePlus mask = reader.load(new File(url_m.toURI()).getAbsolutePath(), m_name);
+			return new ImagePlus[] { (ImagePlus) img, (ImagePlus) mask };
+		} catch (URISyntaxException e) {
+			e.printStackTrace();
+		}
+		return null;
 	}
 	
 	public static ImagePlus[] digital_phantom1_scratch() {
@@ -144,16 +148,9 @@ public class TestDataLoader {
 	public static ImagePlus[] sample_ct1() {
 		String p2i = parent_dir+"ibsi_1_ct_radiomics_phantom/nifti/image/phantom.nii.gz";
 		String p2m = parent_dir+"ibsi_1_ct_radiomics_phantom/nifti/mask/mask.nii.gz";
-		try{
-	        URL url_i = TestDataLoader.class.getClassLoader().getResource(p2i);
-	        Object img = IJ.runPlugIn("Nifti_Reader", new File(url_i.toURI()).getAbsolutePath());
-	        URL url_m = TestDataLoader.class.getClassLoader().getResource(p2m);
-	        Object mask = IJ.runPlugIn("Nifti_Reader", new File(url_m.toURI()).getAbsolutePath());
-	        return new ImagePlus[] {(ImagePlus)img, (ImagePlus)mask};
-	    }catch(URISyntaxException ioe){
-	        ioe.printStackTrace();
-	    }   
-	    return null;
+		ImagePlus img = loadNifTi(p2i);
+		ImagePlus mask = loadNifTi(p2m);
+		return new ImagePlus[] {img, mask};
 	}
 	
 	/**
@@ -164,19 +161,33 @@ public class TestDataLoader {
 	public static ImagePlus[] validationDataAt(String name_id, String modality) {
 		String p2i = parent_dir+"ibsi_1_validation/nifti/STS_"+name_id+"/"+modality+"_image.nii.gz";
 		String p2m = parent_dir+"ibsi_1_validation/nifti/STS_"+name_id+"/"+modality+"_mask.nii.gz";
-		try{
-	        URL url_i = loader.getResource(p2i);
-	        Object img = IJ.runPlugIn("Nifti_Reader", new File(url_i.toURI()).getAbsolutePath());
-	        URL url_m = TestDataLoader.class.getResource(p2m);
-	        Object mask = IJ.runPlugIn("Nifti_Reader", new File(url_m.toURI()).getAbsolutePath());
-	        return new ImagePlus[] {(ImagePlus)img, (ImagePlus)mask};
-	    }catch(URISyntaxException ioe){
-	        ioe.printStackTrace();
-	    }   
-	    return null;
+		ImagePlus img = loadNifTi(p2i);
+		ImagePlus mask = loadNifTi(p2m);
+		return new ImagePlus[] {img, mask};
 	}
 	
 	public static ImagePlus loadNifTi(String path) {
+		URL url_i = loader.getResource(path);
+		File nii = null;
+		try {
+			nii = new File(url_i.toURI());
+		} catch (URISyntaxException e) {
+			e.printStackTrace();
+		}
+		File parent = nii.getParentFile();
+		String name = nii.getName();
+		Nifti_Reader reader = new Nifti_Reader();
+       return reader.load(parent.getAbsolutePath(), name);
+	}
+	
+	/**
+	 * This method requires load classes before start JVM.
+	 * 
+	 * @deprecated
+	 * @param path
+	 * @return
+	 */
+	public static ImagePlus loadNifTiUsingIJ(String path) {
 		Object img = IJ.runPlugIn("Nifti_Reader", new File(path).getAbsolutePath());
         return (ImagePlus)img;
 	}
