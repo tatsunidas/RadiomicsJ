@@ -34,7 +34,5 @@
 			<attribute name="maven.pomderived" value="true"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="external-libs/jogamp-fat_2021.jar"/>
-	<classpathentry kind="lib" path="external-libs/nifti_io.jar"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>

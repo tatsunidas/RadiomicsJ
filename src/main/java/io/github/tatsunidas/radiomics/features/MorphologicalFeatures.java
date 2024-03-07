@@ -133,6 +133,7 @@ public class MorphologicalFeatures {
 		//to 8 but
 		isoMask = Utils.createMaskCopyAsGray8(isoMask, this.label);
 		//create mesh first.
+		RadiomicsJ.workaroundIntelGraphicsBug();
 		int threshold = this.label-1;
 		boolean[] channels = { true, false, false }; // r,g,b, but only used r because image is always binary 8 bit.
 		mct = new MCTriangulator();

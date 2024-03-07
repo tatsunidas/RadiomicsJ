@@ -10,6 +10,10 @@ import io.github.tatsunidas.radiomics.main.Validation;
  *
  */
 public class TestRadiomicsJ {
+	
+	public static void main(String args[]) {
+		new TestRadiomicsJ().test();
+	}
 
 	@Test
 	public void test() {

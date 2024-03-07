@@ -335,11 +335,8 @@ res.show(RadiomicsJ.resultWindowTitle);
 
 # Development
 
-You needs following external libs,
-- jogamp-fat.jar([here](https://drive.google.com/file/d/1rDWfyYRUOxQoh4RVsjZx12Je965WPi8e/view?usp=sharing))
-- nifti_io.jar ([from imagej plugins](https://imagej.nih.gov/ij/plugins/download/jars/))
-
-and add to build path these libs.
+If you facing a 3D related dependencies issues, try to add this external lib to dependency.
+- jogamp-fat.jar([here](https://github.com/tatsunidas/RadiomicsJ/blob/master/external-libs/jogamp-fat_2021.jar))
 
 # Acknowledgments
 

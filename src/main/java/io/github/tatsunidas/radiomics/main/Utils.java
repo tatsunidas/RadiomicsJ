@@ -2189,4 +2189,9 @@ public class Utils {
 		}
 		return vals;
 	}
+	
+	public static String osName() {
+		String os = System.getProperty("os.name");
+		return os;
+	}
 }
