@@ -191,7 +191,6 @@
 		    <scope>test</scope>
 		</dependency>
 		
-		<!-- JUnit5 -->
 		<dependency>
 			<groupId>org.junit.jupiter</groupId>
 			<artifactId>junit-jupiter-engine</artifactId>

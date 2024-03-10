@@ -24,6 +24,9 @@ import io.github.tatsunidas.radiomics.main.SettingParams;
 import ij.measure.ResultsTable;
 
 import java.awt.*;
+import java.io.File;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.util.*;
 
 /**
@@ -36,6 +39,29 @@ import java.util.*;
  * @author tatsunidas <t_kobayashi@vis-ionary.com>
  */
 public class My_RadiomicsJPlugin implements PlugIn {
+	
+	//debug
+	/*
+	 * Before run this debug, uncomment sl4j-simple <scope>test</scope>.
+	 */
+	public static void main(String[] args) {
+		@SuppressWarnings("unused")
+		ImageJ ij = new ImageJ();
+		URL refUrl_i = My_RadiomicsJPlugin.class
+              .getClassLoader().getResource("data_sets-master/ibsi_1_digital_phantom/tiff/phantom_img.tif");
+		URL refUrl_m = My_RadiomicsJPlugin.class
+	              .getClassLoader().getResource("data_sets-master/ibsi_1_digital_phantom/tiff/phantom_msk.tif");
+		try {
+			ij = IJ.getInstance();
+			ImagePlus imp = IJ.openImage(new File(refUrl_i.toURI()).getAbsolutePath());
+			ImagePlus msk = IJ.openImage(new File(refUrl_m.toURI()).getAbsolutePath());
+			imp.show();
+			msk.show();
+			new My_RadiomicsJPlugin().run(null);
+		} catch (URISyntaxException e) {
+			e.printStackTrace();
+		}
+	}
 
 	public My_RadiomicsJPlugin(){};
 
@@ -184,6 +210,7 @@ public class My_RadiomicsJPlugin implements PlugIn {
 			}
 			
 			RadiomicsJ radiomics = new RadiomicsJ();
+			RadiomicsJ.IJ_PlugIn = true;
 			radiomics.setDebug(true);
 			radiomics.loadSettings(prop);
 			try {

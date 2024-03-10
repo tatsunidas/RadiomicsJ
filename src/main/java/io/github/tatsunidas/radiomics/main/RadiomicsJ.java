@@ -18,8 +18,11 @@ package io.github.tatsunidas.radiomics.main;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -43,6 +46,7 @@ import ij.ImageStack;
 import ij.measure.ResultsTable;
 import ij.process.ImageProcessor;
 import ij.util.DicomTools;
+import io.github.tatsunidas.ij.plugin.nifti.Nifti_Reader;
 import io.github.tatsunidas.radiomics.features.DiagnosticsInfo;
 import io.github.tatsunidas.radiomics.features.DiagnosticsInfoType;
 import io.github.tatsunidas.radiomics.features.FractalFeatureType;
@@ -533,6 +537,11 @@ public class RadiomicsJ {
 	boolean BOOL_enableShape2D = false;
 	
 	/**
+	 * Run as IJ PlugIn
+	 */
+	public static boolean IJ_PlugIn = false;
+	
+	/**
 	 * Handle to specify features will be excluded.
 	 */
 	private HashSet<String> excluded;
@@ -672,13 +681,26 @@ public class RadiomicsJ {
 		if (propFilePathInResource == null) {
 			return;
 		}
-		URL refUrl = RadiomicsJ.class.getClassLoader().getResource(propFilePathInResource);
-		File propFile = null;
-		try {
-			propFile = new File(refUrl.toURI());
-		} catch (URISyntaxException e) {
-			e.printStackTrace();
+		//for IDE
+//		URL refUrl = RadiomicsJ.class.getClassLoader().getResource(propFilePathInResource);
+		//from jar
+		
+		if(!new File("./validation").exists()) {
+			new File("./validation").mkdirs();
 		}
+		
+		InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(propFilePathInResource);
+		String fname = propFilePathInResource.split("/")[1];
+		if (is != null) {
+			try {
+				Files.copy(is, new File("./validation/"+fname).toPath(), StandardCopyOption.REPLACE_EXISTING);
+				is.close();
+			} catch (IOException e) {
+				System.err.println("Cannot read answer file...");
+				e.printStackTrace();
+			}
+		}
+		File propFile = new File("./validation/"+fname);
 		Properties prop = null;
 		if (propFile == null || !propFile.exists()) {
 			System.out.println("Sorry, can not read properties file correctly.");
@@ -1225,14 +1247,9 @@ public class RadiomicsJ {
 			if(imgSeriesFileFolder.getName().contains(".nii.gz")) {
 				String p2i = imgSeriesFileFolder.getAbsolutePath();
 				String p2m = maskSeriesFileFolder.getAbsolutePath();
-				Object img = null;
-				Object mask = null;
-				img = IJ.runPlugIn("Nifti_Reader", p2i);
-		        mask = IJ.runPlugIn("Nifti_Reader", p2m);
-		        if(img == null) {
-		        	System.out.println("Can not load nifti file... return null.");
-		        	return null;
-		        }
+				Nifti_Reader reader = new Nifti_Reader();
+				ImagePlus img = reader.load(new File(p2i).getParentFile().getAbsolutePath(), new File(p2i).getName());
+				ImagePlus mask = reader.load(new File(p2m).getParentFile().getAbsolutePath(), new File(p2m).getName());
 				if(force2D) {
 					return extractAllSlice((ImagePlus)img,(ImagePlus)mask,targetLabel);
 				}else {
@@ -1255,14 +1272,9 @@ public class RadiomicsJ {
 			if(imgSeriesFileFolder.getName().contains(".nii.gz")) {
 				String p2i = imgSeriesFileFolder.getAbsolutePath();
 				String p2m = maskSeriesFileFolder.getAbsolutePath();
-				Object img = null;
-				Object mask = null;
-				img = IJ.runPlugIn("Nifti_Reader", p2i);
-		        mask = IJ.runPlugIn("Nifti_Reader", p2m);
-		        if(img == null) {
-		        	System.out.println("Can not load nifti file... return null.");
-		        	return null;
-		        }
+				Nifti_Reader reader = new Nifti_Reader();
+				ImagePlus img = reader.load(new File(p2i).getParentFile().getAbsolutePath(), new File(p2i).getName());
+				ImagePlus mask = reader.load(new File(p2m).getParentFile().getAbsolutePath(), new File(p2m).getName());
 				if(force2D) {
 					return extractAllSlice((ImagePlus)img,(ImagePlus)mask,targetLabel);
 				}else {
@@ -1471,6 +1483,10 @@ public class RadiomicsJ {
 		}
 		rt.incrementCounter();
 		
+		double enableFamilies = (double)countEnableFamilies();
+		int progress = 0;
+		if(IJ_PlugIn)IJ.showProgress(progress/enableFamilies);
+		
 		if(BOOL_enableOperationalInfo) {
 			if(debug) {
 				System.out.println("=======================");
@@ -1487,6 +1503,7 @@ public class RadiomicsJ {
 					System.out.println(key+", "+val);
 				}
 			}
+			if(IJ_PlugIn)IJ.showProgress(++progress/enableFamilies);
 		}
 		
 		/*
@@ -1511,6 +1528,7 @@ public class RadiomicsJ {
 					System.out.println(dinfo.name()+", "+i);
 				}
 			}
+			if(IJ_PlugIn)IJ.showProgress(++progress/enableFamilies);
 		}
 		
 		if(BOOL_enableMorphological) {
@@ -1533,6 +1551,7 @@ public class RadiomicsJ {
 					System.out.println(ft.name()+", "+feature);
 				}
 			}
+			if(IJ_PlugIn)IJ.showProgress(++progress/enableFamilies);
 		}
 		
 		if(BOOL_enableLocalIntensityFeatures) {
@@ -1555,6 +1574,7 @@ public class RadiomicsJ {
 					System.out.println(ft.name()+", "+feature);
 				}
 			}
+			if(IJ_PlugIn)IJ.showProgress(++progress/enableFamilies);
 		}
 		
 		if(BOOL_enableIntensityBasedStatistics) {
@@ -1577,6 +1597,7 @@ public class RadiomicsJ {
 					System.out.println(f.name()+", "+feature);
 				}
 			}
+			if(IJ_PlugIn)IJ.showProgress(++progress/enableFamilies);
 		}
 		
 		if(BOOL_enableIntensityHistogram) {
@@ -1599,6 +1620,7 @@ public class RadiomicsJ {
 					System.out.println(f.name()+", "+feature);
 				}
 			}
+			if(IJ_PlugIn)IJ.showProgress(++progress/enableFamilies);
 		}
 		
 		if(BOOL_enableIntensityVolumeHistogram) {
@@ -1621,6 +1643,7 @@ public class RadiomicsJ {
 					System.out.println(f.name()+", "+feature);
 				}
 			}
+			if(IJ_PlugIn)IJ.showProgress(++progress/enableFamilies);
 		}
 		
 		if(BOOL_enableShape2D && force2D) {
@@ -1648,6 +1671,7 @@ public class RadiomicsJ {
 						System.out.println(shape.name() + ", " + feature);
 					}
 				}
+				if(IJ_PlugIn)IJ.showProgress(++progress/enableFamilies);
 			}
 		}
 		
@@ -1678,6 +1702,7 @@ public class RadiomicsJ {
 					System.out.println(glcm.name() + ", " + feature);
 				}
 			}
+			if(IJ_PlugIn)IJ.showProgress(++progress/enableFamilies);
 		}
 		
 		if(BOOL_enableGLRLM) {
@@ -1706,6 +1731,7 @@ public class RadiomicsJ {
 					System.out.println(glrlm.name() + ", " + feature);
 				}
 			}
+			if(IJ_PlugIn)IJ.showProgress(++progress/enableFamilies);
 		}
 		
 		if(BOOL_enableGLSZM) {
@@ -1733,6 +1759,7 @@ public class RadiomicsJ {
 					System.out.println(glszm.name() + ", " + feature);
 				}
 			}
+			if(IJ_PlugIn)IJ.showProgress(++progress/enableFamilies);
 		}
 		
 		if(BOOL_enableGLDZM) {
@@ -1760,6 +1787,7 @@ public class RadiomicsJ {
 					System.out.println(gldzm.name() + ", " + feature);
 				}
 			}
+			if(IJ_PlugIn)IJ.showProgress(++progress/enableFamilies);
 		}
 		
 		if(BOOL_enableNGTDM) {
@@ -1788,6 +1816,7 @@ public class RadiomicsJ {
 					System.out.println(ngtdm.name() + ", " + feature);
 				}
 			}
+			if(IJ_PlugIn)IJ.showProgress(++progress/enableFamilies);
 		}
 		
 		if(BOOL_enableNGLDM) {
@@ -1817,6 +1846,7 @@ public class RadiomicsJ {
 					System.out.println(gldm.name() + ", " + feature);
 				}
 			}
+			if(IJ_PlugIn)IJ.showProgress(++progress/enableFamilies);
 		}
 
 		if(BOOL_enableFractal) {
@@ -1846,14 +1876,34 @@ public class RadiomicsJ {
 					}
 				}
 			}
+			if(IJ_PlugIn)IJ.showProgress(++progress/enableFamilies);
 		}
 		System.gc();
 		return rt;
 	}
 	
+	int countEnableFamilies() {
+		int num = 0;
+		if(BOOL_enableOperationalInfo)num++;
+		if(BOOL_enableDiagnostics)num++;
+		if(BOOL_enableMorphological)num++;
+		if(BOOL_enableLocalIntensityFeatures)num++;
+		if(BOOL_enableIntensityBasedStatistics)num++;
+		if(BOOL_enableIntensityHistogram)num++;
+		if(BOOL_enableIntensityVolumeHistogram)num++;
+		if(BOOL_enableGLCM)num++;
+		if(BOOL_enableGLRLM)num++;
+		if(BOOL_enableGLSZM)num++;
+		if(BOOL_enableGLDZM)num++;
+		if(BOOL_enableNGTDM)num++;
+		if(BOOL_enableNGLDM)num++;
+		if(BOOL_enableFractal)num++;
+		if(BOOL_enableShape2D && force2D)num++;
+		return num;
+	}
+	
 	/**
 	 * https://github.com/morphonets/SNT/blob/ea139559ee8356d306eea83e38ab1a50bd32e3d2/src/main/java/sc/fiji/snt/viewer/Viewer3D.java#L430
-	 * @author Tiago Ferreira
 	 */
 	public static void workaroundIntelGraphicsBug() { // FIXME: This should go away with jogl 2.40?
 		/*

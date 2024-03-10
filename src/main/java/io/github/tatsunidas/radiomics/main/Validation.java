@@ -19,8 +19,9 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.net.URISyntaxException;
-import java.net.URL;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -98,8 +99,7 @@ public class Validation {
 	 * @return all clear or not
 	 */
 	public static boolean ibsiDigitalPhantom() {
-//		ImagePlus[] imgAndMask = TestDataLoader.digital_phantom1_scratch();
-		ImagePlus[] imgAndMask = TestDataLoader.digital_phantom1();
+		ImagePlus[] imgAndMask = TestDataLoader.digital_phantom1_scratch();
 		try {
 			return testWithConfig(imgAndMask, ValidationConfigType.P, digitalPhantomSettingsParam );
 		} catch (Exception e) {
@@ -242,6 +242,9 @@ public class Validation {
 		}
 	}
 	
+	/**
+	 * load validation excel file.
+	 */
 	private static void buildAnswers() {
 		System.out.println("Loading answers...");
 		ans_digital_phantom = new HashMap<String, Double>();
@@ -256,10 +259,28 @@ public class Validation {
 		tole_config_c = new HashMap<String, Double>();
 		tole_config_d = new HashMap<String, Double>();
 		tole_config_e = new HashMap<String, Double>();
-		URL refUrl = Validation.class
-                .getClassLoader().getResource(referenceFile);
+		
+		//from IDE
+//		URL refUrl = Validation.class
+//                .getClassLoader().getResource(referenceFile);
+		
+		//from jar
+		if(!new File("./validation").exists()) {
+			new File("./validation").mkdirs();
+		}
+		InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(referenceFile);
+		if(is != null) {
+			try {
+				Files.copy(is, new File("./"+referenceFile).toPath(), StandardCopyOption.REPLACE_EXISTING);
+				is.close();
+			} catch (IOException e) {
+				System.err.println("Cannot read answer file...");
+				e.printStackTrace();
+			}
+		}
+		
 		try (
-				FileInputStream excelFile = new FileInputStream(new File(refUrl.toURI()));
+				FileInputStream excelFile = new FileInputStream(new File("./"+referenceFile));
 				Workbook workbook = new XSSFWorkbook(excelFile);) {
 
 			for (int i = 0; i < 5; i++) {
@@ -278,10 +299,6 @@ public class Validation {
 					int count = 0;
 					while (cellIterator.hasNext()) {
 						Cell currentCell = cellIterator.next();
-						/*
-						 * A data_set B family C image_biomarker D RadiomicsJ_NAME E consensus F
-						 * benchmark_value G tolerance
-						 */
 						String col_name = CellReference.convertNumToColString(currentCell.getColumnIndex());
 						if (col_name.equals("A") && ds_type == null) {
 							ds_type = currentCell.getStringCellValue();
@@ -339,9 +356,6 @@ public class Validation {
 			e.printStackTrace();
 		} catch (IOException e) {
 			e.printStackTrace();
-		} catch (URISyntaxException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
 		}
 		System.out.println("Finish Loading answers...");
 	}
@@ -424,7 +438,7 @@ public class Validation {
 		case B:return null;
 		case C:return ConfigurationCSettingsParam;
 		case D:return ConfigurationDSettingsParam;
-		case E:return null;
+		case E:return ConfigurationESettingsParam;
 		case P:return digitalPhantomSettingsParam;
 		default:return null;
 		}
