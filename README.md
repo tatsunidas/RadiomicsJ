@@ -333,6 +333,10 @@ ResultsTable res = radiomics.execute(imgDir, maskDir, targetLabel);
 res.show(RadiomicsJ.resultWindowTitle);
 ```
 
+# Maven repo
+
+https://central.sonatype.com/artifact/io.github.tatsunidas/radiomicsj/overview
+
 # Development
 
 If you facing a 3D related dependencies issues, try to add this external lib to dependency.
