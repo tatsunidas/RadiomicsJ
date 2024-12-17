@@ -243,7 +243,7 @@ public class RadiomicsJ {
 	/**
 	 * radiomicsj version
 	 */
-	public static String version = "2.1.3";
+	public static String version = getVersion();
 	
 	/**
 	 * use test data
@@ -1915,4 +1915,20 @@ public class RadiomicsJ {
 			System.setProperty("jogl.disable.openglcore", System.getProperty("jogl.disable.openglcore", "false"));
 		}
 	}
+	
+	public static String getVersion() {
+        Properties properties = new Properties();
+        try (InputStream inputStream = RadiomicsJ.class.getClassLoader()
+                                                       .getResourceAsStream("application.properties")) {
+            if (inputStream != null) {
+                properties.load(inputStream);
+                return properties.getProperty("version");
+            } else {
+                return "Version not found";
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            return "Version not found";
+        }
+    }
 }

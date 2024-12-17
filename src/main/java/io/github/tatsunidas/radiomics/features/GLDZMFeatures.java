@@ -63,14 +63,40 @@ public class GLDZMFeatures {
 	double mu_j=0.0;
 	double eps = Math.ulp(1.0);// 2.220446049250313E-16
 	
+	/**
+	 * For sub-classes.
+	 */
+	public GLDZMFeatures() {};
 	
+	/**
+	 * Tool for calculating GLDZMFeatures.
+	 * @param img
+	 * @param mask
+	 * @param label
+	 * @param useBinCount
+	 * @param nBins
+	 * @param binWidth
+	 * @throws Exception
+	 */
 	public GLDZMFeatures(ImagePlus img, ImagePlus mask, int label, boolean useBinCount, Integer nBins, Double binWidth) throws Exception {
+		if(readyToCalculate(img, mask, label, useBinCount, nBins, binWidth)) {
+			try{
+				fillMatrix();
+			}catch(StackOverflowError e) {
+				System.out.println("Stack Overflow occured when executing fillMatrix().");
+				System.out.println("RadiomicsJ: please increase stack memmory size using VM arguments, like example,\n java -Xss=32m -jar RadiomicsJ.jar");
+				return;
+			}
+		}
+	}
+	
+	protected boolean readyToCalculate(ImagePlus img, ImagePlus mask, int label, boolean useBinCount, Integer nBins, Double binWidth) throws Exception{
 		if (img == null) {
-			return;
+			return false;
 		} else {
 			if (img.getType() == ImagePlus.COLOR_RGB) {
 				JOptionPane.showMessageDialog(null, "RadiomicsJ can read only grayscale images(8/16/32 bits)...sorry.");
-				return;
+				return false;
 			}
 			
 			this.label = label;
@@ -78,7 +104,7 @@ public class GLDZMFeatures {
 			if (mask != null) {
 				if (img.getWidth() != mask.getWidth() || img.getHeight() != mask.getHeight()) {
 					JOptionPane.showMessageDialog(null, "RadiomicsJ: please input same dimension image and mask.");
-					return;
+					return false;
 				}
 			}else {
 				// create full face mask
@@ -116,20 +142,12 @@ public class GLDZMFeatures {
 			w = discImg.getWidth();
 			h= discImg.getHeight();
 			s = discImg.getNSlices();
-			
-			try{
-				fillGLDZM();
-			}catch(StackOverflowError e) {
-				System.out.println("Stack Overflow occured when executing fillGLDZM().");
-				System.out.println("RadiomicsJ: please increase stack memmory size using VM arguments, like example,\n java -Xss=32m -jar RadiomicsJ.jar");
-//				JOptionPane.showMessageDialog(null, "RadiomicsJ: please increase stack memmory size using VM arguments, like example,\n java -Xss=32m -jar RadiomicsJ.jar");
-				return;
-			}
+			return true;
 		}
 	}
 	
 	
-	public void fillGLDZM() throws Exception {
+	public void fillMatrix() throws Exception {
 		gldzm_raw = null;//init
 		gldzm = null;
 		//<grayVal - count zones by distance>
@@ -198,7 +216,7 @@ public class GLDZMFeatures {
 		calculateCoefficients();
 	}
 	
-	private void calculateCoefficients() {
+	protected void calculateCoefficients() {
 		mu_i = 0.0;
 		mu_j = 0.0;
 		// sum the glszm mu
@@ -573,7 +591,7 @@ public class GLDZMFeatures {
 		return true;
 	}
 	
-	private double[][] normalize(double[][] gldzm_raw){
+	protected double[][] normalize(double[][] gldzm_raw){
 		// skip all zero matrix
 		if (gldzm_raw == null) {
 			return null;
@@ -776,6 +794,10 @@ public class GLDZMFeatures {
 		return zdnn;
 	}
 	
+	/**
+	 * The same results are obtained for this feature in GLKZM.
+	 * @return
+	 */
 	private Double getDistancePercentage() {
 		int Nv = Utils.getVoxels(discImg, mask, this.label).length;
 		if(Nv == 0) {
@@ -821,7 +843,7 @@ public class GLDZMFeatures {
 		return ze;
 	}
 	
-	private double[][] map2matrix(HashMap<Integer,Integer[]> gldzm){
+	protected double[][] map2matrix(HashMap<Integer,Integer[]> gldzm){
 		ArrayList<Integer> keys = new ArrayList<>(gldzm.keySet());
 		Collections.sort(keys);
 		double gray_max = StatUtils.max(Utils.getVoxels(discImg, mask, label));

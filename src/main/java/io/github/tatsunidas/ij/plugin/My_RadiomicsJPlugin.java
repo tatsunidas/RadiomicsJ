@@ -33,7 +33,7 @@ import java.util.*;
  * Using ImageJ (not Fiji).
  * First, you put RadiomicsJ libs (radiomicsj and jogamp-fat) to plugins/jars directly (without including any folder)
  * Second, put this file in plugins folder e.g., plugins/examples
- * Third, edit and delete "package io.github.tatsunidas.ij.plugin;" line in this jar file.
+ * Third, edit and delete "package io.github.tatsunidas.ij.plugin;" line in this java file.
  * Fourth, open this java file from imagej PlugIn> Compile and Run.
  * Finally, restart IJ and open image and mask, then run PlugIn>Examples>My_RadiomicsJPlugin
  * 
