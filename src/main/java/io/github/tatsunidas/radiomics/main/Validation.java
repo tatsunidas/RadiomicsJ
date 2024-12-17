@@ -260,33 +260,24 @@ public class Validation {
 		tole_config_d = new HashMap<String, Double>();
 		tole_config_e = new HashMap<String, Double>();
 		
-		//from IDE
-//		URL refUrl = Validation.class
-//                .getClassLoader().getResource(referenceFile);
-		
 		//from jar
 		if(!new File("./validation").exists()) {
 			new File("./validation").mkdirs();
 		}
-		InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(referenceFile);
-		if(is != null) {
-			try {
-				Files.copy(is, new File("./"+referenceFile).toPath(), StandardCopyOption.REPLACE_EXISTING);
-				is.close();
-			} catch (IOException e) {
-				System.err.println("Cannot read answer file...");
+		
+		if(!new File("./"+referenceFile).exists()) {
+			try (InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(referenceFile)) {
+				Files.copy(is, new File("./" + referenceFile).toPath(), StandardCopyOption.REPLACE_EXISTING);
+			} catch (Exception e) {
 				e.printStackTrace();
 			}
 		}
 		
-		try (
-				FileInputStream excelFile = new FileInputStream(new File("./"+referenceFile));
-				Workbook workbook = new XSSFWorkbook(excelFile);) {
-
+		try (FileInputStream excelFile = new FileInputStream(new File("./"+referenceFile));
+			  Workbook workbook = new XSSFWorkbook(excelFile);) {
 			for (int i = 0; i < 5; i++) {
 				Sheet datatypeSheet = workbook.getSheetAt(i);// digital phantom1(0),...
-				if (RadiomicsJ.debug)
-					System.out.println(datatypeSheet.getSheetName());
+				if (RadiomicsJ.debug) System.out.println(datatypeSheet.getSheetName());
 				Iterator<Row> iterator = datatypeSheet.iterator();
 				String ds_type = null;
 				while (iterator.hasNext()) {
