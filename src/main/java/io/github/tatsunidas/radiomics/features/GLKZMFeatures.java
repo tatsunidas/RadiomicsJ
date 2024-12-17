@@ -16,6 +16,13 @@ import io.github.tatsunidas.radiomics.main.Utils;
  * Various textures can be computed using this class.
  * For example, if we specify in KineticsMap a Velocity obtained from blood flow analysis, we call it Gray Level Fluid Zone Matrix.
  * 
+ * GLKZMFeatures glkzm = GLKZMFeatures(img, mask, label, useBinCount, nBins, binWidth);
+ * glkzm.setKineticsMap(kinetics, useBinCount, kinetics_nBins_low_value, null);
+ * glkzm.fillMatrix();
+ * 
+ * then, get any results,
+ * Double res = glkzm.calculate(GLDZMFeatureType.SmallDistanceEmphasis.id()); 
+ * 
  * @author tatsunidas
  *
  */
