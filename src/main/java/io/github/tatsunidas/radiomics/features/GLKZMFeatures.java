@@ -53,7 +53,7 @@ public class GLKZMFeatures extends GLDZMFeatures{
 			/*
 			 * do Fixed Bin Width
 			 */
-			kineticsDiscMap = Utils.discreteByBinWidth(kineticsDiscMap, this.mask, this.label, binWidth);
+			kineticsDiscMap = Utils.discreteByBinWidth(kineticsMap, this.mask, this.label, binWidth);
 			this.kinetics_nBins = Utils.getNumOfBinsByMax(kineticsDiscMap, this.mask, this.label);
 		}
 	}

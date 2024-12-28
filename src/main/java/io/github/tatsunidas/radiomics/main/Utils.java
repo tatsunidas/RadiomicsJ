@@ -1092,6 +1092,82 @@ public class Utils {
 		}
 	}
 	
+	/**
+	 * -crop images-
+	 * crop_images = trimToBoundingBox(ImagePlus imp, ImagePlus mask, int label)
+	 * crop_masks = trimToBoundingBox(ImagePlus mask, ImagePlus mask, int label)
+	 * 
+	 * @param imp
+	 * @param mask
+	 * @param label
+	 * @return
+	 */
+	public static ImagePlus trimToBoundingBox(ImagePlus imp, ImagePlus mask, int label, Integer margin) {
+		if (imp.getWidth() != mask.getWidth() || imp.getHeight() != mask.getHeight() || imp.getNSlices() != mask.getNSlices()){
+			throw new IllegalArgumentException("No match, images and masks dimensions.");
+		}
+		HashMap<String, double[]> rangeXYZ = getRoiBoundingBoxInfo(mask, label, true/*verbose*/);
+		int x_bbmin = (int)rangeXYZ.get("x")[0];
+		int x_bbmax = (int)rangeXYZ.get("x")[1];
+		int y_bbmin = (int)rangeXYZ.get("y")[0];
+		int y_bbmax = (int)rangeXYZ.get("y")[1];
+		int z_bbmin = (int)rangeXYZ.get("z")[0];
+		int z_bbmax = (int)rangeXYZ.get("z")[1];
+		
+		int m = 0;
+		if(margin != null) {
+			m = margin;
+		}
+		
+		int startX = x_bbmin-m;
+		int startY = y_bbmin-m;
+		int startZ = z_bbmin-m;
+		int endX = x_bbmax+m;
+		int endY = y_bbmax+m;
+		int endZ = z_bbmax+m;
+		
+		/*
+		 * e.g., 
+		 * start = 0, end = 9
+		 * 9 - 0 + 1 = 10.
+		 */
+		int crop_w = endX - startX +1;
+		int crop_h = endY - startY +1;
+		
+		ImageStack crops = new ImageStack(crop_w, crop_h);
+		int s = imp.getNSlices();
+		int w = imp.getWidth();
+		int h = imp.getHeight();
+		
+		for(int z= startZ; z <= endZ; z++) {
+			if(z < 0 || z >= s) {
+				ImageProcessor blank = imp.getProcessor().createProcessor(crop_w, crop_h);
+				crops.addSlice(blank);
+				continue;
+			}
+			imp.setSlice(z+1);
+			ImageProcessor ip = imp.getProcessor();
+			ImageProcessor c = ip.createProcessor(crop_w, crop_h);
+			int ix = 0;
+			int iy = 0;
+			for(int by=startY; by<= endY; by++) {
+				for(int bx=startX; bx<= endX; bx++) {
+					if (bx < 0 || bx > w-1 || by < 0 || by >h-1) {
+						c.set(ix++, iy, 0);
+						continue;
+					}
+					c.set(ix++, iy, ip.get(bx, by));
+				}
+				ix =0;
+				iy++;
+			}
+			crops.addSlice(c);
+		}
+		ImagePlus cropImp = new ImagePlus("crops", crops);
+		cropImp.setCalibration(imp.getCalibration());
+		return cropImp;
+	}
+	
 	public static ImagePlus tricubicSplineInterporation(ImagePlus imp, double resampleX, double resampleY, double resampleZ){
 		if(imp == null){
 			return null;
