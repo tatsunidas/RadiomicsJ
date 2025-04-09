@@ -329,7 +329,7 @@ RadiomicsJ radiomics = new RadiomicsJ();
 radiomics.setDebug(true);//to watch progress.
 //also you can use settings properties file.
 //radiomics.loadSettings(FilePath to settings.properties);
-ResultsTable res = radiomics.execute(imgDir, maskDir, targetLabel);
+ResultsTable res = radiomics.execute(images, masks, targetLabel);
 res.show(RadiomicsJ.resultWindowTitle);
 ```
 
