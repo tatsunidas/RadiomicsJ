@@ -86,6 +86,8 @@ public class MorphologicalFeatures {
 	/**
 	 * (1mm,1mm,1mm) iso voxel mask to compute mesh.
 	 * In RadiomicsJ, using (1mm,1mm,1mm) even if resampled when pre-processing.
+	 * 
+	 * iso mask have always label 1 (RadiomicsJ.label_).
 	 */
 	ImagePlus isoMask;//ALWAYS 1, 1, 1 mm
 	
@@ -129,12 +131,17 @@ public class MorphologicalFeatures {
 		mask.getCalibration().disableDensityCalibration();
 		orgImg = img;
 		orgMask = mask;
+		/*
+		 * Be careful.
+		 * iso mask have always label 1 (RadiomicsJ.label_).
+		 */
 		isoMask = Utils.resample3D(mask, true, isoSize, isoSize, isoSize);
-		//to 8 but
-		isoMask = Utils.createMaskCopyAsGray8(isoMask, this.label);
+		//to 8 bit
+		isoMask = Utils.createMaskCopyAsGray8(isoMask, RadiomicsJ.label_);
+
 		//create mesh first.
 		RadiomicsJ.workaroundIntelGraphicsBug();
-		int threshold = this.label-1;
+		int threshold = 0;
 		boolean[] channels = { true, false, false }; // r,g,b, but only used r because image is always binary 8 bit.
 		mct = new MCTriangulator();
 		/*
@@ -146,10 +153,18 @@ public class MorphologicalFeatures {
 		 * it set to 2 and (1,1,1) iso voxelize combination setting yields same IBSI result.
 		 */
 		int resamplingF = 2; // 1 to N.
-		@SuppressWarnings("unchecked")
+		
 		// should be use iso mask copy.
-		List<Point3f> points = mct.getTriangles(isoMask, threshold, channels, resamplingF);
-		this.points = points;
+		@SuppressWarnings("unchecked")
+		List<org.scijava.vecmath.Point3f> points2 = mct.getTriangles(isoMask, threshold, channels, resamplingF);
+		if(points2 == null || points2.size()==0) {
+			resamplingF = 1; // 1 to N.
+			@SuppressWarnings("unchecked")
+			List<org.scijava.vecmath.Point3f> points1 = mct.getTriangles(isoMask, threshold, channels, resamplingF);
+			this.points = points1;
+		}else {
+			this.points = points2;
+		}
 		//original voxels
 		voxels = Utils.getVoxels(orgImg, orgMask, this.label);
 	}
@@ -228,22 +243,6 @@ public class MorphologicalFeatures {
 		if(this.mesh_v != null) {
 			return mesh_v;
 		}
-		ImagePlus mask = Utils.createMaskCopyAsGray8(isoMask, this.label);
-		int threshold = this.label-1;
-		boolean[] channels = { true, false, false }; // r,g,b, but only used r because image is always binary 8 bit.
-		mct = new MCTriangulator();
-		/*
-		 * Resampling: how much resampling to apply to the stack while creating the
-		 * surface mesh. A low number results in an accurate but jagged mesh with many
-		 * triangles, while a high number results in a smooth mesh with fewer triangles.
-		 * 
-		 * In the case of digital phantom1,
-		 * when resampling fator set to 1, can not get same result in IBSI.
-		 * it set to 2, can get same IBSI result.
-		 */
-		int resamplingF = 2; // 1 to N.
-		@SuppressWarnings("unchecked")
-		final List<Point3f> points = mct.getTriangles(mask, threshold, channels, resamplingF);
 //		// calculate volume
 		CustomTriangleMesh mesh = new CustomTriangleMesh(points);
 		mesh_v = (double) mesh.getVolume();
@@ -306,18 +305,6 @@ public class MorphologicalFeatures {
 			}
 			return surfaceArea;
 		}
-		ImagePlus mask = Utils.createMaskCopyAsGray8(isoMask,this.label);//ISO voxel, need copy
-		int threshold = this.label-1;
-		boolean[] channels = { true, false, false }; // r,g,b, but only used r because image is always binary 8 bit.
-		mct = new MCTriangulator();
-		/*
-		 * When resample factor set to 1,
-		 * can not get same result IBSI digital phantom1.
-		 * set to 2, can get same result. 
-		 */
-		int resamplingF = 2; // 1 to N.
-		@SuppressWarnings("unchecked")
-		List<Point3f> points = mct.getTriangles(mask, threshold, channels, resamplingF);
 		surfaceArea = 0d;
 		final int nPoints = points.size();
 		final Point3f origin = new Point3f((float)orgCal.xOrigin, (float)orgCal.yOrigin, (float)orgCal.zOrigin);
@@ -340,8 +327,6 @@ public class MorphologicalFeatures {
 			final double deltaArea = 0.5 * crossVector.distance(origin);
 			surfaceArea += deltaArea;
 		}
-		mask = null;
-		points = null;
 		return surfaceArea;
 	}
 	
@@ -599,14 +584,6 @@ public class MorphologicalFeatures {
 		 * if you need validation sheet basis results,
 		 * use getMaximum3DDiameterByMeshByOriginal().
 		 */
-		ImagePlus mask = Utils.createMaskCopyAsGray8(isoMask,this.label);
-		int threshold = label-1;
-		boolean[] channels = { true, false, false }; // r,g,b, but only used r because image is always binary 8 bit.
-		mct = new MCTriangulator();
-		int resamplingF = 2; // 1 to N.
-		@SuppressWarnings("unchecked")
-		List<Point3f> points_ = mct.getTriangles(mask, threshold, channels, resamplingF);
-		this.points = points_;
 		Double max = 0d;
 		final int nPoints = points.size();
 		for (int n = 0; n < nPoints; n++) {
@@ -640,7 +617,7 @@ public class MorphologicalFeatures {
 	 */
 	@SuppressWarnings("unused")
 	private Double getMaximum3DDiameterByMeshUsingOriginal() {
-		ImagePlus mask = Utils.createMaskCopyAsGray8(orgMask,this.label);//for validation sheet basis.
+		ImagePlus mask = Utils.createMaskCopyAsGray8(orgMask,/*keep original label*/this.label);
 		int threshold = label-1;
 		boolean[] channels = { true, false, false }; // r,g,b, but only used r because image is always binary 8 bit.
 		MCTriangulator mct = new MCTriangulator();//DO NOT replace field variable.
@@ -674,7 +651,7 @@ public class MorphologicalFeatures {
 	 * if using iso voxel that applyed to IBSI digital phantom1,
 	 * get differ from reference value.
 	 * but, when using non iso mask, will get very close result.
-	 * However, Elipsoid_3D handle vovel size x-y as "resXY". This value not separated to x and y.
+	 * However, Elipsoid_3D handle voxel size x-y as "resXY". This value not separated to x and y.
 	 * Thus, I recommend iso-voxel based calculation.
 	 */
 //	private Double getMajorAxisLength() {
@@ -1058,17 +1035,8 @@ public class MorphologicalFeatures {
 			mesh = null;
 			return v/Vaabb;
 		}
-		ImagePlus mask = Utils.createMaskCopyAsGray8(isoMask,this.label);
-		int threshold = label-1;
-		boolean[] channels = { true, false, false }; // r,g,b, but only used r because image is always binary 8 bit.
-		mct = new MCTriangulator();
-		int resamplingF = 2; // 1 to N.
-		@SuppressWarnings("unchecked")
-		List<Point3f> points = mct.getTriangles(mask, threshold, channels, resamplingF);
-		this.points = points;
-		// calculate volume
-		CustomTriangleMesh mesh = new CustomTriangleMesh(points);
-		Double v = (double) mesh.getVolume();
+		
+		Double v = getVolumeByMesh();
 		if(v < 0) {
 			v *= -1.0; //correct negative value 
 		}
@@ -1097,7 +1065,6 @@ public class MorphologicalFeatures {
             }
         }
 		double Vaabb = Math.abs(maxx-minx)*Math.abs(maxy-miny)*Math.abs(maxz-minz);
-		mesh = null;
 		return v/Vaabb;
 	}
 	
@@ -1183,18 +1150,7 @@ public class MorphologicalFeatures {
 				return surfaceArea/(xy+xz+yz);
 			}
 		}
-		ImagePlus mask = Utils.createMaskCopyAsGray8(isoMask,this.label);//ISO voxel
-		int threshold = this.label-1;
-		boolean[] channels = { true, false, false }; // r,g,b, but only used r because image is always binary 8 bit.
-		mct = new MCTriangulator();
-		/*
-		 * resample factor set to 1,
-		 * can not get same result IBSI digital phantom1.
-		 * set to 2, get same result. 
-		 */
-		int resamplingF = 2; // 1 to N.
-		@SuppressWarnings("unchecked")
-		List<Point3f> points = mct.getTriangles(mask, threshold, channels, resamplingF);
+		
 		Double sumArea = 0d;
 		final int nPoints = points.size();
 		final Point3f origin = new Point3f((float)orgCal.xOrigin, (float)orgCal.yOrigin, (float)orgCal.zOrigin);
@@ -1242,8 +1198,6 @@ public class MorphologicalFeatures {
 		double xy = Math.abs(maxx-minx) * Math.abs(maxy-miny) * 2;
 		double xz = Math.abs(maxx-minx) * Math.abs(maxz-minz) * 2;
 		double yz = Math.abs(maxy-miny) * Math.abs(maxz-minz) * 2;
-		mask = null;
-		points = null;
 		return sumArea/(xy+xz+yz);
 	}
 	
@@ -1515,7 +1469,7 @@ public class MorphologicalFeatures {
 	 */
 	@Deprecated
 	private Double getVolumeDensityByMinimumVolumeEnclosingEllipsoid(){
-		double[] res = new Ellipsoid_3DTool().getMajorMinorLeastAxisLength(isoMask,false,label);
+		double[] res = new Ellipsoid_3DTool().getMajorMinorLeastAxisLength(isoMask,false,RadiomicsJ.label_);
 		double a = res[0]*0.5;
 		double b = res[1]*0.5;
 		double c = res[2]*0.5;
@@ -1533,19 +1487,12 @@ public class MorphologicalFeatures {
 	}
 	
 	private Double getAreaDensityByConvexHull2() {
-		double a = getSurfaceAreaByMesh();
-		ImagePlus mask = Utils.createMaskCopyAsGray8(isoMask,this.label);
-		int threshold = this.label-1;
-		boolean[] channels = { true, false, false }; // r,g,b, but only used r because image is always binary 8 bit.
-		MCTriangulator mct = new MCTriangulator();
-		int resamplingF = 2; // 1 to N.
-		@SuppressWarnings("unchecked")
-		List<org.scijava.vecmath.Point3f> pointsf = mct.getTriangles(mask, threshold, channels, resamplingF);
-		//CustomTriangleMesh mesh = new CustomTriangleMesh(pointsf);
-		
-		com.github.quickhull3d.Point3d[] points_hull = new com.github.quickhull3d.Point3d[pointsf.size()];
+		if(points == null || points.size()==0) {
+			return Double.NaN;
+		}
+		com.github.quickhull3d.Point3d[] points_hull = new com.github.quickhull3d.Point3d[points.size()];
 		int itr = 0;
-		for(org.scijava.vecmath.Point3f pf : pointsf) {
+		for(org.scijava.vecmath.Point3f pf : points) {
 			com.github.quickhull3d.Point3d pd = new com.github.quickhull3d.Point3d(pf.x, pf.y, pf.z);
 			points_hull[itr++] = pd;
 		}
@@ -1567,6 +1514,7 @@ public class MorphologicalFeatures {
 			points_hull_.add(pf_b);
 			points_hull_.add(pf_c);
 		}
+		double a = getSurfaceAreaByMesh();
 		double a_convexhull = getSurfaceAreaByMesh(points_hull_);
 		return Math.abs(a/a_convexhull);
 	}
@@ -1576,19 +1524,15 @@ public class MorphologicalFeatures {
 	 * This feature is also called solidity
 	 */
 	private Double getVolumeDensityByConvexHull2() {
-		ImagePlus mask = Utils.createMaskCopyAsGray8(isoMask,this.label);
-		int threshold = this.label-1;
-		boolean[] channels = { true, false, false }; // r,g,b, but only used r because image is always binary 8 bit.
-		MCTriangulator mct = new MCTriangulator();
-		int resamplingF = 2; // 1 to N.
-		@SuppressWarnings("unchecked")
-		List<org.scijava.vecmath.Point3f> pointsf = mct.getTriangles(mask, threshold, channels, resamplingF);
-		CustomTriangleMesh mesh = new CustomTriangleMesh(pointsf);
-		double v = Math.abs(mesh.getVolume());//556
+		if(points == null || points.size()==0) {
+			return Double.NaN;
+		}
+		CustomTriangleMesh mesh = new CustomTriangleMesh(points);
+		double v = Math.abs(mesh.getVolume());
 		
-		com.github.quickhull3d.Point3d[] points_hull = new com.github.quickhull3d.Point3d[pointsf.size()];
+		com.github.quickhull3d.Point3d[] points_hull = new com.github.quickhull3d.Point3d[points.size()];
 		int itr = 0;
-		for(org.scijava.vecmath.Point3f pf : pointsf) {
+		for(org.scijava.vecmath.Point3f pf : points) {
 			com.github.quickhull3d.Point3d pd = new com.github.quickhull3d.Point3d(pf.x, pf.y, pf.z);
 			points_hull[itr++] = pd;
 		}
@@ -1632,7 +1576,7 @@ public class MorphologicalFeatures {
 		if(this.voxels != null) {
 			voxels = this.voxels;
 		}else {
-			voxels = Utils.getVoxels(orgImg, orgMask, this.label);
+			voxels = Utils.getVoxels(orgImg, orgMask, /*keep original label*/this.label);
 		}
 		if(voxels == null || voxels.length == 0) {
 			return 0d;
@@ -1649,9 +1593,7 @@ public class MorphologicalFeatures {
 		/*
 		 * mesh basis
 		 */
-		double res = getVolumeByMesh() * (sum/count);//1195
-		//clean-up
-		voxels = null;
+		double res = getVolumeByMesh() * (sum/count);
 		return res;
 	}
 	
@@ -1669,12 +1611,12 @@ public class MorphologicalFeatures {
 		double index = 0;
 		double sumw = 0;
 		if(this.voxels == null) {
-			this.voxels = Utils.getVoxels(img, mask, label);
+			this.voxels = Utils.getVoxels(img, mask, /*original label*/label);
 		}
 		if(voxels == null || voxels.length == 0) {
 			return null;
 		}
-		HashMap<String, double[]> xyzMaskGeo = Utils.getRoiBoundingBoxInfo(mask, label, RadiomicsJ.debug);//axis aligned bb
+		HashMap<String, double[]> xyzMaskGeo = Utils.getRoiBoundingBoxInfo(mask, /*keep original*/label, RadiomicsJ.debug);//axis aligned bb
 		double[] aabbX = xyzMaskGeo.get("x");//0:min 1:max
 		double[] aabbY = xyzMaskGeo.get("y");
 		double[] aabbZ = xyzMaskGeo.get("z");
@@ -1733,7 +1675,7 @@ public class MorphologicalFeatures {
 		if(voxels == null || voxels.length == 0) {
 			return null;
 		}
-		HashMap<String, double[]> xyzMaskGeo = Utils.getRoiBoundingBoxInfo(mask, label, RadiomicsJ.debug);//axis aligned bb
+		HashMap<String, double[]> xyzMaskGeo = Utils.getRoiBoundingBoxInfo(mask, /*keep original*/label, RadiomicsJ.debug);//axis aligned bb
 		double[] aabbX = xyzMaskGeo.get("x");//0:min 1:max
 		double[] aabbY = xyzMaskGeo.get("y");
 		double[] aabbZ = xyzMaskGeo.get("z");
@@ -1795,12 +1737,12 @@ public class MorphologicalFeatures {
 		double index = 0;
 		double sumw = 0;
 		if(this.voxels == null) {
-			this.voxels = Utils.getVoxels(img, mask, label);
+			this.voxels = Utils.getVoxels(img, mask, /*keep original*/label);
 		}
 		if(voxels == null || voxels.length == 0) {
 			return null;
 		}
-		HashMap<String, double[]> xyzMaskGeo = Utils.getRoiBoundingBoxInfo(mask, label, RadiomicsJ.debug);//axis aligned bb
+		HashMap<String, double[]> xyzMaskGeo = Utils.getRoiBoundingBoxInfo(mask, /*keep original*/label, RadiomicsJ.debug);//axis aligned bb
 		double[] aabbX = xyzMaskGeo.get("x");//0:min 1:max
 		double[] aabbY = xyzMaskGeo.get("y");
 		double[] aabbZ = xyzMaskGeo.get("z");
@@ -1878,12 +1820,12 @@ public class MorphologicalFeatures {
 		double index = 0;
 		double sumw = 0;
 		if(this.voxels == null) {
-			voxels = Utils.getVoxels(img, mask, label);
+			voxels = Utils.getVoxels(img, mask, /*keep original*/label);
 		}
 		if(voxels == null || voxels.length == 0) {
 			return null;
 		}
-		HashMap<String, double[]> xyzMaskGeo = Utils.getRoiBoundingBoxInfo(mask, label, RadiomicsJ.debug);//axis aligned bb
+		HashMap<String, double[]> xyzMaskGeo = Utils.getRoiBoundingBoxInfo(mask, /*keep original*/label, RadiomicsJ.debug);//axis aligned bb
 		double[] aabbX = xyzMaskGeo.get("x");//0:min 1:max
 		double[] aabbY = xyzMaskGeo.get("y");
 		double[] aabbZ = xyzMaskGeo.get("z");
