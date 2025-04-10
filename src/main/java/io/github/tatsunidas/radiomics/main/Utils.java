@@ -1854,7 +1854,7 @@ public class Utils {
 			}
 		}
 		if(max > nBins) {
-			System.out.println("GLRLMFeatures:preparePixels:Invalid discrete level.");
+			System.out.println("prepareVoxels:Invalid discrete level.");
 			throw new Exception();
 		}
 		return voxels;
