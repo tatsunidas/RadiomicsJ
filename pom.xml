@@ -6,7 +6,7 @@
 	<!-- keep lowercase -->
 	<artifactId>radiomicsj</artifactId>
 	<!-- PLEASE will be change RadiomicsJ.version-->
-	<version>2.1.4b</version>
+	<version>2.1.5</version>
 	<packaging>jar</packaging>
 	<name>RadiomicsJ</name>
 	<description>A library to compte radiomics features.</description>
@@ -152,34 +152,16 @@
 	</build>
 	
 	<dependencies>
-		
-		<!-- https://mvnrepository.com/artifact/net.imagej/ij -->
 		<dependency>
-		    <groupId>net.imagej</groupId>
-		    <artifactId>ij</artifactId>
-		    <version>1.54i</version>
+		    <groupId>sc.fiji</groupId>
+		    <artifactId>3D_Viewer</artifactId>
+		    <version>5.0.0</version>
 		</dependency>
 		
-		<!-- https://mvnrepository.com/artifact/com.github.mcib3d/mcib3d-core -->
 		<dependency>
-		    <groupId>com.github.mcib3d</groupId>
-		    <artifactId>mcib3d-core</artifactId>
-		    <version>4.0.1</version>
-		    <exclusions>
-		    	<exclusion>
-		    		<groupId>net.imagej</groupId>
-		    		<artifactId>ij</artifactId>
-		    	</exclusion>
-		    	<exclusion>
-		    		<groupId>org.slf4j</groupId>
-		    		<artifactId>slf4j-api</artifactId>
-		    	</exclusion>
-		    	<exclusion>
-					<!-- To avoid bad name dependencies error -->
-		    		<groupId>com.googlecode.combinatoricslib</groupId>
-		    		<artifactId>combinatoricslib</artifactId>
-		    	</exclusion>
-		    </exclusions>
+		    <groupId>com.github.quickhull3d</groupId>
+		    <artifactId>quickhull3d</artifactId>
+		    <version>quickhull3d-1.0.0</version>
 		</dependency>
 		
 		<!-- https://mvnrepository.com/artifact/commons-cli/commons-cli -->
@@ -194,6 +176,7 @@
 		    <groupId>org.slf4j</groupId>
 		    <artifactId>slf4j-simple</artifactId>
 		    <version>2.0.11</version>
+		    <scope>test</scope>
 		</dependency>
 		
 		<dependency>

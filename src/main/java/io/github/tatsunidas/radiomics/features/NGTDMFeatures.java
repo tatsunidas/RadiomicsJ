@@ -21,7 +21,7 @@ import java.util.HashMap;
 
 import javax.swing.JOptionPane;
 
-import org.scijava.vecmath.Point3i;
+import org.jogamp.vecmath.Point3i;
 
 import ij.IJ;
 import ij.ImagePlus;

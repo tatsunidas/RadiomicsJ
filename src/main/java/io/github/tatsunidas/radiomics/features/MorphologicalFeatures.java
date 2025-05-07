@@ -28,7 +28,7 @@ import org.apache.commons.math3.linear.MatrixUtils;
 import org.apache.commons.math3.linear.RealMatrix;
 import org.apache.commons.math3.stat.StatUtils;
 import org.apache.commons.math3.stat.correlation.Covariance;
-import org.scijava.vecmath.Point3f;
+import org.jogamp.vecmath.Point3f;
 
 import com.github.quickhull3d.QuickHull3D;
 
@@ -36,7 +36,6 @@ import customnode.CustomTriangleMesh;
 import ij.ImagePlus;
 import ij.measure.Calibration;
 import ij.process.ImageProcessor;
-import io.github.tatsunidas.miscellaneous.Ellipsoid_3DTool;
 import io.github.tatsunidas.radiomics.main.ImagePreprocessing;
 import io.github.tatsunidas.radiomics.main.RadiomicsJ;
 import io.github.tatsunidas.radiomics.main.Utils;
@@ -140,7 +139,7 @@ public class MorphologicalFeatures {
 		isoMask = Utils.createMaskCopyAsGray8(isoMask, RadiomicsJ.label_);
 
 		//create mesh first.
-		RadiomicsJ.workaroundIntelGraphicsBug();
+		RadiomicsJ.workaroundIntelGraphicsBug(false/*force*/);
 		int threshold = 0;
 		boolean[] channels = { true, false, false }; // r,g,b, but only used r because image is always binary 8 bit.
 		mct = new MCTriangulator();
@@ -156,11 +155,11 @@ public class MorphologicalFeatures {
 		
 		// should be use iso mask copy.
 		@SuppressWarnings("unchecked")
-		List<org.scijava.vecmath.Point3f> points2 = mct.getTriangles(isoMask, threshold, channels, resamplingF);
+		List<org.jogamp.vecmath.Point3f> points2 = mct.getTriangles(isoMask, threshold, channels, resamplingF);
 		if(points2 == null || points2.size()==0) {
 			resamplingF = 1; // 1 to N.
 			@SuppressWarnings("unchecked")
-			List<org.scijava.vecmath.Point3f> points1 = mct.getTriangles(isoMask, threshold, channels, resamplingF);
+			List<org.jogamp.vecmath.Point3f> points1 = mct.getTriangles(isoMask, threshold, channels, resamplingF);
 			this.points = points1;
 		}else {
 			this.points = points2;
@@ -1206,10 +1205,11 @@ public class MorphologicalFeatures {
 	 */
 	@Deprecated
 	private Double getVolumeDensityByOrientedMinimumBoundingBox(){
-		double v = getVolumeByMesh();
-		double[] rotatedBB = new Ellipsoid_3DTool().getOrientedBoundingBox(isoMask);//todo check label intensity.//xmin,xmax,ymin,ymax,zmin,zmax
-		double Vaabb = Math.abs(rotatedBB[1]-rotatedBB[0]) * Math.abs(rotatedBB[3]-rotatedBB[2]) * Math.abs(rotatedBB[5]-rotatedBB[4]);
-		return v/Vaabb;
+//		double v = getVolumeByMesh();
+//		double[] rotatedBB = new Ellipsoid_3DTool().getOrientedBoundingBox(isoMask);//todo check label intensity.//xmin,xmax,ymin,ymax,zmin,zmax
+//		double Vaabb = Math.abs(rotatedBB[1]-rotatedBB[0]) * Math.abs(rotatedBB[3]-rotatedBB[2]) * Math.abs(rotatedBB[5]-rotatedBB[4]);
+//		return v/Vaabb;
+		return null;
 	}
 	
 	/*
@@ -1217,12 +1217,13 @@ public class MorphologicalFeatures {
 	 */
 	@Deprecated
 	private Double getAreaDensityByOrientedMinimumBoundingBox(){
-		double a = getSurfaceAreaByMesh();
-		double[] rotatedBB = new Ellipsoid_3DTool().getOrientedBoundingBox(isoMask);//todo check label intensity.//xmin,xmax,ymin,ymax,zmin,zmax
-		double xy =  Math.abs(rotatedBB[1]-rotatedBB[0]) * Math.abs(rotatedBB[3]-rotatedBB[2]) * 2;
-		double xz =  Math.abs(rotatedBB[1]-rotatedBB[0]) * Math.abs(rotatedBB[5]-rotatedBB[4]) * 2;
-		double yz =  Math.abs(rotatedBB[3]-rotatedBB[2]) * Math.abs(rotatedBB[5]-rotatedBB[4]) * 2;
-		return a/(xy+xz+yz);
+//		double a = getSurfaceAreaByMesh();
+//		double[] rotatedBB = new Ellipsoid_3DTool().getOrientedBoundingBox(isoMask);//todo check label intensity.//xmin,xmax,ymin,ymax,zmin,zmax
+//		double xy =  Math.abs(rotatedBB[1]-rotatedBB[0]) * Math.abs(rotatedBB[3]-rotatedBB[2]) * 2;
+//		double xz =  Math.abs(rotatedBB[1]-rotatedBB[0]) * Math.abs(rotatedBB[5]-rotatedBB[4]) * 2;
+//		double yz =  Math.abs(rotatedBB[3]-rotatedBB[2]) * Math.abs(rotatedBB[5]-rotatedBB[4]) * 2;
+//		return a/(xy+xz+yz);
+		return null;
 	}
 	
 	/*
@@ -1469,13 +1470,14 @@ public class MorphologicalFeatures {
 	 */
 	@Deprecated
 	private Double getVolumeDensityByMinimumVolumeEnclosingEllipsoid(){
-		double[] res = new Ellipsoid_3DTool().getMajorMinorLeastAxisLength(isoMask,false,RadiomicsJ.label_);
-		double a = res[0]*0.5;
-		double b = res[1]*0.5;
-		double c = res[2]*0.5;
-		double v_mvee = (4*Math.PI*(a*b*c))/3;
-		double v = getVolumeByMesh();
-		return v/v_mvee;
+//		double[] res = new Ellipsoid_3DTool().getMajorMinorLeastAxisLength(isoMask,false,RadiomicsJ.label_);
+//		double a = res[0]*0.5;
+//		double b = res[1]*0.5;
+//		double c = res[2]*0.5;
+//		double v_mvee = (4*Math.PI*(a*b*c))/3;
+//		double v = getVolumeByMesh();
+//		return v/v_mvee;
+		return null;
 	}
 	
 	/*
@@ -1492,7 +1494,7 @@ public class MorphologicalFeatures {
 		}
 		com.github.quickhull3d.Point3d[] points_hull = new com.github.quickhull3d.Point3d[points.size()];
 		int itr = 0;
-		for(org.scijava.vecmath.Point3f pf : points) {
+		for(org.jogamp.vecmath.Point3f pf : points) {
 			com.github.quickhull3d.Point3d pd = new com.github.quickhull3d.Point3d(pf.x, pf.y, pf.z);
 			points_hull[itr++] = pd;
 		}
@@ -1504,12 +1506,12 @@ public class MorphologicalFeatures {
 		int[][] faces = hull.getFaces();
 		
 		//re-convert
-		List<org.scijava.vecmath.Point3f> points_hull_ = new ArrayList<>();
+		List<org.jogamp.vecmath.Point3f> points_hull_ = new ArrayList<>();
 		for(int i=0; i<faces.length;i++) {
 			int[] vp = faces[i];
-			org.scijava.vecmath.Point3f pf_a = new org.scijava.vecmath.Point3f((float)vertices[vp[0]].x, (float)vertices[vp[0]].y, (float)vertices[vp[0]].z);
-			org.scijava.vecmath.Point3f pf_b = new org.scijava.vecmath.Point3f((float)vertices[vp[1]].x, (float)vertices[vp[1]].y, (float)vertices[vp[1]].z);
-			org.scijava.vecmath.Point3f pf_c = new org.scijava.vecmath.Point3f((float)vertices[vp[2]].x, (float)vertices[vp[2]].y, (float)vertices[vp[2]].z);
+			org.jogamp.vecmath.Point3f pf_a = new org.jogamp.vecmath.Point3f((float)vertices[vp[0]].x, (float)vertices[vp[0]].y, (float)vertices[vp[0]].z);
+			org.jogamp.vecmath.Point3f pf_b = new org.jogamp.vecmath.Point3f((float)vertices[vp[1]].x, (float)vertices[vp[1]].y, (float)vertices[vp[1]].z);
+			org.jogamp.vecmath.Point3f pf_c = new org.jogamp.vecmath.Point3f((float)vertices[vp[2]].x, (float)vertices[vp[2]].y, (float)vertices[vp[2]].z);
 			points_hull_.add(pf_a);
 			points_hull_.add(pf_b);
 			points_hull_.add(pf_c);
@@ -1532,7 +1534,7 @@ public class MorphologicalFeatures {
 		
 		com.github.quickhull3d.Point3d[] points_hull = new com.github.quickhull3d.Point3d[points.size()];
 		int itr = 0;
-		for(org.scijava.vecmath.Point3f pf : points) {
+		for(org.jogamp.vecmath.Point3f pf : points) {
 			com.github.quickhull3d.Point3d pd = new com.github.quickhull3d.Point3d(pf.x, pf.y, pf.z);
 			points_hull[itr++] = pd;
 		}
@@ -1550,13 +1552,13 @@ public class MorphologicalFeatures {
 //		System.out.println("face vertices "+faces[0].length);//3
 		
 		//re-convert
-		List<org.scijava.vecmath.Point3f> points_hull_ = new ArrayList<>();
+		List<org.jogamp.vecmath.Point3f> points_hull_ = new ArrayList<>();
 		for(int i=0; i<faces.length;i++) {
 			int[] vp = faces[i];
 //			System.out.println(vp[0]+" "+vp[1]+" "+vp[2]);
-			org.scijava.vecmath.Point3f pf_a = new org.scijava.vecmath.Point3f((float)vertices[vp[0]].x, (float)vertices[vp[0]].y, (float)vertices[vp[0]].z);
-			org.scijava.vecmath.Point3f pf_b = new org.scijava.vecmath.Point3f((float)vertices[vp[1]].x, (float)vertices[vp[1]].y, (float)vertices[vp[1]].z);
-			org.scijava.vecmath.Point3f pf_c = new org.scijava.vecmath.Point3f((float)vertices[vp[2]].x, (float)vertices[vp[2]].y, (float)vertices[vp[2]].z);
+			org.jogamp.vecmath.Point3f pf_a = new org.jogamp.vecmath.Point3f((float)vertices[vp[0]].x, (float)vertices[vp[0]].y, (float)vertices[vp[0]].z);
+			org.jogamp.vecmath.Point3f pf_b = new org.jogamp.vecmath.Point3f((float)vertices[vp[1]].x, (float)vertices[vp[1]].y, (float)vertices[vp[1]].z);
+			org.jogamp.vecmath.Point3f pf_c = new org.jogamp.vecmath.Point3f((float)vertices[vp[2]].x, (float)vertices[vp[2]].y, (float)vertices[vp[2]].z);
 			points_hull_.add(pf_a);
 			points_hull_.add(pf_b);
 			points_hull_.add(pf_c);

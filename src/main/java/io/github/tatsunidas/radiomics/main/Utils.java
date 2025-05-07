@@ -22,7 +22,7 @@ import java.util.HashMap;
 import java.util.StringTokenizer;
 
 import org.apache.commons.math3.stat.StatUtils;
-import org.scijava.vecmath.Point3i;
+import org.jogamp.vecmath.Point3i;
 
 import ij.IJ;
 import ij.ImagePlus;

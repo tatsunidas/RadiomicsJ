@@ -1903,7 +1903,7 @@ public class RadiomicsJ {
 	/**
 	 * https://github.com/morphonets/SNT/blob/ea139559ee8356d306eea83e38ab1a50bd32e3d2/src/main/java/sc/fiji/snt/viewer/Viewer3D.java#L430
 	 */
-	public static void workaroundIntelGraphicsBug() { // FIXME: This should go away with jogl 2.40?
+	public static void workaroundIntelGraphicsBug(boolean force) { // FIXME: This should go away with jogl 2.40?
 		/*
 		 * In a fresh install of ubuntu 20.04 displaying a 3DViewer triggers a
 		 * ```com.jogamp.opengl.GLException: Profile GL4bc is not available on
@@ -1911,6 +1911,10 @@ public class RadiomicsJ {
 		 * https://github.com/processing/processing/issues/5476. Since it has no
 		 * (apparent) side effects, we'll use it here for all platforms
 		 */
+		if(force) {
+			System.setProperty("jogl.disable.openglcore", System.getProperty("jogl.disable.openglcore", "false"));
+			return;
+		}
 		if(Utils.osName().toLowerCase().contains("linux")) {
 			System.setProperty("jogl.disable.openglcore", System.getProperty("jogl.disable.openglcore", "false"));
 		}

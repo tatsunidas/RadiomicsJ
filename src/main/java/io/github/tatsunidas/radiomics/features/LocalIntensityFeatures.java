@@ -20,7 +20,7 @@ import java.util.ArrayList;
 import javax.swing.JOptionPane;
 
 import org.apache.commons.math3.stat.StatUtils;
-import org.scijava.vecmath.Point3i;
+import org.jogamp.vecmath.Point3i;
 
 import ij.ImagePlus;
 import ij.measure.Calibration;
