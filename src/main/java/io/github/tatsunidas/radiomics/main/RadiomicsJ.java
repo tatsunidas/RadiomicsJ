@@ -1469,7 +1469,7 @@ public class RadiomicsJ {
 	 * @return ResultsTable
 	 * @throws Exception
 	 */
-	public ResultsTable compute(ImagePlus img, ImagePlus mask, Integer targetLabel) throws Exception {
+	ResultsTable compute(ImagePlus img, ImagePlus mask, Integer targetLabel) throws Exception {
 
 		if(img == null) {
 			return null;
@@ -1529,7 +1529,14 @@ public class RadiomicsJ {
 			if(IJ_PlugIn)IJ.showProgress(++progress/enableFamilies);
 		}
 		
-		if(BOOL_enableMorphological) {
+		/**
+		 * Since 20250517, morphologicals are handled in 3D only.
+		 * If force2d enabled, will calculate Shape2D instead.
+		 */
+		if(force2D) {
+			System.out.println("Force2D is set, skip Morphological features calculation...");
+		}
+		if(BOOL_enableMorphological && !force2D) {
 			if(debug) {
 				System.out.println("=======================");
 				System.out.println("Morphological features");
@@ -1644,7 +1651,7 @@ public class RadiomicsJ {
 			if(IJ_PlugIn)IJ.showProgress(++progress/enableFamilies);
 		}
 		
-		if(BOOL_enableShape2D && force2D) {
+		if(BOOL_enableShape2D || force2D) {
 			if(debug) {
 				System.out.println("=================================");
 				System.out.println("Shape2D features");
@@ -1896,7 +1903,7 @@ public class RadiomicsJ {
 		if(BOOL_enableNGTDM)num++;
 		if(BOOL_enableNGLDM)num++;
 		if(BOOL_enableFractal)num++;
-		if(BOOL_enableShape2D && force2D)num++;
+		if(BOOL_enableShape2D || force2D)num++;
 		return num;
 	}
 	

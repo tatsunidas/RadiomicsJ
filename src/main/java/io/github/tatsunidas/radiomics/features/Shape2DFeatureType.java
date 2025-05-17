@@ -8,10 +8,12 @@ public enum Shape2DFeatureType {
 	Circularity("4"),
 	SphericalDisproportion("5"),
 	FerretAngle("6"),
-//	Maximum2DDiameter("6"),
-//	MajorAxisLength("7"),
-//	MinorAxisLength("8"),
-//	Elongation("9"),
+	Maximum2DDiameter("7"),
+	MajorAxisLength("8"),
+	MinorAxisLength("9"),
+	LeastAxisLength("10"),
+	Elongation("11"),
+	AreaFraction("12"),
 	;
 	
 	private String id;

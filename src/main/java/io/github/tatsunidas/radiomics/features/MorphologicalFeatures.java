@@ -678,7 +678,7 @@ public class MorphologicalFeatures {
 //		}
 //	}
 	
-	public Double getMajorAxisLength() {
+	private Double getMajorAxisLength() {
 		if(eigenValues != null) {
 			return Math.sqrt(eigenValues[0])*4;
 		}
@@ -740,7 +740,7 @@ public class MorphologicalFeatures {
 		return Math.sqrt(eigenValues[0])*4;
 	}
 	
-	public Double getMinorAxisLength() {
+	private Double getMinorAxisLength() {
 		if(eigenValues != null) {
 			return eigenValues[1] < eigenValues[2] ? Math.sqrt(eigenValues[2])*4 : Math.sqrt(eigenValues[1])*4;
 		}
@@ -798,7 +798,7 @@ public class MorphologicalFeatures {
 		return eigenValues[1] < eigenValues[2] ? Math.sqrt(eigenValues[2])*4 : Math.sqrt(eigenValues[1])*4;
 	}
 	
-	public Double getLeastAxisLength() {
+	private Double getLeastAxisLength() {
 		if(eigenValues != null) {
 			return eigenValues[1] < eigenValues[2] ? Math.sqrt(eigenValues[1])*4 : Math.sqrt(eigenValues[2])*4;
 		}

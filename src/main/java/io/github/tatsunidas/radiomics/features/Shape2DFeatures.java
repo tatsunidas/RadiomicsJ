@@ -2,10 +2,14 @@ package io.github.tatsunidas.radiomics.features;
 
 import javax.swing.JOptionPane;
 
+import org.apache.commons.math3.linear.EigenDecomposition;
+import org.apache.commons.math3.linear.MatrixUtils;
+import org.apache.commons.math3.linear.RealMatrix;
+import org.apache.commons.math3.stat.correlation.Covariance;
+
 import ij.ImagePlus;
 import ij.gui.Roi;
 import ij.measure.Calibration;
-import ij.measure.Measurements;
 import ij.measure.ResultsTable;
 import ij.plugin.filter.Analyzer;
 import ij.process.ImageStatistics;
@@ -28,10 +32,9 @@ public class Shape2DFeatures {
 	ImagePlus orgImg;//stack-able
 	ImagePlus orgMask;//stack-able
 	Calibration orgCal;// backup
-	int slice_pos = 1;//1 to N
+	final int slice_pos;//1 to N
+	final int label;
 	
-	ImagePlus img;//single processor image
-	ImagePlus mask;//single processor mask
 	Roi roi;
 	
 	ImageStatistics stats;
@@ -40,6 +43,7 @@ public class Shape2DFeatures {
 	int w;
 	int h;
 	
+	double[] eigenValues;
 	double eps = Math.ulp(1.0);// 2.220446049250313E-16
 	
 	/**
@@ -49,14 +53,18 @@ public class Shape2DFeatures {
 	 * @param slice : slice position, 1 to N
 	 */
 	public Shape2DFeatures(ImagePlus img, ImagePlus mask, Integer slice, int label) {
+		this.label = label;
+		this.slice_pos = slice;
 		if (img == null) {
 			return;
+		}
+		if(slice == null) {
+			throw new IllegalArgumentException("Slice position should be specified !!");
 		}
 		if (img.getType() == ImagePlus.COLOR_RGB) {
 			JOptionPane.showMessageDialog(null, "RadiomicsJ can read only grayscale images(8/16/32 bits)...sorry.");
 			return;
 		}
-		
 		int iw = img.getWidth();
 		int ih = img.getHeight();
 		int is = img.getNSlices();
@@ -64,21 +72,11 @@ public class Shape2DFeatures {
 		this.w = iw;
 		this.h = ih;
 		
-		if(slice == null) {
-			if(is == 1) {
-				slice = 1;
-			}else {
-				JOptionPane.showMessageDialog(null, "RadiomicsJ:Shape2D please input valid slice number.");
-				return;
-			}
-		}else {
-			if(slice > is || slice < 1) {
-				JOptionPane.showMessageDialog(null, "RadiomicsJ:Shape2D please input valid slice number. input images has "+is+" slices, but specified slice position is "+slice+" (out of range).");
-				return;
-			}
+		if(slice > is || slice < 1) {
+			JOptionPane.showMessageDialog(null, "RadiomicsJ:Shape2D please input valid slice number. input images has "+is+" slices, but specified slice position is "+slice+" (out of range).");
+			return;
 		}
-		this.slice_pos = slice;
-//		this.label = label;
+		
 		if (mask != null) {
 			int mw = mask.getWidth();
 			int mh = mask.getHeight();
@@ -92,36 +90,44 @@ public class Shape2DFeatures {
 			mask = ImagePreprocessing.createMask(iw, ih, is, null, label, img.getCalibration().pixelWidth,img.getCalibration().pixelHeight, img.getCalibration().pixelDepth);
 		}
 		
+		img.setPosition(slice_pos);
+		mask.setPosition(slice_pos);
+		
 		orgImg = img;
 		orgMask = mask;
 		orgCal = img.getCalibration().copy();
 		
-//		orgMask.setCalibration(orgCal);
-//		orgMask.getCalibration().disableDensityCalibration();
-		
-		/*
-		 * create slice imp.
-		 */
-		this.img = new ImagePlus("image_"+slice, orgImg.getStack().getProcessor(slice));
-		this.img.setCalibration(orgCal);
-		this.mask = new ImagePlus("mask_"+slice, orgMask.getStack().getProcessor(slice));
-		this.mask = Utils.createMaskCopy(this.mask);//only labeling area
-		this.mask.setCalibration(orgCal);
-		this.mask.getCalibration().disableDensityCalibration();
-		this.roi = Utils.createRoi(this.mask, label);
+		this.roi = Utils.createRoi(mask, slice, label);
 		if(this.roi == null) {
 			this.roi = new Roi(0,0,w,h);
 		}
 		img.setRoi(this.roi);
-		int measurements = Analyzer.getMeasurements(); // defined in Set Measurements dialog
-		measurements |= Measurements.AREA+Measurements.PERIMETER; //make sure area and perimeter are measured
+		int measurements = Analyzer.ALL_STATS;
 		stats = img.getStatistics(measurements);
 		Analyzer.setMeasurements(measurements);
 		analyzer = new Analyzer();
 		analyzer.saveResults(stats, roi);
-		
 	}
 	
+	/*
+	 * AREA
+	 * MEAN//intensity
+	 * STD_DEV//intensity
+	 * MODE//intensity
+	 * MIN_MAX//intensity
+	 * CENTROID//TODO
+	 * CENTER_OF_MASS//TODO
+	 * PERIMETER
+	 * RECT//TODO
+	 * ELLIPSE//TODO
+	 * SHAPE_DESCRIPTORS//TODO
+	 * FERET
+	 * INTEGRATED_DENSITY//intensity
+	 * MEDIAN//intensity
+	 * SKEWNESS//intensity histogram
+	 * KURTOSIS//intensity histogram
+	 * AREA_FRACTION;
+	 */
 	public Double calculate(String id) {
 		String name = Shape2DFeatureType.findType(id);
 		if (name.equals(Shape2DFeatureType.PixelSurface.name())) {
@@ -138,27 +144,27 @@ public class Shape2DFeatures {
 			return getCircularity();
 		}else if(name.equals(Shape2DFeatureType.FerretAngle.name())) {
 			return getFerretAngle();
+		}else if (name.equals(Shape2DFeatureType.Maximum2DDiameter.name())) {
+			return getMaximumDiameter();
+		}else if (name.equals(Shape2DFeatureType.MajorAxisLength.name())) {
+			return getMajorAxisLength();
+		}else if (name.equals(Shape2DFeatureType.MinorAxisLength.name())) {
+			return getMinorAxisLength();
+		}else if (name.equals(Shape2DFeatureType.LeastAxisLength.name())) {
+			return getLeastAxisLength();
+		}else if (name.equals(Shape2DFeatureType.Elongation.name())) {
+			return getElongation();
+		}else if (name.equals(Shape2DFeatureType.AreaFraction.name())) {
+			return getAreaFraction();
 		}
-		/*
-		 * deprecated, deligate to Morphological features.
-		 */
-//		else if (name.equals(Shape2DFeatureType.Maximum2DDiameter.name())) {
-//			return getMaximumDiameter();
-//		}else if (name.equals(Shape2DFeatureType.MajorAxisLength.name())) {
-//			return getMajorAxisLength();
-//		}else if (name.equals(Shape2DFeatureType.MinorAxisLength.name())) {
-//			return getMinorAxisLength();
-//		}else if (name.equals(Shape2DFeatureType.Elongation.name())) {
-//			return getElongation();
-//		}
 		return null;
 	}
 		
-	public Double getAreaByPixelSurface() {
+	private Double getAreaByPixelSurface() {
 		return stats.area;//calibrated
 	}
 	
-	public Double getPerimeter() {
+	private Double getPerimeter() {
 		@SuppressWarnings("static-access")
 		ResultsTable rt =analyzer.getResultsTable(); // get the system results table
 		int counter = rt.getCounter();
@@ -166,7 +172,7 @@ public class Shape2DFeatures {
 		return perimeter;
 	}
 	
-	public Double getPerimeterSurfaceRatio() {
+	private Double getPerimeterSurfaceRatio() {
 		@SuppressWarnings("static-access")
 		ResultsTable rt =analyzer.getResultsTable(); // get the system results table
 		int counter = rt.getCounter();
@@ -175,7 +181,7 @@ public class Shape2DFeatures {
 		return perimeter==0.0 ? 0.0 : area/(perimeter+eps);
 	}
 	
-	public Double getCircularity() {
+	private Double getCircularity() {
 		@SuppressWarnings("static-access")
 		ResultsTable rt =analyzer.getResultsTable(); // get the system results table
 		int counter = rt.getCounter();
@@ -185,7 +191,7 @@ public class Shape2DFeatures {
 	}
 	
 	
-	public Double getSphericity() {
+	private Double getSphericity() {
 		@SuppressWarnings("static-access")
 		ResultsTable rt = analyzer.getResultsTable(); // get the system results table
 		int counter = rt.getCounter();//rt.size() is more suitable ?
@@ -194,12 +200,12 @@ public class Shape2DFeatures {
 		return (2.0 * Math.sqrt(Math.PI*area))/(perimeter+eps);
 	}
 	
-	public Double getSphericalDisportion() {
+	private Double getSphericalDisportion() {
 		double sph = getSphericity();
 		return 1.0/(sph+eps);
 	}
 	
-	public Double getFerretAngle() {
+	private Double getFerretAngle() {
 		return roi.getFeretValues()[1];
 	}
 	
@@ -207,8 +213,7 @@ public class Shape2DFeatures {
 	 * largest pairwise Euclidian distance
 	 * This is the same values of Morphological feature's one.
 	 */
-	@Deprecated
-	public Double getMaximumDiameter() {
+	private Double getMaximumDiameter() {
 		double max = 0d;
 		int n = roi.getFloatPolygon().npoints;
 		float[] pxs = roi.getFloatPolygon().xpoints; 
@@ -233,27 +238,170 @@ public class Shape2DFeatures {
 		return max;
 	}
 	
-	/*
-	 * This is the same values of Morphological feature's one.
-	 */
+	private Double getMajorAxisLength() {
+		if(eigenValues != null) {
+			return Math.sqrt(eigenValues[0])*4;
+		}
+		int w = orgMask.getWidth();
+		int h = orgMask.getHeight();
+		ImagePlus mask = orgMask;
+		/*
+		 * no using mesh
+		 */
+		int nPoints = 0;
+		float[][] mSlice = mask.getProcessor().getFloatArray();
+		for (int y = 0; y < h; y++) {
+			for (int x = 0; x < w; x++) {
+				int lbl = (int) mSlice[x][y];
+				if (lbl == this.label) {
+					nPoints++;
+				}
+			}
+		}
+		
+		//create points in a double array
+		double[][] pts = new double[nPoints][];
+		int n = 0;
+		double dx = mask.getCalibration().pixelWidth;
+		double dy = mask.getCalibration().pixelHeight;
+		for (int y = 0; y < h; y++) {
+			for (int x = 0; x < w; x++) {
+				int lbl = (int) mSlice[x][y];
+				if (lbl == this.label) {
+					pts[n] = new double[] { x * dx, y * dy };
+					n++;
+				}
+			}
+		}
+		/*
+		 * pca
+		 */
+		//create real matrix
+		RealMatrix realMatrix = MatrixUtils.createRealMatrix(pts);
+		//create covariance matrix of points, then find eigenvectors
+		Covariance covariance = new Covariance(realMatrix);
+		RealMatrix covarianceMatrix = covariance.getCovarianceMatrix();
+		EigenDecomposition ed = new EigenDecomposition(covarianceMatrix);
+//		SingularValueDecomposition svd = new SingularValueDecomposition(covarianceMatrix);
+		eigenValues = ed.getRealEigenvalues();
+		return Math.sqrt(eigenValues[0])*4;
+	}
+	
+	private Double getMinorAxisLength() {
+		if(eigenValues != null) {
+			return Math.sqrt(eigenValues[1])*4;
+		}
+		int w = orgMask.getWidth();
+		int h = orgMask.getHeight();
+		ImagePlus mask = orgMask;
+		/*
+		 * no using mesh
+		 */
+		int nPoints = 0;
+		float[][] mSlice = mask.getProcessor().getFloatArray();
+		for (int y = 0; y < h; y++) {
+			for (int x = 0; x < w; x++) {
+				int lbl = (int) mSlice[x][y];
+				if (lbl == this.label) {
+					nPoints++;
+				}
+			}
+		}
+		
+		//create points in a double array
+		double[][] pts = new double[nPoints][];
+		int n = 0;
+		double dx = mask.getCalibration().pixelWidth;
+		double dy = mask.getCalibration().pixelHeight;
+		for (int y = 0; y < h; y++) {
+			for (int x = 0; x < w; x++) {
+				int lbl = (int) mSlice[x][y];
+				if (lbl == this.label) {
+					pts[n] = new double[] { x * dx, y * dy };
+					n++;
+				}
+			}
+		}
+		/*
+		 * pca
+		 */
+		//create real matrix
+		RealMatrix realMatrix = MatrixUtils.createRealMatrix(pts);
+		//create covariance matrix of points, then find eigenvectors
+		Covariance covariance = new Covariance(realMatrix);
+		RealMatrix covarianceMatrix = covariance.getCovarianceMatrix();
+		EigenDecomposition ed = new EigenDecomposition(covarianceMatrix);
+//		SingularValueDecomposition svd = new SingularValueDecomposition(covarianceMatrix);
+		eigenValues = ed.getRealEigenvalues();
+		return eigenValues[1] < eigenValues[2] ? Math.sqrt(eigenValues[2])*4 : Math.sqrt(eigenValues[1])*4;
+	}
+	
+	/**
+	 * 2D Shape does not have least axis.
+	 * @return null
+	 */ 
 	@Deprecated
-	public Double getMajorAxisLength() {
+	private Double getLeastAxisLength() {
 		return null;
 	}
 	
-	/*
-	 * This is the same values of Morphological feature's one.
-	 */
-	@Deprecated
-	public Double getMinorAxisLength() {
-		return null;
+	private Double getElongation() {
+		if(eigenValues != null) {
+			double axis[] = eigenValues;
+			double major = axis[0];
+			double minor = axis[1];
+			return Math.sqrt(minor/major);
+		}
+		int w = orgMask.getWidth();
+		int h = orgMask.getHeight();
+		ImagePlus mask = orgMask;
+		
+		int nPoints = 0;
+		float[][] mSlice = mask.getProcessor().getFloatArray();
+		for (int y = 0; y < h; y++) {
+			for (int x = 0; x < w; x++) {
+				int lbl = (int) mSlice[x][y];
+				if (lbl == this.label) {
+					nPoints++;
+				}
+			}
+		}
+		
+		//create points in a double array
+		double[][] pts = new double[nPoints][];
+		int n = 0;
+		double dx = mask.getCalibration().pixelWidth;
+		double dy = mask.getCalibration().pixelHeight;
+		for (int y = 0; y < h; y++) {
+			for (int x = 0; x < w; x++) {
+				int lbl = (int) mSlice[x][y];
+				if (lbl == this.label) {
+					pts[n] = new double[] { x * dx, y * dy };
+					n++;
+				}
+			}
+		}
+		/*
+		 * pca
+		 */
+		//create real matrix
+		RealMatrix realMatrix = MatrixUtils.createRealMatrix(pts);
+		//create covariance matrix of points, then find eigenvectors
+		Covariance covariance = new Covariance(realMatrix);
+		RealMatrix covarianceMatrix = covariance.getCovarianceMatrix();
+		EigenDecomposition ed = new EigenDecomposition(covarianceMatrix);
+//		SingularValueDecomposition svd = new SingularValueDecomposition(covarianceMatrix);
+		double axis[] = ed.getRealEigenvalues();
+		double major = axis[0];
+		double minor = axis[1];
+		return Math.sqrt(minor/major);
 	}
 	
-	/*
-	 * This is the same values of Morphological feature's one.
-	 */
-	@Deprecated
-	public Double getElongation() {
-		return null;
-	}	
+	private Double getAreaFraction(){
+		@SuppressWarnings("static-access")
+		ResultsTable rt =analyzer.getResultsTable(); // get the system results table
+		int counter = rt.getCounter();
+		double af = rt.getValueAsDouble(ResultsTable.AREA_FRACTION, counter-1);
+		return af;
+	}
 }

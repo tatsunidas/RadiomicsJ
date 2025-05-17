@@ -253,26 +253,52 @@ public class Utils {
 	 * @param mask
 	 * @return roi
 	 */
-	public static Roi createRoi(ImagePlus mask, int label) {
-		if (mask == null || mask.getNSlices()>1) {
-			return null;
+	public static Roi createRoi(ImagePlus mask, int pos, int label) {
+		if (mask == null) {
+			throw new IllegalArgumentException("Utils.createRoi() required mask's image processor.");
 		}
-		ImagePlus temp = createMaskCopy(mask);
-		int w = temp.getWidth();
-		int h = temp.getHeight();
-		for(int y=0;y<h;y++) {
-			for(int x=0;x<w;x++) {
-				int val = (int)temp.getProcessor().getf(x, y);
+		
+		/*
+		 * see, ImagePreprocess:createMask
+		 */
+//		if(!(mask.getProcessor() instanceof ByteProcessor)) {
+//			throw new IllegalArgumentException("Utils.createRoi(): mask must be ByteProcessor");
+//		}
+		
+		if (pos < 0 || pos > mask.getNSlices()) {
+			throw new IllegalArgumentException("Utils.createRoi(): mask slice position is invalid. -> "+ pos);
+		}
+		
+		int w = mask.getWidth();
+		int h = mask.getHeight();
+		ImageProcessor mip = mask.getStack().getProcessor(pos);
+		byte[] dup = null;
+		if(mip instanceof FloatProcessor) {
+			float[] pix = (float[])mip.getPixels();
+			dup = new byte[pix.length];
+			for(int i=0; i < pix.length; i++) {
+				int val = (int)pix[i];
 				if(val == label) {
-					temp.getProcessor().set(x, y, 255);
+					dup[i]=(byte) 255;
 				}else {
-					temp.getProcessor().set(x, y, 0);
+					dup[i]=0;
+				}
+			}
+		}else if(mip instanceof ByteProcessor) {
+			byte[] pix = (byte[])mip.getPixels();
+			dup = new byte[pix.length];
+			for(int i=0; i < pix.length; i++) {
+				int val = (int)pix[i];
+				if(val == label) {
+					dup[i]=(byte) 255;
+				}else {
+					dup[i]=0;
 				}
 			}
 		}
-		temp.getProcessor().setThreshold(0, 0, ImageProcessor.NO_LUT_UPDATE);
-		temp.getProcessor().setBinaryThreshold();
-		ByteProcessor mask8bit = temp.createThresholdMask();
+		ByteProcessor bp = new ByteProcessor(w, h, dup);
+		bp.setThreshold(0, 0, ImageProcessor.NO_LUT_UPDATE);
+		ByteProcessor mask8bit = bp.createMask();
 		/*
 		 * to avoid around boundary shape roi creation
 		 */

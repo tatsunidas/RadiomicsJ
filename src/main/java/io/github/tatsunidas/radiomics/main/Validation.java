@@ -137,6 +137,7 @@ public class Validation {
 
 		RadiomicsJ radi = new RadiomicsJ();
 		radi.loadSettingsFromResource(propPath);
+		RadiomicsJ.force2D = false;//fail safe
 		radi.setDebug(true);
 
 		ResultsTable res = radi.execute(ds[0], ds[1],RadiomicsJ.targetLabel);
