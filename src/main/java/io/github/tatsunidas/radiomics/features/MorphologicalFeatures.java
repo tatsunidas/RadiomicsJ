@@ -134,9 +134,9 @@ public class MorphologicalFeatures {
 		 * Be careful.
 		 * iso mask have always label 1 (RadiomicsJ.label_).
 		 */
-		isoMask = Utils.resample3D(mask, true, isoSize, isoSize, isoSize);
+		ImagePlus isoMaskFloat = Utils.resample3D(Utils.createMaskWithLabelOne(mask, this.label), true, isoSize, isoSize, isoSize);
 		//to 8 bit
-		isoMask = Utils.createMaskCopyAsGray8(isoMask, RadiomicsJ.label_);
+		isoMask = Utils.createMaskCopyAsGray8(isoMaskFloat, RadiomicsJ.label_);
 
 		//create mesh first.
 		RadiomicsJ.workaroundIntelGraphicsBug(false/*force*/);

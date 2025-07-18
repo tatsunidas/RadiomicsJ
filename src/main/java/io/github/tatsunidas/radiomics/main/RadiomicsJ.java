@@ -341,7 +341,7 @@ public class RadiomicsJ {
 	 * re-identify mask label value in voxels after interpolation.
 	 * mask label >= mask, and mask < (mask label+PartialVolumeThareshold)
 	 */
-	public static double mask_PartialVolumeThareshold = 0.5;
+	public static double mask_PartialVolumeThreshold = 0.5;
 	
 	/**
 	 * 1 - 255 : enable label number.
@@ -1009,7 +1009,7 @@ public class RadiomicsJ {
 							if(n < 0 || n > 0.999) {
 								n = 0.5;
 							}
-							RadiomicsJ.mask_PartialVolumeThareshold = n;
+							RadiomicsJ.mask_PartialVolumeThreshold = n;
 						}catch(NumberFormatException e) {
 							//keep default
 							continue;

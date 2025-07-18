@@ -19,6 +19,7 @@ import java.awt.Font;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.StringTokenizer;
 
 import org.apache.commons.math3.stat.StatUtils;
@@ -225,6 +226,41 @@ public class Utils {
 				for(int x=0;x<w;x++) {
 					if((int)mSlice[x][y] == label) {
 						bp.set(x, y, label);
+					}else {
+						bp.set(x, y, 0);
+					}
+				}
+			}
+			bp.setInterpolate(true);
+			bp.setInterpolationMethod(RadiomicsJ.interpolation2D);
+			stack.addSlice(bp);
+		}
+		grayMask = new ImagePlus("mask gray8", stack);
+		grayMask.setCalibration(mask.getCalibration().copy());
+		grayMask.getCalibration().disableDensityCalibration();
+		return grayMask;
+	}
+	
+	/**
+	 * 
+	 * @param mask
+	 * @param org_label
+	 * @return mask has label "1". (as byte)
+	 */
+	public static ImagePlus createMaskWithLabelOne(ImagePlus mask, int org_label) {
+		int w = mask.getWidth();
+		int h = mask.getHeight();
+		int s = mask.getNSlices();
+		ImagePlus grayMask = null;
+		ImageStack stack = new ImageStack(w, h);
+		for(int z=0;z<s;z++) {
+			ImageProcessor ip = mask.getStack().getProcessor(z+1);
+			float[][] mSlice = ip.getFloatArray();
+			ByteProcessor bp = new ByteProcessor(w, h);
+			for(int y=0;y<h;y++) {
+				for(int x=0;x<w;x++) {
+					if((int)mSlice[x][y] == org_label) {
+						bp.set(x, y, RadiomicsJ.label_);
 					}else {
 						bp.set(x, y, 0);
 					}
@@ -546,7 +582,7 @@ public class Utils {
 				float[][] pixels = ip.getFloatArray();
 				for(int ny=0;ny<newH;ny++) {
 					for(int nx=0;nx<newW;nx++) {
-						if(pixels[nx][ny] > RadiomicsJ.mask_PartialVolumeThareshold) {
+						if(pixels[nx][ny] > RadiomicsJ.mask_PartialVolumeThreshold) {
 							pixels[nx][ny] = RadiomicsJ.label_;//always 1
 						}
 					}
@@ -572,7 +608,25 @@ public class Utils {
 	 * @return
 	 */
 	public static ImagePlus resample3D(ImagePlus imp, boolean isMask, double x, double y, double z) {
-		
+		if (isMask) {
+			int nSlices = imp.getNSlices();
+			// スタック全体の最大値を格納する変数を初期化
+			double globalMax = Double.NEGATIVE_INFINITY;
+			// 1枚目から最後のスライスまでループ
+			for (int i = 1; i <= nSlices; i++) {
+				// i番目のスライスのImageProcessorを取得
+				ImageProcessor ip = imp.getStack().getProcessor(i);
+				// 現在のスライスの最大値を取得
+				double currentSliceMax = ip.getStatistics().max;
+				// 全体の最大値と比較して、大きければ更新
+				if (currentSliceMax > globalMax) {
+					globalMax = currentSliceMax;
+				}
+			}
+			if((int)globalMax > 1.0) {
+				throw new IllegalArgumentException("Resample3D is needed to input a ImagePlus has *1* label as mask.");
+			}
+		}
 		if(RadiomicsJ.interpolation3D == RadiomicsJ.TRILINEAR) {
 			return trilinearInterpolation(imp, isMask, x, y, z);
 		}else if(RadiomicsJ.interpolation3D == RadiomicsJ.NEAREST3D){
@@ -770,7 +824,7 @@ public class Utils {
 						 * 
 						 * this methods always need label 1 mask.
 						 */
-						if(interp >= RadiomicsJ.mask_PartialVolumeThareshold) {
+						if(interp >= RadiomicsJ.mask_PartialVolumeThreshold) {
 							deformed[index] = (float)RadiomicsJ.label_;
 						}else {
 							deformed[index] = 0f;
@@ -2246,6 +2300,7 @@ public class Utils {
 		plot.show();
 	}
 	
+	@Deprecated
 	public static ResultsTable combineTables(ResultsTable to, ResultsTable from) {
 		if(to == null || to.getCounter() == 0) {
 			return from;
@@ -2256,6 +2311,39 @@ public class Utils {
 				int row  = 0;
 				for(String h : headings) {
 					if(h.contains("ID") || h.contains("OperationalInfo_")) {
+						String v = from.getStringValue(h, row);
+						to.addValue(h, v);
+					}else {
+						double v = from.getValue(h, row);
+						to.addValue(h, v);
+					}
+				}
+			}
+		}
+		return to;
+	}
+	
+	/**
+	 * 
+	 * @param to
+	 * @param from
+	 * @param stringVarColumns : ID, OperationalInfo_FULLNAME ...
+	 * @return
+	 */
+	public static ResultsTable combineTables(ResultsTable to, ResultsTable from, String[] stringVarColumns) {
+		if(to == null || to.getCounter() == 0) {
+			return from;
+		}else {
+			if(stringVarColumns == null) {
+				stringVarColumns = new String[] {};
+			}
+			List<String> strHeaders = Arrays.asList(stringVarColumns);
+			if(from != null) {
+				to.incrementCounter();
+				String[] headings = from.getHeadings();
+				int row  = 0;
+				for(String h : headings) {
+					if(strHeaders.contains(h)) {
 						String v = from.getStringValue(h, row);
 						to.addValue(h, v);
 					}else {
