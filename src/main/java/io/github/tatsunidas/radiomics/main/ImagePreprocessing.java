@@ -60,7 +60,7 @@ public class ImagePreprocessing {
 	 * if roiset null, return full face mask with label.
 	 */
 	public static ImagePlus createMask(int w, int h, int numOfSlices, Roi[] roiset, Integer label, double vx, double vy, double vz) {
-		if(numOfSlices != roiset.length) {
+		if(roiset != null && numOfSlices != roiset.length) {
 			JOptionPane.showMessageDialog(null, "RadiomicsJ: please input same size images and roiset (e.g, 3 slice and 3 roi are required). return null.");
 			return null;
 		}
