@@ -355,7 +355,7 @@ public class Shape2DFeatures {
 	 */ 
 	@Deprecated
 	private Double getLeastAxisLength() {
-		return null;
+		return Double.NaN;
 	}
 	
 	private Double getElongation() {
