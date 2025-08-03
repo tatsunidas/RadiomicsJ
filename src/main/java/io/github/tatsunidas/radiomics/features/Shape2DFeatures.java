@@ -37,7 +37,6 @@ public class Shape2DFeatures {
 	
 	Roi roi;
 	
-	ImageStatistics stats;
 	Analyzer analyzer;
 	
 	int w;
@@ -103,7 +102,7 @@ public class Shape2DFeatures {
 		}
 		img.setRoi(this.roi);
 		int measurements = Analyzer.ALL_STATS;
-		stats = img.getStatistics(measurements);
+		ImageStatistics stats = img.getStatistics(measurements);
 		Analyzer.setMeasurements(measurements);
 		analyzer = new Analyzer();
 		analyzer.saveResults(stats, roi);
@@ -159,9 +158,24 @@ public class Shape2DFeatures {
 		}
 		return null;
 	}
-		
+	
+	/**
+	 * Do not use stats.area.
+	 * @return area.
+	 */
 	private Double getAreaByPixelSurface() {
-		return stats.area;//calibrated
+		int w = orgImg.getWidth();
+		int h = orgImg.getHeight();
+		int cnt = 0;
+		for(int i=0; i<w ;i++) {
+			for(int j=0; j<h ;j++) {
+				if(roi.contains(i, j)) {
+					cnt++;
+				}
+			}
+		}
+		Calibration cal = orgImg.getCalibration();
+		return cnt * cal.pixelHeight * cal.pixelWidth;
 	}
 	
 	private Double getPerimeter() {
