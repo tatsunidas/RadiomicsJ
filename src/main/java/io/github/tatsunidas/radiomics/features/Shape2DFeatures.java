@@ -174,8 +174,7 @@ public class Shape2DFeatures {
 				}
 			}
 		}
-		Calibration cal = orgImg.getCalibration();
-		return cnt * cal.pixelHeight * cal.pixelWidth;
+		return cnt * orgCal.pixelHeight * orgCal.pixelWidth;
 	}
 	
 	private Double getPerimeter() {
