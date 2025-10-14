@@ -18,8 +18,9 @@ package io.github.tatsunidas.radiomics.features;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-
-import javax.swing.JOptionPane;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.math3.stat.StatUtils;
 
@@ -45,11 +46,9 @@ import io.github.tatsunidas.radiomics.main.Utils;
  * @author tatsunidas
  *
  */
-public class GLCMFeatures {
+public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 
-	ImagePlus orgImg;
-	ImagePlus discImg;// discretised
-	ImagePlus orgMask;
+	ImagePlus discImg;// discretized
 	Calibration orgCal;// backup
 	
 	int w;
@@ -59,13 +58,16 @@ public class GLCMFeatures {
 	//axis aligned bb
 	HashMap<String, double[]> aabb;
 	
-	int label;
+	final int label;
 	java.util.HashMap<Integer, double[][]> glcm_raw;// angle_id and glcm at it angle.
 	java.util.HashMap<Integer, double[][]> glcm;// angle_id and normalized glcm at it angle.
 	boolean symmetry = true;// always true;
 	boolean normalization = true;// always true;
 	int nBins;// 1 to N
+	double binWidth;
 	int delta = 1;
+	
+	private Map<String, Object> settings;
 
 	HashMap<Integer, HashMap<String, Object>> coeffs;// angle_od and coefficients of it angle.
 	public static final String Px = "Px";
@@ -76,6 +78,19 @@ public class GLCMFeatures {
 	private String weightingMethod = null;
 
 
+	public GLCMFeatures(ImagePlus img, ImagePlus mask, Map<String,Object> settings) {
+		super(img,mask,settings);
+		Object labelValue = settings.get(RadiomicsFeature.LABEL);
+		if (labelValue == null) {
+			throw new IllegalArgumentException("'label' is missing in settings.");
+		}
+		if (!(labelValue instanceof Integer)) {
+			throw new IllegalArgumentException("'label' must be an Integer.");
+		}
+		this.label = (Integer) labelValue;
+		buildup(settings);
+	}
+	
 	/**
 	 * delta: distance between i and j. 1 is default.\n angle: if 2d, 0, 45, 90,
 	 * 135, \n else if 3d, 13 angles(in symmetrical).
@@ -84,84 +99,179 @@ public class GLCMFeatures {
 	 * 
 	 * @throws Exception
 	 */
-	public GLCMFeatures(ImagePlus img, 
-						ImagePlus mask, 
-						int label, 
-						Integer delta,
-						boolean useBinCount,
-						Integer nBins,
-						Double binWidth,
-						String weightingNorm)
-			throws Exception {
-		if (img == null) {
-			return;
-		} else {
-			if (img.getType() == ImagePlus.COLOR_RGB) {
-				JOptionPane.showMessageDialog(null, "RadiomicsJ can read only grayscale images(8/16/32 bits)...sorry.");
-				return;
+	public GLCMFeatures(ImagePlus img, ImagePlus mask, int label, Integer delta, boolean useBinCount, Integer nBins,
+			Double binWidth, String weightingNorm) throws Exception {
+		super(img, mask, null);
+		//first, define label.
+		this.label = label;
+		
+		if (mask == null) {
+			// create full face mask
+			mask = ImagePreprocessing.createMask(
+					img.getWidth(), 
+					img.getHeight(), 
+					img.getNSlices(), 
+					null,
+					this.label,
+					img.getCalibration().pixelWidth,
+					img.getCalibration().pixelHeight,
+					img.getCalibration().pixelDepth
+					);
+		}
+		
+		this.mask = mask;
+		this.orgCal = this.img.getCalibration();
+		
+		if(nBins == null) {
+			this.nBins = RadiomicsJ.nBins;
+		}else {
+			this.nBins = nBins;
+		}
+		
+		if(binWidth == null) {
+			this.binWidth = RadiomicsJ.binWidth;
+		}else {
+			this.binWidth = binWidth;
+		}
+		
+		if (delta != null && delta > 0) {
+			this.delta = delta;
+		}else {
+			this.delta = RadiomicsJ.deltaGLCM;
+		}
+
+		//todo
+		setWeightingNorm(weightingNorm);
+		
+		// discretised by roi mask.
+		if(RadiomicsJ.discretiseImp != null) {
+			discImg = RadiomicsJ.discretiseImp;
+		}else {
+			if(useBinCount) {
+				discImg = Utils.discrete(this.img, this.mask, this.label, this.nBins);
+			}else {
+				/*
+				 * Bin Width
+				 */
+				discImg = Utils.discreteByBinWidth(this.img, this.mask, this.label, this.binWidth);
+				this.nBins = Utils.getNumOfBinsByMax(discImg, this.mask, this.label);
 			}
-			
-			this.label = label;
-			
-			if (mask != null) {
-				if (img.getWidth() != mask.getWidth() || img.getHeight() != mask.getHeight()) {
-					JOptionPane.showMessageDialog(null, "RadiomicsJ: please input same dimension image and mask.");
-					return;
+		}
+		w = this.img.getWidth();
+		h = this.img.getHeight();
+		s = this.img.getNSlices();
+		aabb = Utils.getRoiBoundingBoxInfo(this.mask, this.label, RadiomicsJ.debug);
+		
+		calcGLCM();
+		
+		settings = new HashMap<>();
+		settings.put(RadiomicsFeature.IMAGE, this.img);
+		settings.put(RadiomicsFeature.MASK, this.mask);
+		settings.put(RadiomicsFeature.DISC_IMG, this.discImg);
+		settings.put(RadiomicsFeature.LABEL, this.label);
+		settings.put(RadiomicsFeature.DELTA, this.delta);
+		settings.put(RadiomicsFeature.USE_BIN_COUNT, useBinCount);
+		settings.put(RadiomicsFeature.nBins, this.nBins);
+		settings.put(RadiomicsFeature.BinWidth, this.binWidth);
+		settings.put(RadiomicsFeature.WEIGHTING_NORM, weightingNorm);
+	}
+	
+	@Override
+	public void buildup(Map<String, Object> settings) {
+				
+		Object deltaValue = settings.get(RadiomicsFeature.DELTA);
+		if (deltaValue != null && !(deltaValue instanceof Integer)) {
+			throw new IllegalArgumentException("'delta' must be an Integer.");
+		}
+		if (deltaValue == null) {
+			this.delta = RadiomicsJ.deltaGLCM;
+		}else {
+			this.delta = (Integer)deltaValue;
+		}
+		
+		Object useBinValue = settings.get(RadiomicsFeature.USE_BIN_COUNT);
+		if (useBinValue == null) {
+			throw new IllegalArgumentException("'useBinCount:boolean' is missing in settings.");
+		}
+		if (!(useBinValue instanceof Boolean)) {
+			throw new IllegalArgumentException("'useBinCount' must be a Boolean.");
+		}
+		boolean useBinCount = (Boolean)useBinValue;
+		
+		Object nBinsValue = settings.get(RadiomicsFeature.nBins);
+		if (nBinsValue == null && useBinCount == true) {
+			throw new IllegalArgumentException("'nBins' is missing in settings.");
+		}
+		if (nBinsValue != null && !(nBinsValue instanceof Integer)) {
+			throw new IllegalArgumentException("'nBins' must be an Integer.");
+		}
+		if(nBinsValue == null) {
+			this.nBins = RadiomicsJ.nBins;
+		}else {
+			this.nBins = (Integer) nBinsValue;
+		}
+		
+		Object bwValue = settings.get(RadiomicsFeature.BinWidth);
+		if (bwValue == null && useBinCount == false) {
+			throw new IllegalArgumentException("'BinWidth' is missing in settings.");
+		}
+		if (bwValue != null && !(bwValue instanceof Double)) {
+			throw new IllegalArgumentException("'BinWidth' must be a Double.");
+		}
+		if(bwValue == null) {
+			this.binWidth = RadiomicsJ.binWidth;
+		}else {
+			this.binWidth = (Double)bwValue;
+		}
+		
+		Object norm = settings.get(RadiomicsFeature.WEIGHTING_NORM);
+		if(norm != null && (norm instanceof String)) {
+			setWeightingNorm((String)norm);
+		}
+		
+		if (mask == null) {
+			// create full face mask
+			mask = ImagePreprocessing.createMask(
+					img.getWidth(), 
+					img.getHeight(), 
+					img.getNSlices(), 
+					null,
+					this.label,
+					img.getCalibration().pixelWidth,
+					img.getCalibration().pixelHeight,
+					img.getCalibration().pixelDepth
+					);
+		}
+		
+		this.orgCal = this.img.getCalibration();
+		// discretised by roi mask.
+		if (RadiomicsJ.discretiseImp != null) {
+			discImg = RadiomicsJ.discretiseImp;
+		} else {
+			if (useBinCount) {
+				try {
+					discImg = Utils.discrete(this.img, this.mask, this.label, this.nBins);
+				} catch (Exception e) {
+					e.printStackTrace();
 				}
 			} else {
-				// create full face mask
-				mask = ImagePreprocessing.createMask(
-						img.getWidth(), 
-						img.getHeight(), 
-						img.getNSlices(), 
-						null,
-						this.label,
-						img.getCalibration().pixelWidth,
-						img.getCalibration().pixelHeight,
-						img.getCalibration().pixelDepth
-						);
-			}
-			
-			if(nBins == null) {
-				this.nBins = RadiomicsJ.nBins;
-			}else {
-				this.nBins = nBins;
-			}
-			
-			if(binWidth == null) {
-				binWidth = RadiomicsJ.binWidth;
-			}
-			
-			if (delta != null && delta > 0) {
-				this.delta = delta;
-			}else {
-				this.delta = RadiomicsJ.deltaGLCM;
-			}
-
-			setWeightingNorm(weightingNorm);
-			orgImg = img;
-			orgCal = orgImg.getCalibration();
-			orgMask = mask;
-			// discretised by roi mask.
-			if(RadiomicsJ.discretiseImp != null) {
-				discImg = RadiomicsJ.discretiseImp;
-			}else {
-				if(useBinCount) {
-					discImg = Utils.discrete(orgImg, orgMask, this.label, this.nBins);
-				}else {
-					/*
-					 * do Fixed Bin Width
-					 */
-					discImg = Utils.discreteByBinWidth(orgImg, orgMask, this.label, binWidth);
-					this.nBins = Utils.getNumOfBinsByMax(discImg, orgMask, this.label);
+				/*
+				 * Bin Width
+				 */
+				try {
+					discImg = Utils.discreteByBinWidth(this.img, this.mask, this.label, this.binWidth);
+				} catch (Exception e) {
+					e.printStackTrace();
 				}
+				this.nBins = Utils.getNumOfBinsByMax(discImg, this.mask, this.label);
 			}
-			w = orgImg.getWidth();
-			h = orgImg.getHeight();
-			s = orgImg.getNSlices();
-			aabb = Utils.getRoiBoundingBoxInfo(orgMask, label, RadiomicsJ.debug);
-			calcGLCM();
 		}
+		w = this.img.getWidth();
+		h = this.img.getHeight();
+		s = this.img.getNSlices();
+		aabb = Utils.getRoiBoundingBoxInfo(this.mask, this.label, RadiomicsJ.debug);
+
+		calcGLCM();
 	}
 
 	public Double calculate(String id) {
@@ -280,7 +390,6 @@ public class GLCMFeatures {
 	public double[][] calcGLCM(int angleID, int[] angle, int delta) {
 
 		ImagePlus img = discImg;
-		ImagePlus mask = orgMask;
 
 		if (glcm_raw == null) {
 			glcm_raw = new java.util.HashMap<Integer, double[][]>();
@@ -352,7 +461,6 @@ public class GLCMFeatures {
 	public double[][] calcGLCM2(int angleID, int[] angle, int delta) {
 
 		ImagePlus img = discImg;
-		ImagePlus mask = orgMask;
 
 		if (glcm_raw == null) {
 			glcm_raw = new java.util.HashMap<Integer, double[][]>();
@@ -409,7 +517,7 @@ public class GLCMFeatures {
 							int lblj = (int) mSlice_j[dx][dy];
 							if (lblj == this.label) {
 								int vj = (int) iSlice_j[dx][dy];
-								// discretised pixels is 1 to nBins
+								// discretized pixels is 1 to nBins
 								glcm_at_angle[vi - 1][vj - 1]++;
 								if (symmetry) {
 									glcm_at_angle[vj - 1][vi - 1]++;
@@ -1439,5 +1547,24 @@ public class GLCMFeatures {
 			res = res + sb.toString();
 		}
 		return res;
+	}
+
+	@Override
+	public Set<String> getAvailableFeatures() {
+		Set<String> names = new HashSet<String>();
+		for(GLCMFeatureType t : GLCMFeatureType.values()) {
+			names.add(t.name());
+		}
+		return names;
+	}
+
+	@Override
+	public String getFeatureFamilyName() {
+		return "GLCM";
+	}
+
+	@Override
+	public Map<String, Object> getSettings() {
+		return settings;
 	}
 }

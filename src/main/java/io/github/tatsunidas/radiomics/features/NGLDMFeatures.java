@@ -18,13 +18,13 @@ package io.github.tatsunidas.radiomics.features;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-
-import javax.swing.JOptionPane;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 import org.jogamp.vecmath.Point3i;
 
 import ij.ImagePlus;
-import ij.measure.Calibration;
 import ij.process.ImageProcessor;
 import io.github.tatsunidas.radiomics.main.ImagePreprocessing;
 import io.github.tatsunidas.radiomics.main.RadiomicsJ;
@@ -34,7 +34,7 @@ import io.github.tatsunidas.radiomics.main.Utils;
  * @author tatsunidas <t_kobayashi@vis-ionary.com>
  *
  */
-public class NGLDMFeatures {
+public class NGLDMFeatures extends AbstractRadiomicsFeature implements Texture{
 	
 	double[][] gldm = null;
 	HashMap<Integer, HashMap<Integer,Integer>> gldm_map;
@@ -43,21 +43,35 @@ public class NGLDMFeatures {
 	HashMap<Integer, int[]> angles = Utils.buildAngles();
 	ArrayList<Integer> angle_ids;
 	
-	ImagePlus img;
-	ImagePlus mask;
 	ImagePlus discImg;
 	
 	int w;
 	int h;
 	int s;
 	
-	int label = 1;
+	final int label;
 	int nBins;//discretised gray level 1 to N
+	double binWidth;
 	
 	//basic stats
 	double Ns = 0.0;//sum of GLDM(without normalization)
 	int size_max = 0;//Nd
 	double eps = Math.ulp(1.0);// 2.220446049250313E-16
+	
+	;
+	
+	public NGLDMFeatures(ImagePlus img, ImagePlus mask, Map<String, Object> settings) {
+		super(img,mask,settings);
+		Object labelValue = settings.get(RadiomicsFeature.LABEL);
+		if (labelValue == null) {
+			throw new IllegalArgumentException("'label' is missing in settings.");
+		}
+		if (!(labelValue instanceof Integer)) {
+			throw new IllegalArgumentException("'label' must be an Integer.");
+		}
+		this.label = (Integer) labelValue;
+		buildup(settings);
+	}
 	
 	/**
 	 * 
@@ -72,30 +86,18 @@ public class NGLDMFeatures {
 	 * @throws Exception
 	 */
 	public NGLDMFeatures(ImagePlus img, ImagePlus mask, int label, Integer alpha, Integer delta, boolean useBinCount, Integer nBins, Double binWidth) throws Exception {
-		if (img == null) {
-			return;
-		}
-		if (img.getType() == ImagePlus.COLOR_RGB) {
-			JOptionPane.showMessageDialog(null, "RadiomicsJ can read only grayscale images(8/16/32 bits)...sorry.");
-			return;
-		}
-		this.img = img;
+		super(img,mask,null);
 		w = this.img.getWidth();
 		h = this.img.getHeight();
 		s = this.img.getNSlices();
 		this.label = label;
-		if (mask != null) {
-			if (w != mask.getWidth() || h != mask.getHeight() || s != mask.getNSlices()) {
-				JOptionPane.showMessageDialog(null, "RadiomicsJ: please input same dimension image and mask.");
-				return;
-			}
-		} else {
+		if (mask == null) {
 			// create full face mask
 			mask = ImagePreprocessing.createMask(img.getWidth(), img.getHeight(), img.getNSlices(), null, this.label,
 					img.getCalibration().pixelWidth, img.getCalibration().pixelHeight, img.getCalibration().pixelDepth);
+			this.mask = mask;
 		}
-		this.mask = mask;
-			
+		
 		if (nBins != null) {
 			this.nBins = nBins;
 		} else {
@@ -103,7 +105,9 @@ public class NGLDMFeatures {
 		}
 
 		if (binWidth == null) {
-			binWidth = RadiomicsJ.binWidth;
+			this.binWidth = RadiomicsJ.binWidth;
+		}else {
+			this.binWidth = binWidth;
 		}
 		
 		// discretised by roi mask.
@@ -111,7 +115,7 @@ public class NGLDMFeatures {
 			discImg = Utils.discrete(this.img, this.mask, this.label, this.nBins);
 		} else {
 			//Fixed Bin Width
-			discImg = Utils.discreteByBinWidth(this.img, this.mask, this.label, binWidth);
+			discImg = Utils.discreteByBinWidth(this.img, this.mask, this.label, this.binWidth);
 			this.nBins = Utils.getNumOfBinsByMax(discImg, this.mask,this.label);
 		}
 		
@@ -129,97 +133,104 @@ public class NGLDMFeatures {
 		angle_ids = new ArrayList<>(angles.keySet());// 0 to 26
 		Collections.sort(angle_ids);
 		fillGLDM();
+		
+		settings = new HashMap<>();
+		settings.put(RadiomicsFeature.IMAGE, img);
+		settings.put(RadiomicsFeature.MASK, mask);
+		settings.put(RadiomicsFeature.DISC_IMG, discImg);
+		settings.put(RadiomicsFeature.LABEL, label);
+		settings.put(RadiomicsFeature.ALPHA, alpha);
+		settings.put(RadiomicsFeature.DELTA, delta);
+		settings.put(RadiomicsFeature.USE_BIN_COUNT, useBinCount);
+		settings.put(RadiomicsFeature.nBins, this.nBins);
+		settings.put(RadiomicsFeature.BinWidth, binWidth);
+		
 	}
 	
-	public NGLDMFeatures(ImagePlus discretizedImp, ImagePlus mask, int label, Integer alpha, Integer delta) throws Exception {
-		if (discretizedImp == null) {
-			return;
-		} 
-		if (discretizedImp.getType() == ImagePlus.COLOR_RGB) {
-			JOptionPane.showMessageDialog(null, "RadiomicsJ can read only grayscale images(8/16/32 bits)...sorry.");
-			return;
-		}
-		this.discImg = discretizedImp;
-		w = discImg.getWidth();
-		h = discImg.getHeight();
-		s = discImg.getNSlices();
-		this.label = label;
-			
-		if (mask != null) {
-			if (w != mask.getWidth() || h != mask.getHeight() || s != mask.getNSlices()) {
-				JOptionPane.showMessageDialog(null, "RadiomicsJ: please input same dimension image and mask.");
-				return;
-			}
-		} else {
+	
+	public void buildup(Map<String,Object> settings) {
+				
+		if (mask == null) {
 			// create full face mask
-			Calibration cal = discImg.getCalibration();
-			double px = cal.pixelWidth;
-			double py = cal.pixelHeight;
-			double pz = cal.pixelDepth;
-			mask = ImagePreprocessing.createMask(w, h, s, null, this.label,px,py,pz);
+			mask = ImagePreprocessing.createMask(img.getWidth(), img.getHeight(), img.getNSlices(), null, this.label,
+					img.getCalibration().pixelWidth, img.getCalibration().pixelHeight, img.getCalibration().pixelDepth);
 		}
-		this.mask = mask;
-		//here, DO NOT USE getNumOfMinMaxRange
-		this.nBins = Utils.getNumOfBinsByMax(discImg, mask, label);
+		w = this.img.getWidth();
+		h = this.img.getHeight();
+		s = this.img.getNSlices();
 
-		if (delta != null && delta > 0) {
-			this.delta = delta;
-		} else {
-			this.delta = RadiomicsJ.deltaNGLevelDM;
+		Object useBinValue = settings.get(RadiomicsFeature.USE_BIN_COUNT);
+		if (useBinValue == null) {
+			throw new IllegalArgumentException("'useBinCount:boolean' is missing in settings.");
 		}
-
-		if (alpha != null && alpha >= 0) {
-			this.alpha = alpha;
-		} else {
+		if (!(useBinValue instanceof Boolean)) {
+			throw new IllegalArgumentException("'useBinCount' must be a Boolean.");
+		}
+		boolean useBinCount = (Boolean)useBinValue;
+		
+		Object nBinsValue = settings.get(RadiomicsFeature.nBins);
+		if (nBinsValue == null && useBinCount == true) {
+			throw new IllegalArgumentException("'nBins' is missing in settings.");
+		}
+		if (nBinsValue != null && !(nBinsValue instanceof Integer)) {
+			throw new IllegalArgumentException("'nBins' must be an Integer.");
+		}
+		if(nBinsValue == null) {
+			this.nBins = RadiomicsJ.nBins;
+		}else {
+			this.nBins = (Integer) nBinsValue;
+		}
+		
+		Object bwValue = settings.get(RadiomicsFeature.BinWidth);
+		if (bwValue == null && useBinCount == false) {
+			throw new IllegalArgumentException("'BinWidth' is missing in settings.");
+		}
+		if (bwValue != null && !(bwValue instanceof Double)) {
+			throw new IllegalArgumentException("'BinWidth' must be a Double.");
+		}
+		if(bwValue == null) {
+			this.binWidth = RadiomicsJ.binWidth;
+		}else {
+			this.binWidth = (Double)bwValue;
+		}
+				
+		// discretised by roi mask.
+		try {
+			if (useBinCount) {
+				discImg = Utils.discrete(this.img, this.mask, this.label, this.nBins);
+			} else {
+				// Fixed Bin Width
+				discImg = Utils.discreteByBinWidth(this.img, this.mask, this.label, this.binWidth);
+				this.nBins = Utils.getNumOfBinsByMax(discImg, this.mask, this.label);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		Object deltaValue = settings.get(RadiomicsFeature.DELTA);
+		if (deltaValue != null && !(deltaValue instanceof Integer)) {
+			throw new IllegalArgumentException("'delta' must be an Integer.");
+		}
+		if (deltaValue == null) {
+			this.delta = RadiomicsJ.deltaGLCM;
+		}else {
+			this.delta = (Integer)deltaValue;
+		}
+		
+		Object alphaValue = settings.get(RadiomicsFeature.ALPHA);
+		if (alphaValue != null && !(alphaValue instanceof Integer)) {
+			throw new IllegalArgumentException("'alpha' must be an Integer.");
+		}
+		if (alphaValue == null) {
 			this.alpha = RadiomicsJ.alpha;
+		}else {
+			this.alpha = (Integer)alphaValue;
 		}
+		
 		angle_ids = new ArrayList<>(angles.keySet());// 0 to 26
 		Collections.sort(angle_ids);
 		fillGLDM();
 	}
-	
-//	public void fillGLDM() {
-//		int w = discImg.getWidth();
-//		int h = discImg.getHeight();
-//		int s = discImg.getNSlices();
-//		gldm_map = new HashMap<Integer, HashMap<Integer,Integer>>();
-//		for(int grayLevel=1;grayLevel<=nBins;grayLevel++) {
-//			//size and count
-//			HashMap<Integer,Integer> gldm_row = new HashMap<Integer,Integer>();
-//			for(int z=0;z<s;z++) {
-//				for (int y = 0; y < h; y++) {
-//					for (int x = 0; x < w; x++) {
-//						int lbl = (int) mask.getStack().getProcessor(z+1).getPixelValue(x, y);
-//						if(lbl != label) {
-//							continue;
-//						}
-//						float val = discImg.getStack().getProcessor(z+1).getPixelValue(x, y);
-//						if(Float.isNaN(val)) {
-//							continue;
-//						}
-//						if (((int)val) == grayLevel) {
-//							ArrayList<Point3i> neighbor = connectedNeighbor(x,y,z,w,h,s);
-//							int count = 0;
-//							for (Point3i p : neighbor) {
-////								discImg.setSlice(p.z+1);
-////								mask.setSlice(p.z+1);
-//								float fv = discImg.getStack().getProcessor(p.z+1).getPixelValue(p.x, p.y);
-//								if(!Float.isNaN(fv) && (int)mask.getStack().getProcessor(p.z+1).getPixelValue(p.x, p.y)==this.label) {
-//									if (Math.abs(grayLevel - ((int)fv)) <= alpha) {
-//										count++;
-//									}
-//								}
-//							}
-//							gldm_row.put(count, gldm_row.get(count) == null ? 1 : gldm_row.get(count) + 1);
-//						}
-//					}
-//				}
-//			}
-//			gldm_map.put(grayLevel, gldm_row);
-//		}
-//		map2matrix(gldm_map);
-//	}
-	
 	
 	public void fillGLDM() {
 		gldm_map = new HashMap<Integer, HashMap<Integer,Integer>>();
@@ -582,5 +593,24 @@ public class NGLDMFeatures {
 			sb.append("\n");
 		}
 		return sb.toString() ;
+	}
+
+	@Override
+	public Set<String> getAvailableFeatures() {
+		Set<String> names = new HashSet<String>();
+		for(NGLDMFeatureType t : NGLDMFeatureType.values()) {
+			names.add(t.name());
+		}
+		return names;
+	}
+
+	@Override
+	public String getFeatureFamilyName() {
+		return "NGLDM";
+	}
+
+	@Override
+	public Map<String, Object> getSettings() {
+		return settings;
 	}
 }

@@ -16,8 +16,9 @@
 package io.github.tatsunidas.radiomics.features;
 
 import java.util.ArrayList;
-
-import javax.swing.JOptionPane;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.math3.stat.StatUtils;
 
@@ -55,7 +56,7 @@ import io.github.tatsunidas.radiomics.main.Utils;
  * Attention
  * DO NOT standardization.
  */
-public class IntensityBasedStatisticalFeatures {
+public class IntensityBasedStatisticalFeatures extends AbstractRadiomicsFeature{
 	
 	/**
 	 * for Energy, TotalEnergy, RMS.
@@ -67,64 +68,88 @@ public class IntensityBasedStatisticalFeatures {
 	/**
 	 * mask label value
 	 */
-	protected Integer label;
+	protected final Integer label;
 
-	ImagePlus orgImg;
-	ImagePlus orgMask;
 	Calibration orgCal;// backup
 	
 	protected double[] voxels = null;
 	
-	public IntensityBasedStatisticalFeatures() {
-		//for IntensityHistgramFeatures
+	/**
+	 * Dummy: for IntensityHistgramFeatures
+	 */
+	public IntensityBasedStatisticalFeatures(int label) {
+		super();
+		this.label = label;
+	}
+	
+	public IntensityBasedStatisticalFeatures(ImagePlus img, ImagePlus mask, Map<String, Object> settings){
+		super(img, mask, settings);
+		Object labelValue = settings.get(RadiomicsFeature.LABEL);
+		if (labelValue == null) {
+			throw new IllegalArgumentException("FractalFeature: 'label' is missing in settings.");
+		}
+		if (!(labelValue instanceof Integer)) {
+			throw new IllegalArgumentException("FractalFeature: 'label' must be an Integer.");
+		}
+		this.label = (Integer) labelValue;
+		buildup(settings);
 	}
 	
 	/**
 	 * 
 	 * @param img : original
-	 * @param mask : label mask. if null, full face mask is applied.
+	 * @param mask : label mask. if null, full face mask will be applied.
 	 */
 	public IntensityBasedStatisticalFeatures(ImagePlus img, ImagePlus mask, int label) {
-		if (img == null) {
-			return;
-		}
-		if (img.getType() == ImagePlus.COLOR_RGB) {
-			JOptionPane.showMessageDialog(null, "RadiomicsJ can read only grayscale images(8/16/32 bits)...sorry.");
-			return;
-		}
-		
+		super(img, mask, null);
 		this.label = label;
-		
-		if (mask != null) {
-			if (img.getWidth() != mask.getWidth() || img.getHeight() != mask.getHeight()
-					|| img.getNSlices() != mask.getNSlices()) {
-				JOptionPane.showMessageDialog(null,
-						"RadiomicsJ: please should be same dimension(w,h,s) images and masks.");
-				return;
-			}
-		}else {
-			// create full face mask
-			mask = ImagePreprocessing.createMask(img.getWidth(), img.getHeight(), img.getNSlices(), null, this.label,img.getCalibration().pixelWidth, img.getCalibration().pixelHeight,img.getCalibration().pixelDepth);
-		}
-		
-		orgImg = img;
-		orgMask = mask;
 		orgCal = img.getCalibration().copy();
+		//after label defined.
+		if (mask == null) {
+			// create full face mask
+			this.mask = ImagePreprocessing.createMask(img.getWidth(), img.getHeight(), img.getNSlices(), null, this.label,
+					orgCal.pixelWidth, orgCal.pixelHeight, orgCal.pixelDepth);
+		}
 		/*
 		 * density shift value is no negative. 
 		 */
 		this.densityShift = RadiomicsJ.densityShift;
 		if(this.densityShift < 0d) {
-			System.out.println("Density shift value is should be non negative. Sorry, Use zero instead in this calculation.");
+			System.out.println("Density shift value is should be non negative. It will use zero instead in this calculation.");
 			this.densityShift = 0.0;
 		}
 		//get voxels and sort array.
-		voxels = Utils.getVoxels(orgImg, orgMask, this.label);
+		voxels = Utils.getVoxels(this.img, this.mask, this.label);
+		
+		settings.put(RadiomicsFeature.IMAGE, this.img);
+		settings.put(RadiomicsFeature.MASK, this.mask);
+		settings.put(RadiomicsFeature.LABEL, this.label);
+	}
+	
+	public void buildup(Map<String, Object> settings) {
+		orgCal = img.getCalibration().copy();
+		//after label defined.
+		if (mask == null) {
+			// create full face mask
+			mask = ImagePreprocessing.createMask(img.getWidth(), img.getHeight(), img.getNSlices(), null, this.label,
+					orgCal.pixelWidth, orgCal.pixelHeight, orgCal.pixelDepth);
+		}
+		/*
+		 * density shift value is no negative. 
+		 */
+		this.densityShift = RadiomicsJ.densityShift;
+		if(this.densityShift < 0d) {
+			System.out.println("Density shift value is should be non negative. It will use zero instead in this calculation.");
+			this.densityShift = 0.0;
+		}
+		//get voxels and sort array.
+		voxels = Utils.getVoxels(this.img, this.mask, this.label);
+		
 	}
 	
 	protected int countRoiVoxel() {
 		if(voxels == null) {
-			voxels = Utils.getVoxels(orgImg, orgMask, this.label);
+			voxels = Utils.getVoxels(img, mask, this.label);
 		}
 		return voxels.length;
 	}
@@ -473,5 +498,24 @@ public class IntensityBasedStatisticalFeatures {
 			sum4 += Math.pow((voxels[i]-mean), 4);
 		}
 	    return (sum4/pixelCount) / Math.pow(sum2/pixelCount,2);
+	}
+
+	@Override
+	public Set<String> getAvailableFeatures() {
+		Set<String> names = new HashSet<String>();
+		for(IntensityBasedStatisticalFeatureType t : IntensityBasedStatisticalFeatureType.values()) {
+			names.add(t.name());
+		}
+		return names;
+	}
+
+	@Override
+	public String getFeatureFamilyName() {
+		return "IntensityBasedStatistical";
+	}
+
+	@Override
+	public Map<String, Object> getSettings() {
+		return settings;
 	}
 }

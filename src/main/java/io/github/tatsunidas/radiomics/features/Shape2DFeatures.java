@@ -1,6 +1,8 @@
 package io.github.tatsunidas.radiomics.features;
 
-import javax.swing.JOptionPane;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.math3.linear.EigenDecomposition;
 import org.apache.commons.math3.linear.MatrixUtils;
@@ -27,10 +29,8 @@ import io.github.tatsunidas.radiomics.main.Utils;
  * @author tatsunidas
  *
  */
-public class Shape2DFeatures {
+public class Shape2DFeatures extends AbstractRadiomicsFeature{
 	
-	ImagePlus orgImg;//stack-able
-	ImagePlus orgMask;//stack-able
 	Calibration orgCal;// backup
 	final int slice_pos;//1 to N
 	final int label;
@@ -45,25 +45,43 @@ public class Shape2DFeatures {
 	double[] eigenValues;
 	double eps = Math.ulp(1.0);// 2.220446049250313E-16
 	
+	private Map<String, Object> settings;
+	
+	/**
+	 * 
+	 * @param img
+	 * @param mask
+	 * @param slice : 1 to N.
+	 * @param settings
+	 */
+	public Shape2DFeatures(ImagePlus img, ImagePlus mask, int slice, Map<String, Object> settings) {
+		super(img,mask,settings);
+		this.slice_pos = slice;
+		if(slice > img.getNSlices() || slice < 1) {
+			throw new IllegalArgumentException("RadiomicsJ:Shape2D please input valid slice number. input images has "+img.getNSlices()+" slices, but specified slice position is "+slice+" (out of range).");
+		}
+		Object labelValue = settings.get(RadiomicsFeature.LABEL);
+		if (labelValue == null) {
+			throw new IllegalArgumentException("'label' is missing in settings.");
+		}
+		if (!(labelValue instanceof Integer)) {
+			throw new IllegalArgumentException("'label' must be an Integer.");
+		}
+		this.label = (Integer) labelValue;
+		buildup(settings);
+	}
+	
 	/**
 	 * 
 	 * @param img
 	 * @param mask : null-able
 	 * @param slice : slice position, 1 to N
 	 */
-	public Shape2DFeatures(ImagePlus img, ImagePlus mask, Integer slice, int label) {
+	public Shape2DFeatures(ImagePlus img, ImagePlus mask, int slice, int label) {
+		super(img,mask,null);
 		this.label = label;
 		this.slice_pos = slice;
-		if (img == null) {
-			return;
-		}
-		if(slice == null) {
-			throw new IllegalArgumentException("Slice position should be specified !!");
-		}
-		if (img.getType() == ImagePlus.COLOR_RGB) {
-			JOptionPane.showMessageDialog(null, "RadiomicsJ can read only grayscale images(8/16/32 bits)...sorry.");
-			return;
-		}
+
 		int iw = img.getWidth();
 		int ih = img.getHeight();
 		int is = img.getNSlices();
@@ -72,37 +90,66 @@ public class Shape2DFeatures {
 		this.h = ih;
 		
 		if(slice > is || slice < 1) {
-			JOptionPane.showMessageDialog(null, "RadiomicsJ:Shape2D please input valid slice number. input images has "+is+" slices, but specified slice position is "+slice+" (out of range).");
-			return;
+			throw new IllegalArgumentException("RadiomicsJ:Shape2D please input valid slice number. input images has "+is+" slices, but specified slice position is "+slice+" (out of range).");
 		}
 		
-		if (mask != null) {
-			int mw = mask.getWidth();
-			int mh = mask.getHeight();
-			int ms = mask.getNSlices();
-			if (iw != mw || ih != mh || is != ms) {
-				JOptionPane.showMessageDialog(null, "RadiomicsJ:Shape2D please input same dimension image and mask.");
-				return;
-			}
-		}else {
+		if (mask == null) {
 			// create full face mask
-			mask = ImagePreprocessing.createMask(iw, ih, is, null, label, img.getCalibration().pixelWidth,img.getCalibration().pixelHeight, img.getCalibration().pixelDepth);
+			this.mask = ImagePreprocessing.createMask(iw, ih, is, null, label, img.getCalibration().pixelWidth,img.getCalibration().pixelHeight, img.getCalibration().pixelDepth);
 		}
 		
-		img.setPosition(slice_pos);
-		mask.setPosition(slice_pos);
+		this.img.setPosition(slice_pos);
+		this.mask.setPosition(slice_pos);
 		
-		orgImg = img;
-		orgMask = mask;
 		orgCal = img.getCalibration().copy();
 		
-		this.roi = Utils.createRoi(mask, slice, label);
+		this.roi = Utils.createRoi(this.mask, this.slice_pos, this.label);
 		if(this.roi == null) {
 			this.roi = new Roi(0,0,w,h);
 		}
-		img.setRoi(this.roi);
+		this.img.setRoi(this.roi);
 		int measurements = Analyzer.ALL_STATS;
-		ImageStatistics stats = img.getStatistics(measurements);
+		ImageStatistics stats = this.img.getStatistics(measurements);
+		Analyzer.setMeasurements(measurements);
+		analyzer = new Analyzer();
+		analyzer.saveResults(stats, roi);
+		
+		settings.put("IMAGE", this.img);
+		settings.put("MASK", this.mask);
+		settings.put("SLICE_POS", this.slice_pos);
+		settings.put("ROI", roi);
+		settings.put("LABEL", this.label);
+		settings.put("IMAGE_STATS", stats);
+	}
+	
+	public void buildup(Map<String, Object> settings) {
+		/*
+		 * label and slice_pos are already specified at constructor.
+		 */
+		int iw = img.getWidth();
+		int ih = img.getHeight();
+		int is = img.getNSlices();
+		
+		this.w = iw;
+		this.h = ih;
+		
+		orgCal = img.getCalibration().copy();
+		
+		if (mask == null) {
+			// create full face mask
+			this.mask = ImagePreprocessing.createMask(iw, ih, is, null, label, orgCal.pixelWidth, orgCal.pixelHeight, orgCal.pixelDepth);
+		}
+		
+		this.img.setPosition(slice_pos);
+		this.mask.setPosition(slice_pos);
+		
+		this.roi = Utils.createRoi(this.mask, this.slice_pos, this.label);
+		if(this.roi == null) {
+			this.roi = new Roi(0,0,w,h);
+		}
+		this.img.setRoi(this.roi);
+		int measurements = Analyzer.ALL_STATS;
+		ImageStatistics stats = this.img.getStatistics(measurements);
 		Analyzer.setMeasurements(measurements);
 		analyzer = new Analyzer();
 		analyzer.saveResults(stats, roi);
@@ -164,8 +211,6 @@ public class Shape2DFeatures {
 	 * @return area.
 	 */
 	private Double getAreaByPixelSurface() {
-		int w = orgImg.getWidth();
-		int h = orgImg.getHeight();
 		int cnt = 0;
 		for(int i=0; i<w ;i++) {
 			for(int j=0; j<h ;j++) {
@@ -255,9 +300,6 @@ public class Shape2DFeatures {
 		if(eigenValues != null) {
 			return Math.sqrt(eigenValues[0])*4;
 		}
-		int w = orgMask.getWidth();
-		int h = orgMask.getHeight();
-		ImagePlus mask = orgMask;
 		/*
 		 * no using mesh
 		 */
@@ -304,9 +346,6 @@ public class Shape2DFeatures {
 		if(eigenValues != null) {
 			return Math.sqrt(eigenValues[1])*4;
 		}
-		int w = orgMask.getWidth();
-		int h = orgMask.getHeight();
-		ImagePlus mask = orgMask;
 		/*
 		 * no using mesh
 		 */
@@ -365,9 +404,6 @@ public class Shape2DFeatures {
 			double minor = axis[1];
 			return Math.sqrt(minor/major);
 		}
-		int w = orgMask.getWidth();
-		int h = orgMask.getHeight();
-		ImagePlus mask = orgMask;
 		
 		int nPoints = 0;
 		float[][] mSlice = mask.getProcessor().getFloatArray();
@@ -416,5 +452,24 @@ public class Shape2DFeatures {
 		int counter = rt.getCounter();
 		double af = rt.getValueAsDouble(ResultsTable.AREA_FRACTION, counter-1);
 		return af;
+	}
+
+	@Override
+	public Set<String> getAvailableFeatures() {
+		Set<String> names = new HashSet<>();
+		for(Shape2DFeatureType t : Shape2DFeatureType.values()) {
+			names.add(t.name());
+		}
+		return names;
+	}
+
+	@Override
+	public String getFeatureFamilyName() {
+		return "SHAPE2D";
+	}
+
+	@Override
+	public Map<String, Object> getSettings() {
+		return settings;
 	}
 }

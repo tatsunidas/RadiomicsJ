@@ -18,8 +18,9 @@ package io.github.tatsunidas.radiomics.features;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-
-import javax.swing.JOptionPane;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.math3.stat.StatUtils;
 import org.jogamp.vecmath.Point3i;
@@ -36,11 +37,9 @@ import io.github.tatsunidas.radiomics.main.Utils;
  * @author tatsunidas
  *
  */
-public class GLRLMFeatures {
+public class GLRLMFeatures extends AbstractRadiomicsFeature implements Texture{
 	
-	ImagePlus orgImg;
 	ImagePlus discImg;// discretised
-	ImagePlus orgMask;
 	Calibration orgCal;// backup
 	
 	int w;
@@ -48,17 +47,31 @@ public class GLRLMFeatures {
 	int s;
 	Integer[][][] voxels = null;
 	
-	int label;
+	final int label;
 	java.util.HashMap<Integer, double[][]> glrlm_raw;// angle_id and glrlm at it angle.
 	java.util.HashMap<Integer, double[][]> glrlm;// angle_id and normalized glrlm at it angle.
 	boolean normalization = true;// always true;
 	int nBins;// 1 to N
+	double binWidth;
 
 	HashMap<Integer, HashMap<String, Object>> coeffs;// angle_od and coefficients of it angle.
 	double eps = Math.ulp(1.0);// 2.220446049250313E-16
 
 	String[] weighting_norms = new String[] { "no_weighting", "manhattan", "euclidian", "infinity" };
 	String weightingNorm = null;
+	
+	public GLRLMFeatures(ImagePlus img, ImagePlus mask, Map<String, Object> settings) {
+		super(img,mask,settings);
+		Object labelValue = settings.get(RadiomicsFeature.LABEL);
+		if (labelValue == null) {
+			throw new IllegalArgumentException("'label' is missing in settings.");
+		}
+		if (!(labelValue instanceof Integer)) {
+			throw new IllegalArgumentException("'label' must be an Integer.");
+		}
+		this.label = (Integer) labelValue;
+		buildup(settings);
+	}
 	
 	public GLRLMFeatures(ImagePlus img, 
 						 ImagePlus mask, 
@@ -67,69 +80,161 @@ public class GLRLMFeatures {
 						 Integer nBins,
 						 Double binWidth,
 						 String weightingNorm) throws Exception {
-		if (img == null) {
-			return;
-		} else {
-			if (img.getType() == ImagePlus.COLOR_RGB) {
-				JOptionPane.showMessageDialog(null, "RadiomicsJ can read only grayscale images(8/16/32 bits)...sorry.");
-				return;
-			}
-			
-			this.label = label;
-			
-			if (mask != null) {
-				if (img.getWidth() != mask.getWidth() || img.getHeight() != mask.getHeight()) {
-					JOptionPane.showMessageDialog(null, "RadiomicsJ: please input same dimension image and mask.");
-					return;
-				}
-			}else {
-				// create full face mask
-				mask = ImagePreprocessing.createMask(img.getWidth(), img.getHeight(), img.getNSlices(), null,
-						this.label,img.getCalibration().pixelWidth, img.getCalibration().pixelHeight,img.getCalibration().pixelDepth);
-			}
-			
-			if (nBins != null) {
-				this.nBins = nBins;
-			} else {
-				this.nBins = RadiomicsJ.nBins;
-			}
-
-			setWeightingNorm(weightingNorm);
-			
-			orgCal = img.getCalibration().copy();
-			this.orgImg = img;
-			this.orgMask = mask;
-			
-			if(RadiomicsJ.discretiseImp != null) {
-				discImg = RadiomicsJ.discretiseImp;
-			}else {
-				if(useBinCount) {
-					discImg = Utils.discrete(this.orgImg, this.orgMask, this.label, this.nBins);
-				}else {
-					/*
-					 * do Fixed Bin Width
-					 */
-					discImg = Utils.discreteByBinWidth(this.orgImg, this.orgMask, this.label, binWidth);
-					this.nBins = Utils.getNumOfBinsByMax(discImg, this.orgMask, this.label);
-				}
-			}
-			w = discImg.getWidth();
-			h= discImg.getHeight();
-			s = discImg.getNSlices();
-			voxels = Utils.prepareVoxels(discImg, orgMask, label, nBins);
-			
-			try{
-				fillGLRLM();
-			}catch(StackOverflowError e) {
-				System.out.println("Stack Overflow occured when executing fillGLRLM().");
-				System.out.println("RadiomicsJ: please increase stack memmory size using VM arguments, like example,\n java -Xss=32m -jar RadiomicsJ.jar");
-//				JOptionPane.showMessageDialog(null, "RadiomicsJ: please increase stack memmory size using VM arguments, like example,\n java -Xss=32m -jar RadiomicsJ.jar");
-				return;
-			}
-			
+		super(img, mask, null);
+		this.label = label;
+		
+		if (mask == null) {
+			// create full face mask
+			this.mask = ImagePreprocessing.createMask(img.getWidth(), img.getHeight(), img.getNSlices(), null,
+					this.label,img.getCalibration().pixelWidth, img.getCalibration().pixelHeight,img.getCalibration().pixelDepth);
 		}
+		
+		orgCal = this.img.getCalibration().copy();
+		
+		if (nBins != null) {
+			this.nBins = nBins;
+		} else {
+			this.nBins = RadiomicsJ.nBins;
+		}
+		
+		if (binWidth != null) {
+			this.binWidth = binWidth;
+		} else {
+			this.binWidth = RadiomicsJ.binWidth;
+		}
+
+		setWeightingNorm(weightingNorm);
+		
+		if(RadiomicsJ.discretiseImp != null) {
+			discImg = RadiomicsJ.discretiseImp;
+		}else {
+			if(useBinCount) {
+				discImg = Utils.discrete(this.img, this.mask, this.label, this.nBins);
+			}else {
+				/*
+				 * do Fixed Bin Width
+				 */
+				discImg = Utils.discreteByBinWidth(this.img, this.mask, this.label, this.binWidth);
+				this.nBins = Utils.getNumOfBinsByMax(discImg, this.mask, this.label);
+			}
+		}
+		w = discImg.getWidth();
+		h= discImg.getHeight();
+		s = discImg.getNSlices();
+		voxels = Utils.prepareVoxels(discImg, this.mask, this.label, this.nBins);
+		
+		try{
+			fillGLRLM();
+		}catch(StackOverflowError e) {
+			System.out.println("Stack Overflow occured when executing fillGLRLM().");
+			System.out.println("RadiomicsJ: please increase stack memmory size using VM arguments, like example,\n java -Xss=32m -jar RadiomicsJ.jar");
+//			JOptionPane.showMessageDialog(null, "RadiomicsJ: please increase stack memmory size using VM arguments, like example,\n java -Xss=32m -jar RadiomicsJ.jar");
+			return;
+		}
+		
+		settings.put(RadiomicsFeature.IMAGE, img);
+		settings.put(RadiomicsFeature.MASK, mask);
+		settings.put(RadiomicsFeature.DISC_IMG, discImg);
+		settings.put(RadiomicsFeature.LABEL, label);
+		settings.put(RadiomicsFeature.USE_BIN_COUNT, useBinCount);
+		settings.put(RadiomicsFeature.nBins, this.nBins);
+		settings.put(RadiomicsFeature.BinWidth, binWidth);
+		settings.put(RadiomicsFeature.WEIGHTING_NORM, weightingNorm);
 	}
 	
+	public void buildup(Map<String, Object> settings) {
+		
+		Object useBinValue = settings.get(RadiomicsFeature.USE_BIN_COUNT);
+		if (useBinValue == null) {
+			throw new IllegalArgumentException("'useBinCount:boolean' is missing in settings.");
+		}
+		if (!(useBinValue instanceof Boolean)) {
+			throw new IllegalArgumentException("'useBinCount' must be a Boolean.");
+		}
+		boolean useBinCount = (Boolean)useBinValue;
+		
+		Object nBinsValue = settings.get(RadiomicsFeature.nBins);
+		if (nBinsValue == null && useBinCount == true) {
+			throw new IllegalArgumentException("'nBins' is missing in settings.");
+		}
+		if (nBinsValue != null && !(nBinsValue instanceof Integer)) {
+			throw new IllegalArgumentException("'nBins' must be an Integer.");
+		}
+		if(nBinsValue == null) {
+			this.nBins = RadiomicsJ.nBins;
+		}else {
+			this.nBins = (Integer) nBinsValue;
+		}
+		
+		Object bwValue = settings.get(RadiomicsFeature.BinWidth);
+		if (bwValue == null && useBinCount == false) {
+			throw new IllegalArgumentException("'BinWidth' is missing in settings.");
+		}
+		if (bwValue != null && !(bwValue instanceof Double)) {
+			throw new IllegalArgumentException("'BinWidth' must be a Double.");
+		}
+		if(bwValue == null) {
+			this.binWidth = RadiomicsJ.binWidth;
+		}else {
+			this.binWidth = (Double)bwValue;
+		}
+		
+		Object norm = settings.get(RadiomicsFeature.WEIGHTING_NORM);
+		if(norm != null && (norm instanceof String)) {
+			setWeightingNorm((String)norm);
+		}
+		
+		if (mask == null) {
+			// create full face mask
+			mask = ImagePreprocessing.createMask(
+					img.getWidth(), 
+					img.getHeight(), 
+					img.getNSlices(), 
+					null,
+					this.label,
+					img.getCalibration().pixelWidth,
+					img.getCalibration().pixelHeight,
+					img.getCalibration().pixelDepth
+					);
+		}
+		
+		this.orgCal = this.img.getCalibration();
+		// discretised by roi mask.
+		if (RadiomicsJ.discretiseImp != null) {
+			discImg = RadiomicsJ.discretiseImp;
+		} else {
+			if (useBinCount) {
+				try {
+					discImg = Utils.discrete(this.img, this.mask, this.label, this.nBins);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			} else {
+				/*
+				 * Bin Width
+				 */
+				try {
+					discImg = Utils.discreteByBinWidth(this.img, this.mask, this.label, this.binWidth);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				this.nBins = Utils.getNumOfBinsByMax(discImg, this.mask, this.label);
+			}
+		}
+		w = this.img.getWidth();
+		h = this.img.getHeight();
+		s = this.img.getNSlices();
+		
+		try{
+			voxels = Utils.prepareVoxels(discImg, this.mask, this.label, this.nBins);
+			fillGLRLM();
+		}catch(StackOverflowError | Exception e) {
+			System.out.println("Stack Overflow occured when executing fillGLRLM().");
+			System.out.println("RadiomicsJ: please increase stack memmory size using VM arguments, like example,\n java -Xss=32m -jar RadiomicsJ.jar");
+//			JOptionPane.showMessageDialog(null, "RadiomicsJ: please increase stack memmory size using VM arguments, like example,\n java -Xss=32m -jar RadiomicsJ.jar");
+			return;
+		}
+	}
 	
 	private void setWeightingNorm(String weightingNorm) {
 		if (weightingNorm == null) {
@@ -860,7 +965,7 @@ public class GLRLMFeatures {
 		Collections.sort(angles);
 		double[] res_set = new double[angles.size()];
 		int itr = 0;
-		double voxels[] = Utils.getVoxels(discImg, orgMask, this.label);
+		double voxels[] = Utils.getVoxels(discImg, mask, this.label);
 		for (Integer a : angles) {
 			double glrlm_a[][] = glrlm_raw.get(a);//IMPORTANT, no-normalized
 			int Nr_a = glrlm_a[0].length;//length size
@@ -1041,6 +1146,28 @@ public class GLRLMFeatures {
 			res = res + sb.toString();
 		}
 		return res;
+	}
+
+
+	@Override
+	public Set<String> getAvailableFeatures() {
+		Set<String> names = new HashSet<String>();
+		for(GLRLMFeatureType t : GLRLMFeatureType.values()) {
+			names.add(t.name());
+		}
+		return names;
+	}
+
+
+	@Override
+	public String getFeatureFamilyName() {
+		return "GLRLM";
+	}
+
+
+	@Override
+	public Map<String, Object> getSettings() {
+		return settings;
 	}
 
 }

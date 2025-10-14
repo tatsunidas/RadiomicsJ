@@ -28,7 +28,9 @@ import ij.process.FloodFiller;
 import ij.process.ImageProcessor;
 
 /**
- * you can try 3d procedure.
+ * Under the development...
+ * 
+ * Next to do : try 3d procedure.
  * see, GLDZM. 
  * 1. get main zone and minimum zone
  * 2. calculate how many minimum zone in main zone.

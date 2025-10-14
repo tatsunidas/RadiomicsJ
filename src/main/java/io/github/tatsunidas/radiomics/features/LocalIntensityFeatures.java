@@ -16,8 +16,9 @@
 package io.github.tatsunidas.radiomics.features;
 
 import java.util.ArrayList;
-
-import javax.swing.JOptionPane;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.math3.stat.StatUtils;
 import org.jogamp.vecmath.Point3i;
@@ -32,11 +33,9 @@ import io.github.tatsunidas.radiomics.main.Utils;
  * @author tatsunidas
  *
  */
-public class LocalIntensityFeatures {
+public class LocalIntensityFeatures extends AbstractRadiomicsFeature{
 	
-	int label;
-	ImagePlus orgImg;
-	ImagePlus orgMask;
+	final int label;
 	Calibration orgCal;
 	
 	int w;
@@ -46,41 +45,54 @@ public class LocalIntensityFeatures {
 	double px;
 	double py;
 	double pz;
-	
-	public static void main(String args[]) {
-		System.out.println(Math.cbrt(3/(4*Math.PI)));
+		
+	public LocalIntensityFeatures(ImagePlus img, ImagePlus mask, Map<String, Object> settings) {
+		super(img, mask, settings);
+		Object labelValue = settings.get(RadiomicsFeature.LABEL);
+		if (labelValue == null) {
+			throw new IllegalArgumentException("'label' is missing in settings.");
+		}
+		if (!(labelValue instanceof Integer)) {
+			throw new IllegalArgumentException("'label' must be an Integer.");
+		}
+		this.label = (Integer) labelValue;
+		buildup(settings);
 	}
-
 	
-	public LocalIntensityFeatures(ImagePlus img, ImagePlus mask, Integer label) {
-		if (img == null) {
-			return;
-		}
-		if (img.getType() == ImagePlus.COLOR_RGB) {
-			JOptionPane.showMessageDialog(null, "RadiomicsJ can read only grayscale images(8/16/32 bits)...sorry.");
-			return;
-		}
+	public LocalIntensityFeatures(ImagePlus img, ImagePlus mask, int label) {
+		super(img,mask,null);
 		this.label = label;
-		
-		if (mask != null) {
-			if (img.getWidth() != mask.getWidth() || img.getHeight() != mask.getHeight()
-					|| img.getNSlices() != mask.getNSlices()) {
-				JOptionPane.showMessageDialog(null,
-						"RadiomicsJ: please should be same dimension(w,h,s) images and masks.");
-				return;
-			}
-		}else {
+		orgCal = img.getCalibration().copy();
+		if (mask == null)  {
 			// create full face mask
-			mask = ImagePreprocessing.createMask(img.getWidth(), img.getHeight(), img.getNSlices(), null, this.label, img.getCalibration().pixelWidth, img.getCalibration().pixelHeight,img.getCalibration().pixelDepth);
+			this.mask = ImagePreprocessing.createMask(img.getWidth(), img.getHeight(), img.getNSlices(), null, this.label, 
+					orgCal.pixelWidth, orgCal.pixelHeight,orgCal.pixelDepth);
 		}
 		
-		orgImg = img;
-		orgMask = mask;
-		orgCal = img.getCalibration().copy();
+		w = img.getWidth();
+		h = img.getHeight();
+		s = img.getNSlices();
 		
-		w = orgImg.getWidth();
-		h = orgImg.getHeight();
-		s = orgImg.getNSlices();
+		px = orgCal.pixelWidth;
+		py = orgCal.pixelHeight;
+		pz = orgCal.pixelDepth;
+		
+		settings.put(RadiomicsFeature.IMAGE, this.img);
+		settings.put(RadiomicsFeature.MASK, this.mask);
+		settings.put(RadiomicsFeature.LABEL, this.label);
+	}
+	
+	@Override
+	public void buildup(Map<String,Object> settings) {
+		orgCal = img.getCalibration().copy();
+		if (mask == null)  {
+			// create full face mask
+			mask = ImagePreprocessing.createMask(img.getWidth(), img.getHeight(), img.getNSlices(), null, this.label, 
+					orgCal.pixelWidth, orgCal.pixelHeight,orgCal.pixelDepth);
+		}
+		w = img.getWidth();
+		h = img.getHeight();
+		s = img.getNSlices();
 		
 		px = orgCal.pixelWidth;
 		py = orgCal.pixelHeight;
@@ -102,12 +114,12 @@ public class LocalIntensityFeatures {
 		double r = Math.cbrt(3/(4*Math.PI));//spherical volume radius.//0.6203504908994 cm
 		r *= 10;// from "cm" to "mm"
 		//search maximum
-		double[] voxels = Utils.getVoxels(orgImg, orgMask, this.label);
+		double[] voxels = Utils.getVoxels(img, mask, this.label);
 		double max = StatUtils.max(voxels);
 		double local_int_peak = 0;
 		for(int z=0;z<s;z++) {
-			float[][] iSlice = orgImg.getStack().getProcessor(z+1).getFloatArray();
-			float[][] mSlice = orgMask.getStack().getProcessor(z+1).getFloatArray();
+			float[][] iSlice = img.getStack().getProcessor(z+1).getFloatArray();
+			float[][] mSlice = mask.getStack().getProcessor(z+1).getFloatArray();
 			for(int y=0;y<h;y++) {
 				for(int x=0;x<w;x++) {
 					int lbl = (int) mSlice[x][y];
@@ -141,8 +153,8 @@ public class LocalIntensityFeatures {
 		r *= 10;// from "cm" to "mm"
 		double global_int_peak = 0;
 		for(int z=0;z<s;z++) {
-			float[][] iSlice = orgImg.getStack().getProcessor(z+1).getFloatArray();
-			float[][] mSlice = orgMask.getStack().getProcessor(z+1).getFloatArray();
+			float[][] iSlice = img.getStack().getProcessor(z+1).getFloatArray();
+			float[][] mSlice = mask.getStack().getProcessor(z+1).getFloatArray();
 			for(int y=0;y<h;y++) {
 				for(int x=0;x<w;x++) {
 					int lbl = (int) mSlice[x][y];
@@ -181,7 +193,7 @@ public class LocalIntensityFeatures {
 		ArrayList<Double> spherical_voxels = new ArrayList<>();
 		for(int z=peak.z-searchRangeZ; z<=peak.z+searchRangeZ;z++) {
 			if(z < 0 || z >= s) continue;
-			orgImg.setPosition(z+1);
+			img.setPosition(z+1);
 			for(int y=peak.y-searchRangeY;y<=peak.y+searchRangeY;y++) {
 				if(y < 0 || y >= h) continue;
 				for(int x=peak.x-searchRangeX;x<=peak.x+searchRangeX;x++) {
@@ -201,7 +213,7 @@ public class LocalIntensityFeatures {
 					 */
 //					int lbl = (int) orgMask.getStack().getProcessor(z+1).getPixelValue(x, y);
 //					if(lbl == label) {
-						double val = orgImg.getProcessor().getPixelValue(x, y);
+						double val = img.getProcessor().getPixelValue(x, y);
 						spherical_voxels.add(val);
 //					}
 				}
@@ -219,5 +231,27 @@ public class LocalIntensityFeatures {
 		res = null;
 		spherical_voxels = null;
 		return res2;
+	}
+
+
+	@Override
+	public Set<String> getAvailableFeatures() {
+		Set<String> names = new HashSet<String>();
+		for(LocalIntensityFeatureType t : LocalIntensityFeatureType.values()) {
+			names.add(t.name());
+		}
+		return names;
+	}
+
+
+	@Override
+	public String getFeatureFamilyName() {
+		return "LocalIntensity";
+	}
+
+
+	@Override
+	public Map<String, Object> getSettings() {
+		return settings;
 	}
 }

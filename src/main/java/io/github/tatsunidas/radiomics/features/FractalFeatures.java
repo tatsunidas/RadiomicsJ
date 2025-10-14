@@ -17,7 +17,9 @@ package io.github.tatsunidas.radiomics.features;
 
 import java.util.Arrays;
 import java.util.HashMap;
-import javax.swing.JOptionPane;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 import ij.ImagePlus;
 import ij.gui.Roi;
@@ -46,7 +48,7 @@ which appeared in J. Neurosci. Methods, 69:1123-126, 1996.
 @author tatsunidas.
 
 */
-public class FractalFeatures {
+public class FractalFeatures extends AbstractRadiomicsFeature{
 	
 	int[] boxSizes = new int[] {2,3,4,6,8,12,16,32,64};
 	
@@ -55,51 +57,91 @@ public class FractalFeatures {
 	Roi[] edges;
 	double eps = Math.ulp(1.0);// 2.220446049250313E-16
 	
-	private ImagePlus mask;
-	private int label;
+	final private int label;
 	
 	private double D;
+	
+	public FractalFeatures(ImagePlus imp, ImagePlus mask, Map<String, Object> settings) {
+		super(imp, mask, settings);
+		Object labelValue = settings.get(RadiomicsFeature.LABEL);
+		if (labelValue == null) {
+			throw new IllegalArgumentException("'label' is missing in settings.");
+		}
+		if (!(labelValue instanceof Integer)) {
+			throw new IllegalArgumentException("'label' must be an Integer.");
+		}
+		this.label = (Integer) labelValue;
+		buildup(settings);
+	}
 
-	public FractalFeatures(ImagePlus imp, ImagePlus mask, int label, Integer slice, int[] boxSizes) {
-		if(imp == null) {
-			return;
-		}
+	public FractalFeatures(ImagePlus img, ImagePlus mask, int label, int[] boxSizes) {
+		super(img,mask,null);
 		this.label = label;
-		if (mask != null) {
-			if (imp.getWidth() != mask.getWidth() || imp.getHeight() != mask.getHeight() || imp.getNSlices() != mask.getNSlices()) {
-				JOptionPane.showMessageDialog(null, "RadiomicsJ(FractalFeature): please input same dimension image and mask.");
-				return;
-			}
-		}else {
-			// create full face mask
-			Calibration cal = imp.getCalibration();
-			mask = ImagePreprocessing.createMask(imp.getWidth(), imp.getHeight(), imp.getNSlices(), null, this.label, cal.pixelWidth, cal.pixelHeight,cal.pixelDepth);
-		}
 		if(boxSizes != null) {
-			if (boxSizes.length>1) {
-				Arrays.sort(boxSizes);
-				this.boxSizes = new int[boxSizes.length];
-				this.boxSizes = boxSizes;
+			this.boxSizes = boxSizes;
+			if (this.boxSizes.length > 0) {
+				Arrays.sort(this.boxSizes);
+				// 最後の要素が最大値 (ループ不要)
+				maxBoxSize = this.boxSizes[this.boxSizes.length - 1];
+				// boxCountsの初期化
+				boxCounts = new int[this.boxSizes.length];
+			}else {
+				throw new IllegalArgumentException("FractalFeature: Invalid Box Sizes! Cannot execute calculations !");
 			}
 		}
-		
-		boxCounts = new int[this.boxSizes.length];
-		for (int i=0; i<this.boxSizes.length; i++) {
-			maxBoxSize = Math.max(maxBoxSize, this.boxSizes[i]);
+		//slice is 1 to N range.
+		if (mask == null) {
+			// create full face mask
+			this.mask = ImagePreprocessing.createMask(
+					img.getWidth(), 
+					img.getHeight(), 
+					img.getNSlices(), 
+					null,
+					this.label,
+					img.getCalibration().pixelWidth,
+					img.getCalibration().pixelHeight,
+					img.getCalibration().pixelDepth
+					);
 		}
 		
-		if(slice != null) {//force 2D
-			if(imp.getNSlices()<slice || slice<1) {
-				System.out.println("RadiomicsJ : Slice position out of range. return null. FractalFeatures.");
-				return;
+		//isovoxelize
+		this.mask = Utils.isoVoxelizeWithInterpolation(this.mask, true);
+		this.mask = Utils.createMaskCopyAsGray8(this.mask, this.label);
+		this.edges = Utils.createRoiSet(this.mask, this.label);
+		
+		settings.put(RadiomicsFeature.LABEL, Integer.valueOf(label));
+		settings.put(RadiomicsFeature.BOX_SIZES, boxSizes);
+	}
+	
+	public void buildup(Map<String, Object> settings) {
+		
+		//after label defined.
+		if (mask == null) {
+			// create full face mask
+			Calibration cal = img.getCalibration();
+			mask = ImagePreprocessing.createMask(img.getWidth(), img.getHeight(), img.getNSlices(), null, this.label, cal.pixelWidth, cal.pixelHeight,cal.pixelDepth);
+		}
+		
+		Object boxSizesValue = settings.get(RadiomicsFeature.BOX_SIZES);
+		if (boxSizesValue != null) {
+			if (!(boxSizesValue instanceof int[])) {
+				throw new IllegalArgumentException("FractalFeature: 'box_sizes' must be an int[].");
 			}
-			this.mask = mask;
-		}else {			
-			//isovoxelize
-			this.mask = Utils.isoVoxelizeWithInterpolation(mask, true);
-			this.mask = Utils.createMaskCopyAsGray8(this.mask, this.label);
+			this.boxSizes = (int[]) boxSizesValue;
+			if (this.boxSizes.length > 0) {
+				Arrays.sort(this.boxSizes);
+				// 最後の要素が最大値 (ループ不要)
+				maxBoxSize = this.boxSizes[this.boxSizes.length - 1];
+				// boxCountsの初期化
+				boxCounts = new int[this.boxSizes.length];
+			}else {
+				throw new IllegalArgumentException("FractalFeature: Invalid Box Sizes! Cannot execute calculations !");
+			}
 		}
-		edges = Utils.createRoiSet(this.mask, this.label);
+		//isovoxelize
+		this.mask = Utils.isoVoxelizeWithInterpolation(this.mask, true);
+		this.mask = Utils.createMaskCopyAsGray8(this.mask, this.label);
+		this.edges = Utils.createRoiSet(this.mask, this.label);
 	}
 	
 	public Double calculate(String id) {
@@ -185,5 +227,24 @@ public class FractalFeatures {
 				}
 			}
 		}
+	}
+
+	@Override
+	public Set<String> getAvailableFeatures() {
+		Set<String> names = new HashSet<String>();
+		for(FractalFeatureType t : FractalFeatureType.values()) {
+			names.add(t.name());
+		}
+		return names;
+	}
+
+	@Override
+	public String getFeatureFamilyName() {
+		return "Fractal";
+	}
+
+	@Override
+	public Map<String, Object> getSettings() {
+		return settings;
 	}
 }

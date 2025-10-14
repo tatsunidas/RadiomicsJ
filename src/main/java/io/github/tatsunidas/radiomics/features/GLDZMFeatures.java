@@ -19,8 +19,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-
-import javax.swing.JOptionPane;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.math3.stat.StatUtils;
 import org.jogamp.vecmath.Point3i;
@@ -38,11 +39,9 @@ import io.github.tatsunidas.radiomics.main.Utils;
  * @author tatsunidas
  *
  */
-public class GLDZMFeatures {
+public class GLDZMFeatures extends AbstractRadiomicsFeature implements Texture{
 	
-	ImagePlus img;
 	ImagePlus discImg;// discretised
-	ImagePlus mask;
 	ImagePlus dMap;// distance map
 	Calibration orgCal;// backup
 	
@@ -50,8 +49,9 @@ public class GLDZMFeatures {
 	int h ;
 	int s ;
 	
-	int label = 1;
+	final int label;
 	int nBins;// 1 to N
+	double binWidth;
 	HashMap<Integer, int[]> angles = Utils.buildAngles();
 	ArrayList<Integer> angle_ids;//0 to 26
 	
@@ -66,7 +66,23 @@ public class GLDZMFeatures {
 	/**
 	 * For sub-classes.
 	 */
-	public GLDZMFeatures() {};
+	public GLDZMFeatures(int label) {
+		super();
+		this.label = label;
+	};
+	
+	public GLDZMFeatures(ImagePlus img, ImagePlus mask, Map<String, Object> settings) {
+		super(img,mask,settings);
+		Object labelValue = settings.get(RadiomicsFeature.LABEL);
+		if (labelValue == null) {
+			throw new IllegalArgumentException("'label' is missing in settings.");
+		}
+		if (!(labelValue instanceof Integer)) {
+			throw new IllegalArgumentException("'label' must be an Integer.");
+		}
+		this.label = (Integer) labelValue;
+		buildup(settings);
+	}
 	
 	/**
 	 * Tool for calculating GLDZMFeatures.
@@ -78,11 +94,14 @@ public class GLDZMFeatures {
 	 * @param binWidth
 	 * @throws Exception
 	 */
-	public GLDZMFeatures(ImagePlus img, ImagePlus mask, int label, boolean useBinCount, Integer nBins, Double binWidth) throws Exception {
-		if(readyToCalculate(img, mask, label, useBinCount, nBins, binWidth)) {
+	public GLDZMFeatures(ImagePlus img, ImagePlus mask, int label, boolean useBinCount, Integer nBins, Double binWidth) {
+		super(img,mask,null);
+		this.label = label;
+		if(readyToCalculate(img, mask, useBinCount, nBins, binWidth)) {
 			try{
 				fillMatrix();
-			}catch(StackOverflowError e) {
+			}catch(StackOverflowError | Exception e) {
+				System.out.println(e);
 				System.out.println("Stack Overflow occured when executing fillMatrix().");
 				System.out.println("RadiomicsJ: please increase stack memmory size using VM arguments, like example,\n java -Xss=32m -jar RadiomicsJ.jar");
 				return;
@@ -90,62 +109,161 @@ public class GLDZMFeatures {
 		}
 	}
 	
-	protected boolean readyToCalculate(ImagePlus img, ImagePlus mask, int label, boolean useBinCount, Integer nBins, Double binWidth) throws Exception{
-		if (img == null) {
-			return false;
-		} else {
-			if (img.getType() == ImagePlus.COLOR_RGB) {
-				JOptionPane.showMessageDialog(null, "RadiomicsJ can read only grayscale images(8/16/32 bits)...sorry.");
-				return false;
-			}
-			
-			this.label = label;
-
-			if (mask != null) {
-				if (img.getWidth() != mask.getWidth() || img.getHeight() != mask.getHeight()) {
-					JOptionPane.showMessageDialog(null, "RadiomicsJ: please input same dimension image and mask.");
-					return false;
-				}
-			}else {
-				// create full face mask
-				mask = ImagePreprocessing.createMask(img.getWidth(), img.getHeight(), img.getNSlices(), null, label, img.getCalibration().pixelWidth,img.getCalibration().pixelHeight,img.getCalibration().pixelDepth);
-			}
-			
-			if(nBins == null) {
-				this.nBins = RadiomicsJ.nBins;
-			}else {
-				this.nBins = nBins;
-			}
-			
-			this.img = img;
-			this.orgCal = img.getCalibration();
-			this.mask = mask;
-			
-			// discretise by roi mask.
-			if(RadiomicsJ.discretiseImp != null) {
+	protected boolean readyToCalculate(ImagePlus img, ImagePlus mask, boolean useBinCount, Integer nBins, Double binWidth){
+		this.orgCal = img.getCalibration();
+		if (mask == null) {
+			// create full face mask
+			this.mask = ImagePreprocessing.createMask(img.getWidth(), img.getHeight(), img.getNSlices(), null, this.label, orgCal.pixelWidth,orgCal.pixelHeight,orgCal.pixelDepth);
+		}
+		
+		if(nBins == null) {
+			this.nBins = RadiomicsJ.nBins;
+		}else {
+			this.nBins = nBins;
+		}
+		
+		if(binWidth == null) {
+			this.binWidth = RadiomicsJ.binWidth;
+		}else {
+			this.binWidth = binWidth;
+		}
+		
+		// discretise by roi mask.
+		try {
+			if (RadiomicsJ.discretiseImp != null) {
 				discImg = RadiomicsJ.discretiseImp;
-			}else {
-				if(useBinCount) {
+			} else {
+				if (useBinCount) {
 					discImg = Utils.discrete(this.img, this.mask, this.label, this.nBins);
-				}else {
+				} else {
 					/*
 					 * do Fixed Bin Width
 					 */
-					discImg = Utils.discreteByBinWidth(this.img, this.mask, this.label, binWidth);
+					discImg = Utils.discreteByBinWidth(this.img, this.mask, this.label, this.binWidth);
 					this.nBins = Utils.getNumOfBinsByMax(discImg, this.mask, this.label);
 				}
 			}
-			
-			angle_ids = new ArrayList<>(angles.keySet());//0 to 26
-			Collections.sort(angle_ids);
-			
-			w = discImg.getWidth();
-			h= discImg.getHeight();
-			s = discImg.getNSlices();
-			return true;
+		} catch (Exception e) {
+			System.out.println(e);
+			return false;
 		}
+		
+		angle_ids = new ArrayList<>(angles.keySet());//0 to 26
+		Collections.sort(angle_ids);
+		
+		w = discImg.getWidth();
+		h= discImg.getHeight();
+		s = discImg.getNSlices();
+		
+		settings.put(RadiomicsFeature.IMAGE, this.img);
+		settings.put(RadiomicsFeature.MASK, this.mask);
+		settings.put(RadiomicsFeature.DISC_IMG, discImg);
+		//int label, boolean useBinCount, Integer nBins, Double binWidth
+		settings.put(RadiomicsFeature.LABEL, this.label);
+		settings.put(RadiomicsFeature.USE_BIN_COUNT, useBinCount);
+		settings.put(RadiomicsFeature.nBins, this.nBins);
+		settings.put(RadiomicsFeature.BinWidth, this.binWidth);
+		
+		return true;
 	}
 	
+	public void buildup(Map<String, Object> settings) {
+		Object useBinValue = settings.get(RadiomicsFeature.USE_BIN_COUNT);
+		if (useBinValue == null) {
+			throw new IllegalArgumentException("'useBinCount:boolean' is missing in settings.");
+		}
+		if (!(useBinValue instanceof Boolean)) {
+			throw new IllegalArgumentException("'useBinCount' must be a Boolean.");
+		}
+		boolean useBinCount = (Boolean)useBinValue;
+		
+		Object nBinsValue = settings.get(RadiomicsFeature.nBins);
+		if (nBinsValue == null && useBinCount == true) {
+			throw new IllegalArgumentException("'nBins' is missing in settings.");
+		}
+		if (nBinsValue != null && !(nBinsValue instanceof Integer)) {
+			throw new IllegalArgumentException("'nBins' must be an Integer.");
+		}
+		if(nBinsValue == null) {
+			this.nBins = RadiomicsJ.nBins;
+		}else {
+			this.nBins = (Integer) nBinsValue;
+		}
+		
+		Object bwValue = settings.get(RadiomicsFeature.BinWidth);
+		if (bwValue == null && useBinCount == false) {
+			throw new IllegalArgumentException("'BinWidth' is missing in settings.");
+		}
+		if (bwValue != null && !(bwValue instanceof Double)) {
+			throw new IllegalArgumentException("'BinWidth' must be a Double.");
+		}
+		if(bwValue == null) {
+			this.binWidth = RadiomicsJ.binWidth;
+		}else {
+			this.binWidth = (Double)bwValue;
+		}
+		
+//		Object norm = settings.get(RadiomicsFeature.WEIGHTING_NORM);
+//		if(norm != null && (norm instanceof String)) {
+//			setWeightingNorm((String)norm);
+//		}
+		
+		if (mask == null) {
+			// create full face mask
+			mask = ImagePreprocessing.createMask(
+					img.getWidth(), 
+					img.getHeight(), 
+					img.getNSlices(), 
+					null,
+					this.label,
+					img.getCalibration().pixelWidth,
+					img.getCalibration().pixelHeight,
+					img.getCalibration().pixelDepth
+					);
+		}
+		
+		this.orgCal = this.img.getCalibration();
+		// discretised by roi mask.
+		if (RadiomicsJ.discretiseImp != null) {
+			discImg = RadiomicsJ.discretiseImp;
+		} else {
+			if (useBinCount) {
+				try {
+					discImg = Utils.discrete(this.img, this.mask, this.label, this.nBins);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			} else {
+				/*
+				 * Bin Width
+				 */
+				try {
+					discImg = Utils.discreteByBinWidth(this.img, this.mask, this.label, this.binWidth);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				this.nBins = Utils.getNumOfBinsByMax(discImg, this.mask, this.label);
+			}
+		}
+		w = this.img.getWidth();
+		h = this.img.getHeight();
+		s = this.img.getNSlices();
+		
+		angle_ids = new ArrayList<>(angles.keySet());//0 to 26
+		Collections.sort(angle_ids);
+		
+		//todo
+//		aabb = Utils.getRoiBoundingBoxInfo(this.mask, this.label, RadiomicsJ.debug);
+
+		try{
+			fillMatrix();
+		}catch(StackOverflowError | Exception e) {
+			System.out.println(e);
+			System.out.println("Stack Overflow occured when executing fillMatrix().");
+			System.out.println("RadiomicsJ: please increase VM memmory size by VM arguments, like example,\n java -Xss=32m -jar RadiomicsJ.jar");
+			return;
+		}
+	}
 	
 	public void fillMatrix() throws Exception {
 		gldzm_raw = null;//init
@@ -982,5 +1100,24 @@ public class GLDZMFeatures {
 			}
 		}
 		System.out.println(sb.toString());
+	}
+
+	@Override
+	public Set<String> getAvailableFeatures() {
+		Set<String> names = new HashSet<>();
+		for(GLDZMFeatureType t : GLDZMFeatureType.values()) {
+			names.add(t.name());
+		}
+		return names;
+	}
+
+	@Override
+	public String getFeatureFamilyName() {
+		return "GLDZM";
+	}
+
+	@Override
+	public Map<String, Object> getSettings() {
+		return settings;
 	}
 }

@@ -2,6 +2,9 @@ package io.github.tatsunidas.radiomics.features;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 import javax.swing.JOptionPane;
 
@@ -26,15 +29,15 @@ import io.github.tatsunidas.radiomics.main.Utils;
  * @author tatsunidas
  *
  */
-public class GLKZMFeatures extends GLDZMFeatures{
+public class GLKZMFeatures extends GLDZMFeatures implements Texture{
 	
 	ImagePlus kineticsMap = null;//Org
 	ImagePlus kineticsDiscMap = null;//Discretized kinetic map (used as distance map)
 	int kinetics_nBins;
 
-	public GLKZMFeatures(ImagePlus img, ImagePlus mask, int label, boolean useBinCount, Integer nBins, Double binWidth)
-			throws Exception {
-		readyToCalculate(img, mask, label, useBinCount, nBins, binWidth);
+	public GLKZMFeatures(ImagePlus img, ImagePlus mask, int label, boolean useBinCount, Integer nBins, Double binWidth){
+		super(label);
+		readyToCalculate(img, mask, useBinCount, nBins, binWidth);
 	}
 	
 	public void setKineticsMap(ImagePlus kinetics, boolean useBinCount, Integer kinetics_nBins, Double binWidth)throws Exception {
@@ -56,6 +59,11 @@ public class GLKZMFeatures extends GLDZMFeatures{
 			kineticsDiscMap = Utils.discreteByBinWidth(kineticsMap, this.mask, this.label, binWidth);
 			this.kinetics_nBins = Utils.getNumOfBinsByMax(kineticsDiscMap, this.mask, this.label);
 		}
+		//add settings
+		super.settings.put(RadiomicsFeature.KINETICS_IMG, kineticsMap);
+		super.settings.put(RadiomicsFeature.KINETICS_nBins, kinetics_nBins);
+		super.settings.put(RadiomicsFeature.KINETICS_USE_BIN_COUNT, useBinCount);
+		super.settings.put(RadiomicsFeature.KINETICS_BinWidth, binWidth);
 	}
 	
 	public void fillMatrix() throws Exception {
@@ -66,7 +74,7 @@ public class GLKZMFeatures extends GLDZMFeatures{
 		int w = discImg.getWidth();
 		int h= discImg.getHeight();
 		int s = discImg.getNSlices();
-		Integer[][][] voxels = Utils.prepareVoxels(discImg, mask, label, nBins);//[z][y][x], temp voxels at it angle, for count up.
+		Integer[][][] voxels = Utils.prepareVoxels(discImg, mask, label, super.nBins);//[z][y][x], temp voxels at it angle, for count up.
 		Integer[][][] distance_map = getDistanceMap(kineticsDiscMap);
 		//search distance max
 		int distance_max = 1;
@@ -134,5 +142,24 @@ public class GLKZMFeatures extends GLDZMFeatures{
 			e.printStackTrace();
 		}
 		return null;
+	}
+	
+	@Override
+	public Set<String> getAvailableFeatures() {
+		Set<String> names = new HashSet<>();
+		for(GLDZMFeatureType t : GLDZMFeatureType.values()) {
+			names.add("GLKZM_"+t.name());
+		}
+		return names;
+	}
+
+	@Override
+	public String getFeatureFamilyName() {
+		return "GLKZM";
+	}
+
+	@Override
+	public Map<String, Object> getSettings() {
+		return settings;
 	}
 }

@@ -15,10 +15,11 @@
  */
 package io.github.tatsunidas.radiomics.features;
 
-import javax.swing.JOptionPane;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 import ij.ImagePlus;
-import io.github.tatsunidas.radiomics.main.ImagePreprocessing;
 import io.github.tatsunidas.radiomics.main.RadiomicsJ;
 import io.github.tatsunidas.radiomics.main.Utils;
 
@@ -57,8 +58,10 @@ public class IntensityHistogramFeatures extends IntensityBasedStatisticalFeature
 	/*
 	 * image and mask are located at parent class.
 	 */
-	protected Integer nBins = null;
+	protected Integer nBins;
+	double binWidth;
 	int[] hist = null;//3d basis
+	final ImagePlus disc_img;
 
 	/**
 	 * 
@@ -69,46 +72,32 @@ public class IntensityHistogramFeatures extends IntensityBasedStatisticalFeature
 	 */
 	public IntensityHistogramFeatures(ImagePlus img, ImagePlus mask, Integer label, boolean useBinCount, Integer nBins, Double binWidth) throws Exception {
 		super(img,mask,label);
-		if (img == null) {
-			JOptionPane.showMessageDialog(null, "RadiomicsJ: please input none null img...");
-			return;
-		}
-		if (img.getType() == ImagePlus.COLOR_RGB) {
-			JOptionPane.showMessageDialog(null, "RadiomicsJ can read only grayscale images(8/16/32 bits)...sorry.");
-			return;
-		}
 		if(nBins == null) {
 			this.nBins = RadiomicsJ.nBins;
 		}else {
 			this.nBins = nBins;
 		}
 		if(binWidth == null) {
-			binWidth = RadiomicsJ.binWidth;
-		}
-		/*
-		 * create mask
-		 */
-		if(mask != null) {
-			if (img.getWidth() != mask.getWidth() || img.getHeight() != mask.getHeight() || img.getNSlices() != mask.getNSlices()) {
-				JOptionPane.showMessageDialog(null, "RadiomicsJ: please input same dimension image and mask.");
-				return;
-			}
-			//super.IntensityBasedStatisticalFeatures variables
-			orgMask = Utils.createMaskCopy(mask);
+			this.binWidth = RadiomicsJ.binWidth;
 		}else {
-			orgMask = ImagePreprocessing.createMask(img.getWidth(), img.getHeight(), img.getNSlices(), null, super.label,img.getCalibration().pixelWidth, img.getCalibration().pixelHeight,img.getCalibration().pixelDepth);
+			this.binWidth = binWidth;
 		}
 		/*
 		 * super.IntensityBasedStatisticalFeatures variables
 		 * calibrations already set in super objects.
 		 */
 		if(useBinCount) {
-			orgImg = Utils.discrete(img, orgMask, super.label, this.nBins);
+			disc_img = Utils.discrete(this.img, this.mask, this.label, this.nBins);
 		}else {
-			orgImg = Utils.discreteByBinWidth(img, orgMask, super.label, binWidth);
+			disc_img = Utils.discreteByBinWidth(this.img, this.mask, this.label, this.binWidth);
 		}
-		//replace discretised voxels
-		super.voxels = Utils.getVoxels(orgImg, orgMask, this.label);
+		buildup(settings);
+	}
+	
+	@Override
+	public void buildup(Map<String, Object> settings) {
+		// replace discretised voxels from super class.
+		voxels = Utils.getVoxels(disc_img, mask, label);
 		hist = Utils.getHistogram(voxels);
 	}
 	
@@ -338,5 +327,24 @@ public class IntensityHistogramFeatures extends IntensityBasedStatisticalFeature
 			}
 		}
 		return index;
+	}
+	
+	@Override
+	public Set<String> getAvailableFeatures() {
+		Set<String> names = new HashSet<String>();
+		for(IntensityHistogramFeatureType t : IntensityHistogramFeatureType.values()) {
+			names.add(t.name());
+		}
+		return names;
+	}
+
+	@Override
+	public String getFeatureFamilyName() {
+		return "IntensityHistogram";
+	}
+	
+	@Override
+	public Map<String, Object> getSettings() {
+		return super.settings;
 	}
 }

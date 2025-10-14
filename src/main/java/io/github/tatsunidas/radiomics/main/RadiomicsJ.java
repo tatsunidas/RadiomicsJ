@@ -1859,12 +1859,7 @@ public class RadiomicsJ {
 				System.out.println("=================================");
 				System.out.println("Fractal features");
 			}
-			FractalFeatures fractalExecuter = null;
-			if(force2D) {
-				fractalExecuter = new FractalFeatures(img, mask, targetLabel, 1, RadiomicsJ.box_sizes);
-			}else {
-				fractalExecuter = new FractalFeatures(img, mask, targetLabel, null, RadiomicsJ.box_sizes);
-			}
+			FractalFeatures fractalExecuter = new FractalFeatures(img, mask, targetLabel, RadiomicsJ.box_sizes);
 			if(fractalExecuter != null) {
 				for(FractalFeatureType fractal:FractalFeatureType.values()) {
 					if(excluded.contains(fractal.name())) {

@@ -17,9 +17,10 @@ package io.github.tatsunidas.radiomics.features;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
-
-import javax.swing.JOptionPane;
+import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.math3.analysis.polynomials.PolynomialFunction;
 import org.apache.commons.math3.analysis.polynomials.PolynomialsUtils;
@@ -76,11 +77,7 @@ import marchingcubes.MCTriangulator;
  * @author tatsunidas
  *
  */
-public class MorphologicalFeatures {
-	
-	
-	ImagePlus orgImg;
-	ImagePlus orgMask;
+public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 	
 	/**
 	 * (1mm,1mm,1mm) iso voxel mask to compute mesh.
@@ -93,7 +90,7 @@ public class MorphologicalFeatures {
 	final double isoSize = 1.0;
 	
 	Calibration orgCal;// backup
-	int label;
+	final int label;
 	double[] voxels;
 	double[] eigenValues;//major,minor,least
 	
@@ -105,36 +102,35 @@ public class MorphologicalFeatures {
 	Double mesh_v;//mesh volume
 	Double surfaceArea;
 	
+	public MorphologicalFeatures(ImagePlus img, ImagePlus mask, Map<String,Object> settings) {
+		super(img,mask,settings);
+		Object labelValue = settings.get(RadiomicsFeature.LABEL);
+		if (labelValue == null) {
+			throw new IllegalArgumentException("FractalFeature: 'label' is missing in settings.");
+		}
+		if (!(labelValue instanceof Integer)) {
+			throw new IllegalArgumentException("FractalFeature: 'label' must be an Integer.");
+		}
+		this.label = (Integer) labelValue;
+		buildup(settings);
+	}
+	
 	public MorphologicalFeatures(ImagePlus img, ImagePlus mask, int label) {
-		if (img == null) {
-			return;
-		}
-		if (img.getType() == ImagePlus.COLOR_RGB) {
-			JOptionPane.showMessageDialog(null, "RadiomicsJ can read only grayscale images(8/16/32 bits)...sorry.");
-			return;
-		}
+		super(img,mask,null);
 		this.label = label;
-		if (mask != null) {
-			if (img.getWidth() != mask.getWidth() || img.getHeight() != mask.getHeight()
-					|| img.getNSlices() != mask.getNSlices()) {
-				JOptionPane.showMessageDialog(null,
-						"RadiomicsJ: please should be same dimension(w,h,s) images and masks.");
-				return;
-			}
-		}else {
+		if (mask == null) {
 			// if null, create full face mask
 			mask = ImagePreprocessing.createMask(img.getWidth(), img.getHeight(), img.getNSlices(), null, this.label,img.getCalibration().pixelWidth, img.getCalibration().pixelHeight,img.getCalibration().pixelDepth);
+			this.mask = mask;
 		}
+		
 		orgCal = img.getCalibration().copy();
-		mask.setCalibration(orgCal.copy());
-		mask.getCalibration().disableDensityCalibration();
-		orgImg = img;
-		orgMask = mask;
+		this.mask.setCalibration(orgCal);//fail safe
 		/*
 		 * Be careful.
 		 * iso mask have always label 1 (RadiomicsJ.label_).
 		 */
-		ImagePlus isoMaskFloat = Utils.resample3D(Utils.createMaskWithLabelOne(mask, this.label), true, isoSize, isoSize, isoSize);
+		ImagePlus isoMaskFloat = Utils.resample3D(Utils.createMaskWithLabelOne(this.mask, this.label), true, isoSize, isoSize, isoSize);
 		//to 8 bit
 		isoMask = Utils.createMaskCopyAsGray8(isoMaskFloat, RadiomicsJ.label_);
 
@@ -165,7 +161,58 @@ public class MorphologicalFeatures {
 			this.points = points2;
 		}
 		//original voxels
-		voxels = Utils.getVoxels(orgImg, orgMask, this.label);
+		voxels = Utils.getVoxels(this.img, this.mask, this.label);
+		
+		settings.put(RadiomicsFeature.IMAGE, this.img);
+		settings.put(RadiomicsFeature.MASK, this.mask);
+		settings.put(RadiomicsFeature.ISO_MASK, isoMask);
+		settings.put(RadiomicsFeature.LABEL, this.label);
+	}
+	
+	public void buildup(Map<String,Object> settings) {
+				
+		if (mask == null) {
+			// if null, create full face mask
+			mask = ImagePreprocessing.createMask(img.getWidth(), img.getHeight(), img.getNSlices(), null, this.label,img.getCalibration().pixelWidth, img.getCalibration().pixelHeight,img.getCalibration().pixelDepth);
+		}
+		
+		orgCal = img.getCalibration().copy();
+		/*
+		 * Be careful.
+		 * iso mask have always label 1 (RadiomicsJ.label_).
+		 */
+		ImagePlus isoMaskFloat = Utils.resample3D(Utils.createMaskWithLabelOne(this.mask, this.label), true, isoSize, isoSize, isoSize);
+		//to 8 bit
+		isoMask = Utils.createMaskCopyAsGray8(isoMaskFloat, RadiomicsJ.label_);
+
+		//create mesh first.
+		RadiomicsJ.workaroundIntelGraphicsBug(false/*force*/);
+		int threshold = 0;
+		boolean[] channels = { true, false, false }; // r,g,b, but only used r because image is always binary 8 bit.
+		mct = new MCTriangulator();
+		/*
+		 * Resampling: how much resampling to apply to the stack while creating the
+		 * surface mesh. A low number results in an accurate but jagged mesh with many
+		 * triangles, while a high number results in a smooth mesh with fewer triangles.
+		 * 
+		 * In the case of digital phantom1,
+		 * it set to 2 and (1,1,1) iso voxelize combination setting yields same IBSI result.
+		 */
+		int resamplingF = 2; // 1 to N.
+		
+		// should be use iso mask copy.
+		@SuppressWarnings("unchecked")
+		List<org.jogamp.vecmath.Point3f> points2 = mct.getTriangles(isoMask, threshold, channels, resamplingF);
+		if(points2 == null || points2.size()==0) {
+			resamplingF = 1; // 1 to N.
+			@SuppressWarnings("unchecked")
+			List<org.jogamp.vecmath.Point3f> points1 = mct.getTriangles(isoMask, threshold, channels, resamplingF);
+			this.points = points1;
+		}else {
+			this.points = points2;
+		}
+		//original voxels
+		voxels = Utils.getVoxels(this.img, this.mask, this.label);
 	}
 	
 	
@@ -255,7 +302,7 @@ public class MorphologicalFeatures {
 	
 	private Double getVolumeByVoxelCounting() {
 		if(voxels == null) {
-			voxels = Utils.getVoxels(orgImg, orgMask, this.label);
+			voxels = Utils.getVoxels(img, mask, this.label);
 		}
 		if(voxels == null) {
 			return 0d;
@@ -395,15 +442,15 @@ public class MorphologicalFeatures {
 	
 	private Double getCenterOfMassShift1() {
 		int label = this.label;
-		int w = orgImg.getWidth();
-		int h = orgImg.getHeight();
-		int s = orgImg.getNSlices();
+		int w = img.getWidth();
+		int h = img.getHeight();
+		int s = img.getNSlices();
 		double sum1=0.0, x_gl_sum=0.0, y_gl_sum=0.0, z_gl_sum=0.0;
 		double x_sum=0.0, y_sum=0.0, z_sum=0.0;
 		double voxelCount = Double.MIN_VALUE;
 		for(int z=0;z<s;z++) {
-			ImageProcessor mp = orgMask.getStack().getProcessor(z+1);
-			ImageProcessor ip = orgImg.getStack().getProcessor(z+1);
+			ImageProcessor mp = mask.getStack().getProcessor(z+1);
+			ImageProcessor ip = img.getStack().getProcessor(z+1);
 			float[][] mSlice = mp.getFloatArray();
 			float[][] iSlice = ip.getFloatArray();
 			for(int y=0; y<h ; y++) {
@@ -457,20 +504,20 @@ public class MorphologicalFeatures {
 	 */
 	@SuppressWarnings("unused")
 	private Double getCenterOfMassShift2() {
-		int w = orgImg.getWidth();
-		int h = orgImg.getHeight();
-		int s = orgImg.getNSlices();
+		int w = img.getWidth();
+		int h = img.getHeight();
+		int s = img.getNSlices();
 		double sum1=0.0, x_gl_sum=0.0, y_gl_sum=0.0, z_gl_sum=0.0;
 		double x_sum=0.0, y_sum=0.0, z_sum=0.0;
 		double voxelCount = Double.MIN_VALUE;
 		for(int z=0;z<s;z++) {
-			orgImg.setPosition(z+1);
-			orgMask.setPosition(z+1);
+			img.setPosition(z+1);
+			mask.setPosition(z+1);
 			for(int y=0; y<h ; y++) {
 				for(int x=0; x<w; x++) {
-					int lbl_val = (int)orgMask.getProcessor().getPixelValue(x, y);
+					int lbl_val = (int)mask.getProcessor().getPixelValue(x, y);
 					if (lbl_val == label) {
-						double v = (double)orgImg.getProcessor().getPixelValue(x, y)+0.0d;
+						double v = (double)img.getProcessor().getPixelValue(x, y)+0.0d;
 						sum1 += v;
 						x_gl_sum += (x+0.5)*v;
 						y_gl_sum += (y+0.5)*v;
@@ -517,9 +564,9 @@ public class MorphologicalFeatures {
 	 */
 	@SuppressWarnings("unused")
 	private Double getMaximum3DDiameter() {
-		int w = orgMask.getWidth();
-		int h = orgMask.getHeight();
-		int s = orgMask.getNSlices();
+		int w = mask.getWidth();
+		int h = mask.getHeight();
+		int s = mask.getNSlices();
 		double px = orgCal.pixelWidth;
 		double py = orgCal.pixelHeight;
 		double pz = orgCal.pixelDepth;
@@ -529,13 +576,13 @@ public class MorphologicalFeatures {
 				for(int x1=0; x1<w; x1++) {
 					//calc all voxels
 //					orgMask.setSlice(z1+1);
-					if((int)orgMask.getStack().getProcessor(z1+1).getPixelValue(x1, y1) !=label) {
+					if((int)mask.getStack().getProcessor(z1+1).getPixelValue(x1, y1) !=label) {
 						continue;
 					}
 					for(int z2=0; z2<s; z2++) {
 						for(int y2=0; y2<h; y2++) {
 							for(int x2=0; x2<w; x2++) {
-								if((int)orgMask.getStack().getProcessor(z2+1).getPixelValue(x2, y2)!=label) {
+								if((int)mask.getStack().getProcessor(z2+1).getPixelValue(x2, y2)!=label) {
 									continue;
 								}
 								double qx = Math.pow(Math.abs(x1-x2)*px, 2);
@@ -616,7 +663,7 @@ public class MorphologicalFeatures {
 	 */
 	@SuppressWarnings("unused")
 	private Double getMaximum3DDiameterByMeshUsingOriginal() {
-		ImagePlus mask = Utils.createMaskCopyAsGray8(orgMask,/*keep original label*/this.label);
+		ImagePlus mask = Utils.createMaskCopyAsGray8(this.mask,/*keep original label*/this.label);
 		int threshold = label-1;
 		boolean[] channels = { true, false, false }; // r,g,b, but only used r because image is always binary 8 bit.
 		MCTriangulator mct = new MCTriangulator();//DO NOT replace field variable.
@@ -682,10 +729,9 @@ public class MorphologicalFeatures {
 		if(eigenValues != null) {
 			return Math.sqrt(eigenValues[0])*4;
 		}
-		int w = orgMask.getWidth();
-		int h = orgMask.getHeight();
-		int s = orgMask.getNSlices();
-		ImagePlus mask = orgMask;
+		int w = mask.getWidth();
+		int h = mask.getHeight();
+		int s = mask.getNSlices();
 		/*
 		 * no using mesh
 		 */
@@ -744,10 +790,9 @@ public class MorphologicalFeatures {
 		if(eigenValues != null) {
 			return eigenValues[1] < eigenValues[2] ? Math.sqrt(eigenValues[2])*4 : Math.sqrt(eigenValues[1])*4;
 		}
-		int w = orgMask.getWidth();
-		int h = orgMask.getHeight();
-		int s = orgMask.getNSlices();
-		ImagePlus mask = orgMask;
+		int w = mask.getWidth();
+		int h = mask.getHeight();
+		int s = mask.getNSlices();
 		/*
 		 * no using mesh
 		 */
@@ -802,10 +847,9 @@ public class MorphologicalFeatures {
 		if(eigenValues != null) {
 			return eigenValues[1] < eigenValues[2] ? Math.sqrt(eigenValues[1])*4 : Math.sqrt(eigenValues[2])*4;
 		}
-		int w = orgMask.getWidth();
-		int h = orgMask.getHeight();
-		int s = orgMask.getNSlices();
-		ImagePlus mask = orgMask;
+		int w = mask.getWidth();
+		int h = mask.getHeight();
+		int s = mask.getNSlices();
 		/*
 		 * no using mesh
 		 */
@@ -874,10 +918,9 @@ public class MorphologicalFeatures {
 			double minor = axis[1] > axis[2] ? axis[1]:axis[2];
 			return Math.sqrt(minor/major);
 		}
-		int w = orgMask.getWidth();
-		int h = orgMask.getHeight();
-		int s = orgMask.getNSlices();
-		ImagePlus mask = orgMask;
+		int w = mask.getWidth();
+		int h = mask.getHeight();
+		int s = mask.getNSlices();
 		/*
 		 * no using mesh
 		 */
@@ -938,10 +981,9 @@ public class MorphologicalFeatures {
 			double least = axis[1] < axis[2] ? axis[1]:axis[2];
 			return Math.sqrt(least/major);
 		}
-		int w = orgMask.getWidth();
-		int h = orgMask.getHeight();
-		int s = orgMask.getNSlices();
-		ImagePlus mask = orgMask;
+		int w = mask.getWidth();
+		int h = mask.getHeight();
+		int s = mask.getNSlices();
 	
 		/*
 		 * no using mesh
@@ -1231,10 +1273,9 @@ public class MorphologicalFeatures {
 	 */
 	@SuppressWarnings("unused")
 	private Double getVolumeDensityByApproximateEnclosingEllipsoid(){
-		int w = orgMask.getWidth();
-		int h = orgMask.getHeight();
-		int s = orgMask.getNSlices();
-		ImagePlus mask = orgMask;
+		int w = mask.getWidth();
+		int h = mask.getHeight();
+		int s = mask.getNSlices();
 		/*
 		 * no using mesh
 		 */
@@ -1295,10 +1336,9 @@ public class MorphologicalFeatures {
 	 * faster version
 	 */
 	private Double getVolumeDensityByApproximateEnclosingEllipsoid2(){
-		int w = orgMask.getWidth();
-		int h = orgMask.getHeight();
-		int s = orgMask.getNSlices();
-		ImagePlus mask = orgMask;
+		int w = mask.getWidth();
+		int h = mask.getHeight();
+		int s = mask.getNSlices();
 		/*
 		 * no using mesh
 		 */
@@ -1345,10 +1385,9 @@ public class MorphologicalFeatures {
 	@SuppressWarnings("unused")
 	private Double getAreaDensityByApproximateEnclosingEllipsoid(){
 		double sa = getSurfaceAreaByMesh();
-		int w = orgMask.getWidth();
-		int h = orgMask.getHeight();
-		int s = orgMask.getNSlices();
-		ImagePlus mask = orgMask;
+		int w = mask.getWidth();
+		int h = mask.getHeight();
+		int s = mask.getNSlices();
 		/*
 		 * no using mesh
 		 */
@@ -1411,10 +1450,9 @@ public class MorphologicalFeatures {
 	
 	private Double getAreaDensityByApproximateEnclosingEllipsoid2(){
 		double sa = getSurfaceAreaByMesh();
-		int w = orgMask.getWidth();
-		int h = orgMask.getHeight();
-		int s = orgMask.getNSlices();
-		ImagePlus mask = orgMask;
+		int w = mask.getWidth();
+		int h = mask.getHeight();
+		int s = mask.getNSlices();
 		/*
 		 * no using mesh
 		 */
@@ -1578,7 +1616,7 @@ public class MorphologicalFeatures {
 		if(this.voxels != null) {
 			voxels = this.voxels;
 		}else {
-			voxels = Utils.getVoxels(orgImg, orgMask, /*keep original label*/this.label);
+			voxels = Utils.getVoxels(img, mask, /*keep original label*/this.label);
 		}
 		if(voxels == null || voxels.length == 0) {
 			return 0d;
@@ -1605,8 +1643,6 @@ public class MorphologicalFeatures {
 	 */
 	@SuppressWarnings("unused")
 	private Double getMoransIIndex_IBSI() {
-		ImagePlus img = orgImg;//IMPORTANT
-		ImagePlus mask = orgMask;//IMPORTANT
 		double vx = img.getCalibration().pixelWidth;
 		double vy = img.getCalibration().pixelHeight;
 		double vz = img.getCalibration().pixelDepth;
@@ -1664,8 +1700,7 @@ public class MorphologicalFeatures {
 	 */
 	@SuppressWarnings("unused")
 	private Double getGearysCMeasure() {
-		ImagePlus img = orgImg;//IMPORTANT, do not use iso voxel.
-		ImagePlus mask = orgMask;//IMPORTANT
+		//IMPORTANT, do not use iso voxel.
 		double vx = img.getCalibration().pixelWidth;
 		double vy = img.getCalibration().pixelHeight;
 		double vz = img.getCalibration().pixelDepth;
@@ -1727,8 +1762,6 @@ public class MorphologicalFeatures {
 	 * @return
 	 */
 	private Double getMoransIIndex_IBSI2() {
-		ImagePlus img = orgImg;//IMPORTANT
-		ImagePlus mask = orgMask;//IMPORTANT
 		int w = img.getWidth();
 		int h = img.getHeight();
 		int s = img.getNSlices();
@@ -1809,8 +1842,6 @@ public class MorphologicalFeatures {
 	 * @return
 	 */
 	private Double getGearysCMeasure2() {
-		ImagePlus img = orgImg;//IMPORTANT, do not use iso voxel.
-		ImagePlus mask = orgMask;//IMPORTANT
 		double vx = img.getCalibration().pixelWidth;
 		double vy = img.getCalibration().pixelHeight;
 		double vz = img.getCalibration().pixelDepth;
@@ -1883,5 +1914,27 @@ public class MorphologicalFeatures {
 		}
 		index = ((n-1) / (2*sumw)) * (index / sumsq);
 		return Double.valueOf(index);
+	}
+
+
+	@Override
+	public Set<String> getAvailableFeatures() {
+		Set<String> names = new HashSet<>();
+		for(MorphologicalFeatureType t : MorphologicalFeatureType.values()) {
+			names.add(t.name());
+		}
+		return names;
+	}
+
+
+	@Override
+	public String getFeatureFamilyName() {
+		return "MORPHOLOGICAL";
+	}
+
+
+	@Override
+	public Map<String, Object> getSettings() {
+		return settings;
 	}
 }
