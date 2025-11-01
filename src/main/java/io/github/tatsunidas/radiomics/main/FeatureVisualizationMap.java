@@ -9,7 +9,6 @@ import io.github.tatsunidas.radiomics.features.GLCMFeatures;
 import io.github.tatsunidas.radiomics.features.RadiomicsFeature;
 //import io.github.tatsunidas.radiomics.features.Texture;
 
-import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -301,70 +300,5 @@ public class FeatureVisualizationMap {
 		ImagePlus fmap = new ImagePlus(name, outputStack);
 		fmap.setCalibration(image.getCalibration());
 		return fmap;
-	}
-    
-    // ==========================================================
-    // ===== ここからが今回のアップデートで追加・変更した部分 =====
-    // ==========================================================
-
-    /**
-     * 特徴量計算ロジックを抽象化するためのインターフェース。
-     */
-    @FunctionalInterface
-    interface FeatureCalculator {
-        Double calculate(ImagePlus img, ImagePlus mask);
-    }
-
-    /**
-     * STEP 1: 計算したい特徴量の情報をカプセル化するクラス
-     */
-	public static class FeatureSpecifier <T extends RadiomicsFeature> {
-	//RadiomicsFeature & Textureの両方を実装したクラスのみを許容する場合。
-//	public static class FeatureSpecifier <T extends RadiomicsFeature & Texture> {
-		final Class<T> featureClass;
-		final String featureId;
-		final Map<String, Object> settings;
-		final String displayName;
-
-		public FeatureSpecifier(Class<T> featureClass, Enum<?> featureEnum,
-				Map<String, Object> settings) {
-			this.featureClass = featureClass;
-			
-			// RadiomicsFeatureクラスのenumはid()メソッドを持つ
-			try {
-				this.featureId = (String) featureEnum.getClass().getMethod("id").invoke(featureEnum);
-			} catch (Exception e) {
-				throw new IllegalArgumentException("Enum must have an id() method.", e);
-			}
-			this.settings = settings;
-			this.displayName = featureClass.getSimpleName() + "_" + featureEnum.name();
-		}
-
-		public String getDisplayName() {
-			return displayName;
-		}
-	}
-
-    /**
-     * STEP 2: FeatureSpecifierに基づいてFeatureCalculatorを生成するファクトリクラス
-     */
-	public static class FeatureCalculatorFactory {
-		public <T extends RadiomicsFeature> FeatureCalculator create(FeatureSpecifier<T> spec) {
-		//RadiomicsFeature & Textureの両方を実装したクラスのみを許容する場合。
-//		public <T extends RadiomicsFeature & Texture> FeatureCalculator create(FeatureSpecifier<T> spec) {
-			return (sub_vol, sub_mask) -> {
-				try {
-					// リフレクションを使い、指定されたクラスのコンストラクタを取得
-					Constructor<? extends RadiomicsFeature> constructor = spec.featureClass
-							.getConstructor(ImagePlus.class, ImagePlus.class, Map.class);
-					// デフォルト設定でインスタンスを生成
-					RadiomicsFeature featureInstance = constructor.newInstance(sub_vol, sub_mask, spec.settings);
-					// 指定されたIDの特徴量を計算して返す
-					return featureInstance.calculate(spec.featureId);
-				} catch (Exception e) {
-					throw new RuntimeException("Failed to create or calculate feature instance", e);
-				}
-			};
-		}
 	}
 }
