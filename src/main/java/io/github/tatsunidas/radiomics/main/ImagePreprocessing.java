@@ -4,7 +4,6 @@ import javax.swing.JOptionPane;
 
 import org.apache.commons.math3.stat.StatUtils;
 
-import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.Roi;
@@ -395,7 +394,6 @@ public class ImagePreprocessing {
 		mCal.disableDensityCalibration();
 		ImagePlus newMask = new ImagePlus("removeOutlier_mask", stack_mask);
 		newMask.setCalibration(mCal);
-		IJ.saveAsTiff(newMask, "removeoutliers.tif");
 		return newMask;
 	}
 	
