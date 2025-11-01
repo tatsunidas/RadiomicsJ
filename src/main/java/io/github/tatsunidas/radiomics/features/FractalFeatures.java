@@ -27,6 +27,7 @@ import ij.measure.Calibration;
 import ij.measure.CurveFitter;
 import ij.util.Tools;
 import io.github.tatsunidas.radiomics.main.ImagePreprocessing;
+import io.github.tatsunidas.radiomics.main.RadiomicsJ;
 import io.github.tatsunidas.radiomics.main.Utils;
 
 /**
@@ -77,6 +78,7 @@ public class FractalFeatures extends AbstractRadiomicsFeature{
 	public FractalFeatures(ImagePlus img, ImagePlus mask, int label, int[] boxSizes) {
 		super(img,mask,null);
 		this.label = label;
+		boxCounts = new int[this.boxSizes.length];
 		if(boxSizes != null) {
 			this.boxSizes = boxSizes;
 			if (this.boxSizes.length > 0) {
@@ -121,7 +123,7 @@ public class FractalFeatures extends AbstractRadiomicsFeature{
 			Calibration cal = img.getCalibration();
 			mask = ImagePreprocessing.createMask(img.getWidth(), img.getHeight(), img.getNSlices(), null, this.label, cal.pixelWidth, cal.pixelHeight,cal.pixelDepth);
 		}
-		
+		boxCounts = new int[this.boxSizes.length];
 		Object boxSizesValue = settings.get(RadiomicsFeature.BOX_SIZES);
 		if (boxSizesValue != null) {
 			if (!(boxSizesValue instanceof int[])) {
@@ -161,7 +163,7 @@ public class FractalFeatures extends AbstractRadiomicsFeature{
 		 * get dimension
 		 */
 		//get margin by aabb
-		HashMap<String, double[]> xyzAABB = Utils.getRoiBoundingBoxInfo(mask, this.label, true);
+		HashMap<String, double[]> xyzAABB = Utils.getRoiBoundingBoxInfo(mask, this.label, RadiomicsJ.debug);
 
 		int n = boxSizes.length;
 		float[] sizes_log = new float[n];

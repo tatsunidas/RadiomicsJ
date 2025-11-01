@@ -36,6 +36,8 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.measure.ResultsTable;
+import io.github.tatsunidas.radiomics.features.FractalFeatureType;
+import io.github.tatsunidas.radiomics.features.FractalFeatures;
 
 /**
  * Test to build using maven.
@@ -101,7 +103,12 @@ public class Validation {
 	public static boolean ibsiDigitalPhantom() {
 		ImagePlus[] imgAndMask = TestDataLoader.digital_phantom1_scratch();
 		try {
-			return testWithConfig(imgAndMask, ValidationConfigType.P, digitalPhantomSettingsParam );
+			boolean res1 = testWithConfig(imgAndMask, ValidationConfigType.P, digitalPhantomSettingsParam );
+			//additional check
+			//here, no problem if ff is no any exception.
+			FractalFeatures ff = new FractalFeatures(imgAndMask[0], imgAndMask[1], RadiomicsJ.label_, null);
+			ff.calculate(FractalFeatureType.Capacity.id());
+			return res1;
 		} catch (Exception e) {
 			e.printStackTrace();
 			return false;
