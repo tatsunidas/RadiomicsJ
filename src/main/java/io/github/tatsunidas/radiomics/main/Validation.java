@@ -106,6 +106,7 @@ public class Validation {
 			boolean res1 = testWithConfig(imgAndMask, ValidationConfigType.P, digitalPhantomSettingsParam );
 			//additional check
 			//here, no problem if ff is no any exception.
+			System.out.println("Check Fractal feature.");
 			FractalFeatures ff = new FractalFeatures(imgAndMask[0], imgAndMask[1], RadiomicsJ.label_, null);
 			ff.calculate(FractalFeatureType.Capacity.id());
 			return res1;

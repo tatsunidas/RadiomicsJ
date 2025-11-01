@@ -1940,6 +1940,66 @@ public class Utils {
 		return voxels;
 	}
 	
+	/**
+	 * 
+	 * @param maskStack
+	 * @param refStack
+	 * @param positions : existing mask slice position (no padding)
+	 * @return
+	 * @throws IllegalArgumentException
+	 */
+	public static ImagePlus padMaskStack(ImagePlus maskStack, ImagePlus refStack, int[] positions) 
+            throws IllegalArgumentException {
+
+	    if (maskStack == null || refStack == null || positions == null) {
+	        throw new IllegalArgumentException("Inputs (maskStack, refStack, positions) cannot be null.");
+	    }
+	
+	    int sourceSlices = maskStack.getNSlices();
+	    int targetSlices = refStack.getNSlices();
+	
+	    if (sourceSlices != positions.length) {
+	        throw new IllegalArgumentException(
+	            "The length of the 'positions' array (" + positions.length + 
+	            ") must match the number of slices in the maskStack (" + sourceSlices + ")."
+	        );
+	    }
+	
+	    int width = maskStack.getWidth();
+	    int height = maskStack.getHeight();
+	    ImageStack oldStack = maskStack.getStack();
+	    
+	    // new ImageStack
+	    ImageStack newStack = new ImageStack(width, height);
+	    ImageProcessor blankSlice = maskStack.getProcessor().createProcessor(width, height);
+	    for (int i = 1; i <= targetSlices; i++) {
+	        newStack.addSlice("Blank " + i, blankSlice.duplicate());
+	    }
+	
+	    // insert
+	    for (int i = 0; i < sourceSlices; i++) {
+	        int sourceSliceNum = i + 1; // 元のスライス番号 (1-based)
+	        int targetSliceNum = positions[i]; // 挿入先の_スライス番号 (1-based)
+	
+	        // check out-of range
+	        if (targetSliceNum < 1 || targetSliceNum > targetSlices) {
+	            IJ.log("Warning: Position " + targetSliceNum + " is out of bounds (1-" + targetSlices + 
+	                   "). Skipping source slice " + sourceSliceNum);
+	            continue;
+	        }
+	        ImageProcessor originalSlice = oldStack.getProcessor(sourceSliceNum);
+	        String originalLabel = oldStack.getSliceLabel(sourceSliceNum);
+	        if (originalLabel == null) {
+	            originalLabel = "Slice " + targetSliceNum;
+	        }
+	        newStack.setProcessor(originalSlice, targetSliceNum);
+	        newStack.setSliceLabel(originalLabel, targetSliceNum);
+	    }
+	    ImagePlus paddedMask = new ImagePlus("Padded Mask (Total: " + targetSlices + ")", newStack);
+	    paddedMask.setCalibration(maskStack.getCalibration());
+	    return paddedMask;
+	}
+	
 	public static boolean isOutOfRange(Point3i p, int max_w , int max_h, int max_s) {
 		boolean outOfRange = false;
 		if(p.x < 0 || p.x >= max_w) {
