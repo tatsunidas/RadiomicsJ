@@ -67,8 +67,6 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 	double binWidth;
 	int delta = 1;
 	
-	private Map<String, Object> settings;
-
 	HashMap<Integer, HashMap<String, Object>> coeffs;// angle_od and coefficients of it angle.
 	public static final String Px = "Px";
 	public static final String Py = "Py";
@@ -164,7 +162,6 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 		
 		calcGLCM();
 		
-		settings = new HashMap<>();
 		settings.put(RadiomicsFeature.IMAGE, this.img);
 		settings.put(RadiomicsFeature.MASK, this.mask);
 		settings.put(RadiomicsFeature.DISC_IMG, this.discImg);

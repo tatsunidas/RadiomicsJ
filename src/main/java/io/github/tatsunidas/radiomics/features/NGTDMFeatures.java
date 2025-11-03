@@ -59,9 +59,7 @@ public class NGTDMFeatures extends AbstractRadiomicsFeature implements Texture{
 	double Nvp;
 	double Ngp; //number of gray levels, where pi not equal 0.0.
 	double eps = Math.ulp(1.0);// 2.220446049250313E-16
-	
-	Map<String, Object> settings;
-	
+		
 	public NGTDMFeatures(ImagePlus img, ImagePlus mask, Map<String,Object> settings) {
 		super(img,mask,settings);
 		Object labelValue = settings.get(RadiomicsFeature.LABEL);
@@ -146,7 +144,6 @@ public class NGTDMFeatures extends AbstractRadiomicsFeature implements Texture{
 		Collections.sort(angle_ids);
 		fillNGTDM(false);
 		
-		settings = new HashMap<>();
 		settings.put(RadiomicsFeature.IMAGE, img);
 		settings.put(RadiomicsFeature.MASK, mask);
 		settings.put(RadiomicsFeature.DISC_IMG, discImg);

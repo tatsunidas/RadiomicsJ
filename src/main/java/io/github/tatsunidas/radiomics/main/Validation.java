@@ -38,6 +38,8 @@ import ij.ImagePlus;
 import ij.measure.ResultsTable;
 import io.github.tatsunidas.radiomics.features.FractalFeatureType;
 import io.github.tatsunidas.radiomics.features.FractalFeatures;
+import io.github.tatsunidas.radiomics.features.Shape2DFeatureType;
+import io.github.tatsunidas.radiomics.features.Shape2DFeatures;
 
 /**
  * Test to build using maven.
@@ -106,9 +108,17 @@ public class Validation {
 			boolean res1 = testWithConfig(imgAndMask, ValidationConfigType.P, digitalPhantomSettingsParam );
 			//additional check
 			//here, no problem if ff is no any exception.
-			System.out.println("Check Fractal feature.");
+			System.out.println("Check Original features.");
+			System.out.println("Fractal feature Validation...");
 			FractalFeatures ff = new FractalFeatures(imgAndMask[0], imgAndMask[1], RadiomicsJ.label_, null);
 			ff.calculate(FractalFeatureType.Capacity.id());
+			System.out.println("Fractal feature Validation finish.");
+			
+			System.out.println("Shape2DFeature Validation...");
+			Shape2DFeatures d2f = new Shape2DFeatures(imgAndMask[0], imgAndMask[1], RadiomicsJ.label_, 1);
+			d2f.calculate(Shape2DFeatureType.AreaFraction.id());
+			System.out.println("Shape2DFeature Validation finish.");
+			
 			return res1;
 		} catch (Exception e) {
 			e.printStackTrace();

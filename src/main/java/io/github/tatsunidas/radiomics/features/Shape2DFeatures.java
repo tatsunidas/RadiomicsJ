@@ -45,8 +45,6 @@ public class Shape2DFeatures extends AbstractRadiomicsFeature{
 	double[] eigenValues;
 	double eps = Math.ulp(1.0);// 2.220446049250313E-16
 	
-	private Map<String, Object> settings;
-	
 	/**
 	 * 
 	 * @param img
@@ -60,7 +58,7 @@ public class Shape2DFeatures extends AbstractRadiomicsFeature{
 		if(slice > img.getNSlices() || slice < 1) {
 			throw new IllegalArgumentException("RadiomicsJ:Shape2D please input valid slice number. input images has "+img.getNSlices()+" slices, but specified slice position is "+slice+" (out of range).");
 		}
-		Object labelValue = settings.get(RadiomicsFeature.LABEL);
+		Object labelValue = super.settings.get(RadiomicsFeature.LABEL);
 		if (labelValue == null) {
 			throw new IllegalArgumentException("'label' is missing in settings.");
 		}
@@ -81,45 +79,7 @@ public class Shape2DFeatures extends AbstractRadiomicsFeature{
 		super(img,mask,null);
 		this.label = label;
 		this.slice_pos = slice;
-
-		int iw = img.getWidth();
-		int ih = img.getHeight();
-		int is = img.getNSlices();
-		
-		this.w = iw;
-		this.h = ih;
-		
-		if(slice > is || slice < 1) {
-			throw new IllegalArgumentException("RadiomicsJ:Shape2D please input valid slice number. input images has "+is+" slices, but specified slice position is "+slice+" (out of range).");
-		}
-		
-		if (mask == null) {
-			// create full face mask
-			this.mask = ImagePreprocessing.createMask(iw, ih, is, null, label, img.getCalibration().pixelWidth,img.getCalibration().pixelHeight, img.getCalibration().pixelDepth);
-		}
-		
-		this.img.setPosition(slice_pos);
-		this.mask.setPosition(slice_pos);
-		
-		orgCal = img.getCalibration().copy();
-		
-		this.roi = Utils.createRoi(this.mask, this.slice_pos, this.label);
-		if(this.roi == null) {
-			this.roi = new Roi(0,0,w,h);
-		}
-		this.img.setRoi(this.roi);
-		int measurements = Analyzer.ALL_STATS;
-		ImageStatistics stats = this.img.getStatistics(measurements);
-		Analyzer.setMeasurements(measurements);
-		analyzer = new Analyzer();
-		analyzer.saveResults(stats, roi);
-		
-		settings.put("IMAGE", this.img);
-		settings.put("MASK", this.mask);
-		settings.put("SLICE_POS", this.slice_pos);
-		settings.put("ROI", roi);
-		settings.put("LABEL", this.label);
-		settings.put("IMAGE_STATS", stats);
+		buildup(settings);
 	}
 	
 	public void buildup(Map<String, Object> settings) {
@@ -129,6 +89,10 @@ public class Shape2DFeatures extends AbstractRadiomicsFeature{
 		int iw = img.getWidth();
 		int ih = img.getHeight();
 		int is = img.getNSlices();
+		
+		if(this.slice_pos > is || this.slice_pos < 1) {
+			throw new IllegalArgumentException("RadiomicsJ:Shape2D please input valid slice number. input images has "+is+" slices, but specified slice position is "+this.slice_pos+" (out of range).");
+		}
 		
 		this.w = iw;
 		this.h = ih;
@@ -153,6 +117,14 @@ public class Shape2DFeatures extends AbstractRadiomicsFeature{
 		Analyzer.setMeasurements(measurements);
 		analyzer = new Analyzer();
 		analyzer.saveResults(stats, roi);
+		
+		settings.put("IMAGE", this.img);
+		settings.put("MASK", this.mask);
+		settings.put("SLICE_POS", this.slice_pos);
+		settings.put("ROI", roi);
+		settings.put("LABEL", this.label);
+		settings.put("IMAGE_STATS", stats);
+		super.settings = settings;
 	}
 	
 	/*
@@ -470,6 +442,6 @@ public class Shape2DFeatures extends AbstractRadiomicsFeature{
 
 	@Override
 	public Map<String, Object> getSettings() {
-		return settings;
+		return super.settings;
 	}
 }

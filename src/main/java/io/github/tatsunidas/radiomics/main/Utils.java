@@ -38,6 +38,7 @@ import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 import ij.process.ImageStatistics;
+import ij.process.ShortProcessor;
 
 /**
  * 
@@ -275,11 +276,72 @@ public class Utils {
 		grayMask.getCalibration().disableDensityCalibration();
 		return grayMask;
 	}
+	
+	public static Roi createRoi(ImageProcessor maskIp, int label) {
+		if (maskIp == null) {
+			throw new IllegalArgumentException("Utils.createRoi() required mask's image processor.");
+		}
+		int w = maskIp.getWidth();
+		int h = maskIp.getHeight();
+		/**
+		 * (byte) 255 means -1.
+		 * In ImageJ ByteProcessor, convert signed byte -1 (=(byte) 255) values to unsigned byte 255.
+		 */
+		byte[] dup = null;
+		if(maskIp instanceof FloatProcessor) {
+			float[] pix = (float[])maskIp.getPixels();
+			dup = new byte[pix.length];
+			for(int i=0; i < pix.length; i++) {
+				int val = (int)pix[i];//just rounded.
+				if(val == label) {
+					//byte processors pixels is signed.
+					dup[i]=(byte) 255;
+				}else {
+					dup[i]=0;
+				}
+			}
+		}else if(maskIp instanceof ShortProcessor) {
+			//short processor return signed short.
+			short[] pix = (short[])maskIp.getPixels();//signed
+			dup = new byte[pix.length];
+			for(int i=0; i < pix.length; i++) {
+				int val = pix[i] & 0xFFFF;//to unsigned
+				if(val == label) {
+					//byte processors pixels is signed.
+					dup[i]=(byte) 255;
+				}else {
+					dup[i]=0;
+				}
+			}
+		}else if(maskIp instanceof ByteProcessor) {
+			//byte processor return signed byte.
+			byte[] pix = (byte[])maskIp.getPixels();
+			dup = new byte[pix.length];
+			for(int i=0; i < pix.length; i++) {
+				int val = pix[i] & 0xFF;//to unsigned
+				if(val == label) {
+					//byte processors pixels is signed.
+					dup[i]=(byte) 255;
+				}else {
+					dup[i]=0;
+				}
+			}
+		}
+		ByteProcessor bp = new ByteProcessor(w, h, dup);
+		
+//		new ImagePlus("",bp).show();//ok
+		
+		//only choose 255 labeled pixels
+		bp.setThreshold(255, 255, ImageProcessor.NO_LUT_UPDATE);
+		ThresholdToSelection tts = new ThresholdToSelection();
+		ij.gui.Roi roi = tts.convert(bp);
+		return roi;
+	}
 
 	/**
 	 * Create roi from single slice mask.
-	 * if roi is shaperoi, can handle with example,
 	 * 
+	 * if roi is shaperoi, can handle with this example,
 	 * System.out.println(roi.getClass().getName());
 	 * if(roi instanceof ij.gui.ShapeRoi) {
 	 * 		ShapeRoi sr = (ShapeRoi)roi;
@@ -305,47 +367,13 @@ public class Utils {
 			throw new IllegalArgumentException("Utils.createRoi(): mask slice position is invalid. -> "+ pos);
 		}
 		
-		int w = mask.getWidth();
-		int h = mask.getHeight();
-		ImageProcessor mip = mask.getStack().getProcessor(pos);
-		byte[] dup = null;
-		if(mip instanceof FloatProcessor) {
-			float[] pix = (float[])mip.getPixels();
-			dup = new byte[pix.length];
-			for(int i=0; i < pix.length; i++) {
-				int val = (int)pix[i];
-				if(val == label) {
-					dup[i]=(byte) 255;
-				}else {
-					dup[i]=0;
-				}
-			}
-		}else if(mip instanceof ByteProcessor) {
-			byte[] pix = (byte[])mip.getPixels();
-			dup = new byte[pix.length];
-			for(int i=0; i < pix.length; i++) {
-				int val = (int)pix[i];
-				if(val == label) {
-					dup[i]=(byte) 255;
-				}else {
-					dup[i]=0;
-				}
-			}
-		}
-		ByteProcessor bp = new ByteProcessor(w, h, dup);
-		bp.setThreshold(0, 0, ImageProcessor.NO_LUT_UPDATE);
-		ByteProcessor mask8bit = bp.createMask();
-		/*
-		 * to avoid around boundary shape roi creation
-		 */
-		mask8bit.invert();
-		ThresholdToSelection tts = new ThresholdToSelection();
-		ij.gui.Roi roi = tts.convert(mask8bit);
-		return roi;
+		return createRoi(mask.getStack().getProcessor(pos), label);
 	}
 	
 	/**
 	 * create roi to find edges.
+	 * If no roi at a position of slice, that roi is null.
+	 * Return rois for all position of slices. 
 	 * @param mask
 	 * @return
 	 */
@@ -353,43 +381,10 @@ public class Utils {
 		if (mask == null) {
 			return null;
 		}
-		ImagePlus temp = createMaskCopyAsGray8(mask,label);
-		int w = temp.getWidth();
-		int h = temp.getHeight();
-		int s = temp.getNSlices();
+		int s = mask.getNSlices();
 		Roi[] rs = new Roi[s];
-		for (int z = 0; z < s; z++) {
-			ImageProcessor tmp = temp.getStack().getProcessor(z+1);
-			for (int y = 0; y < h; y++) {
-				for (int x = 0; x < w; x++) {
-					int val = (int) tmp.getf(x, y);
-					if (val == label) {
-						tmp.setf(x, y, 255);
-					} else {
-						tmp.setf(x, y, 0);
-					}
-				}
-			}
-//			tmp.threshold(label-1);//get only one line, but range are fazzy
-			if((int)tmp.maxValue() >= 254) {
-				tmp.setThreshold(0, 0, ImageProcessor.NO_LUT_UPDATE);
-				tmp.setBinaryThreshold();
-				/*
-				 * to avoid around boundary shape roi creation
-				 * 
-				 * if not good, try this one. (this another procedure, inverting is no need.)
-				 * this.imp.getProcessor().setAutoThreshold("Otsu", this.blackBackground, ImageProcessor.BLACK_AND_WHITE_LUT);
-				 * ByteProcessor binary = Thresholder.createMask(this.imp);
-				 * 
-				 */
-				tmp.invert();
-				ThresholdToSelection tts = new ThresholdToSelection();
-				ij.gui.Roi roi = tts.convert(tmp);
-				rs[z] = roi;
-			}else {
-				//blank slice
-				rs[z] = null;
-			}
+		for (int z = 1; z <= s; z++) {
+			rs[z-1] = createRoi(mask, z, label);
 		}
 		return rs;
 	}
