@@ -585,6 +585,7 @@ public class RadiomicsJ {
 	 * Default constructor
 	 */
 	public RadiomicsJ() {
+		RadiomicsJ.discretiseImp = null;
 		initExcludeList();
 	}
 	

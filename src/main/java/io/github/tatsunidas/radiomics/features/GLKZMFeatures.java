@@ -11,6 +11,8 @@ import javax.swing.JOptionPane;
 import org.jogamp.vecmath.Point3i;
 
 import ij.ImagePlus;
+import ij.process.ByteProcessor;
+import io.github.tatsunidas.radiomics.main.RadiomicsJ;
 import io.github.tatsunidas.radiomics.main.Utils;
 
 /**
@@ -37,6 +39,8 @@ public class GLKZMFeatures extends GLDZMFeatures implements Texture{
 
 	public GLKZMFeatures(ImagePlus img, ImagePlus mask, int label, boolean useBinCount, Integer nBins, Double binWidth){
 		super(label);
+		super.img = img;
+		super.mask = mask;
 		readyToCalculate(img, mask, useBinCount, nBins, binWidth);
 	}
 	
@@ -44,20 +48,20 @@ public class GLKZMFeatures extends GLDZMFeatures implements Texture{
 		if(kinetics == null || kinetics.getNSlices()==0) {
 			throw new IllegalArgumentException("Please input valid kinetics map.");
 		}
-		if (img.getWidth() != kinetics.getWidth() || img.getHeight() != kinetics.getHeight() || img.getNSlices() != kinetics.getNSlices()) {
+		if (super.img.getWidth() != kinetics.getWidth() || super.img.getHeight() != kinetics.getHeight() || super.img.getNSlices() != kinetics.getNSlices()) {
 			JOptionPane.showMessageDialog(null, "RadiomicsJ: please input same dimension image, mask and kinetics.");
 			return;
 		}
 		kineticsMap = kinetics;
 		if(useBinCount) {
-			kineticsDiscMap = Utils.discrete(kineticsMap, this.mask, this.label, kinetics_nBins);
+			kineticsDiscMap = Utils.discrete(kineticsMap, super.mask, super.label, kinetics_nBins);
 			this.kinetics_nBins = kinetics_nBins;
 		}else {
 			/*
 			 * do Fixed Bin Width
 			 */
-			kineticsDiscMap = Utils.discreteByBinWidth(kineticsMap, this.mask, this.label, binWidth);
-			this.kinetics_nBins = Utils.getNumOfBinsByMax(kineticsDiscMap, this.mask, this.label);
+			kineticsDiscMap = Utils.discreteByBinWidth(kineticsMap, super.mask, super.label, binWidth);
+			this.kinetics_nBins = Utils.getNumOfBinsByMax(kineticsDiscMap, super.mask, super.label);
 		}
 		//add settings
 		super.settings.put(RadiomicsFeature.KINETICS_IMG, kineticsMap);
@@ -74,7 +78,7 @@ public class GLKZMFeatures extends GLDZMFeatures implements Texture{
 		int w = discImg.getWidth();
 		int h= discImg.getHeight();
 		int s = discImg.getNSlices();
-		Integer[][][] voxels = Utils.prepareVoxels(discImg, mask, label, super.nBins);//[z][y][x], temp voxels at it angle, for count up.
+		Integer[][][] voxels = Utils.prepareVoxels(discImg, super.mask, super.label, super.nBins);//[z][y][x], temp voxels at it angle, for count up.
 		Integer[][][] distance_map = getDistanceMap(kineticsDiscMap);
 		//search distance max
 		int distance_max = 1;
@@ -137,7 +141,7 @@ public class GLKZMFeatures extends GLDZMFeatures implements Texture{
 	@Override
 	public Integer[][][] getDistanceMap(ImagePlus kineticsDiscMap) {
 		try {
-			return Utils.prepareVoxels(kineticsDiscMap, mask, label, kinetics_nBins);
+			return Utils.prepareVoxels(kineticsDiscMap, super.mask, super.label, kinetics_nBins);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -161,5 +165,24 @@ public class GLKZMFeatures extends GLDZMFeatures implements Texture{
 	@Override
 	public Map<String, Object> getSettings() {
 		return settings;
+	}
+	
+	public static boolean test() {
+		try {
+			RadiomicsJ.discretiseImp = null;//init, fail safe.
+			byte[] pix = new byte[] {1,2,3,4,5,6,7,8,9};
+			byte[] m = new byte[] {1,1,1,1,1,1,1,1,1};
+			byte[] k = new byte[] {1,0,3,0,5,0,6,0,8};
+			ImagePlus img = new ImagePlus("org", new ByteProcessor(3, 3, pix));
+			ImagePlus msk = new ImagePlus("mask", new ByteProcessor(3, 3, m));
+			ImagePlus fvm = new ImagePlus("kinetic", new ByteProcessor(3, 3, k));
+			GLKZMFeatures f = new GLKZMFeatures(img, msk, 1, true, 16, null);
+			f.setKineticsMap(fvm, true, 16, null);
+			f.fillMatrix();
+			return true;
+		}catch(Exception e) {
+			System.out.println(e);
+			return false;
+		}
 	}
 }

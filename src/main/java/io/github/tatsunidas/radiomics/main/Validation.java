@@ -38,6 +38,7 @@ import ij.ImagePlus;
 import ij.measure.ResultsTable;
 import io.github.tatsunidas.radiomics.features.FractalFeatureType;
 import io.github.tatsunidas.radiomics.features.FractalFeatures;
+import io.github.tatsunidas.radiomics.features.GLKZMFeatures;
 import io.github.tatsunidas.radiomics.features.Shape2DFeatureType;
 import io.github.tatsunidas.radiomics.features.Shape2DFeatures;
 
@@ -114,10 +115,20 @@ public class Validation {
 			ff.calculate(FractalFeatureType.Capacity.id());
 			System.out.println("Fractal feature Validation finish.");
 			
-			System.out.println("Shape2DFeature Validation...");
-			Shape2DFeatures d2f = new Shape2DFeatures(imgAndMask[0], imgAndMask[1], RadiomicsJ.label_, 1);
-			d2f.calculate(Shape2DFeatureType.AreaFraction.id());
-			System.out.println("Shape2DFeature Validation finish.");
+			//GLKZM test
+			if(!GLKZMFeatures.test()) {
+				return false;
+			}
+			
+			try {
+				System.out.println("Shape2DFeature Validation...");
+				Shape2DFeatures d2f = new Shape2DFeatures(imgAndMask[0], imgAndMask[1], RadiomicsJ.label_, 1);
+				d2f.calculate(Shape2DFeatureType.AreaFraction.id());
+				System.out.println("Shape2DFeature Validation finish.");
+			} catch (Exception e) {
+				System.out.println(e);
+				return false;
+			}
 			
 			return res1;
 		} catch (Exception e) {
