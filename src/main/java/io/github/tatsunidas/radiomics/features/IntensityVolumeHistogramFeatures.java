@@ -16,15 +16,12 @@
 package io.github.tatsunidas.radiomics.features;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
-
-import org.apache.commons.math3.stat.StatUtils;
+import java.util.TreeMap;
 
 import ij.ImagePlus;
 import ij.measure.Calibration;
@@ -193,104 +190,218 @@ public class IntensityVolumeHistogramFeatures extends AbstractRadiomicsFeature{
 	 * @param verbose
 	 * @return
 	 */
-	private HashMap<Double, double[]> calculateIVHistogram4DCI(boolean verbose){
+//	private HashMap<Double, double[]> calculateIVHistogram4DCI(boolean verbose){
+//		HashMap<Double, double[]> iv_histo = new HashMap<>();
+//		double[] discretisedVoxels = Utils.getVoxels(dciImg, mask, label);
+//		
+//		double min = 0;
+//		double max = 0;
+//		
+//		if(RadiomicsJ.rangeMin != null && RadiomicsJ.rangeMax != null) {
+//			min = RadiomicsJ.rangeMin;
+//			max = RadiomicsJ.rangeMax;
+//		}else {
+//			double[] voxels = Utils.getVoxels(img, mask, label);
+//			min = StatUtils.min(voxels);
+//			max = StatUtils.max(voxels);
+//		}
+//		int nv = discretisedVoxels.length;
+//		/*
+//		 * no duplicated array is usable, but when calculate Intensity at volume fraction,
+//		 * it result shift by 1. So, I should use continuous nBins range in for-loop.
+//		 */
+////		double[] no_dup_values = Arrays.stream(discretisedVoxels).distinct().toArray();//keep sort pos
+//		for(int dv = (int)min; dv <= max; dv++) {
+//			int discretised_intensity = dv;
+//			int count = 0;
+//			for(double v:discretisedVoxels) {
+//				if(discretised_intensity > v) {
+//					count++;
+//				}
+//			}
+//			double nyu = 1-(1d/nv)*(double)count;
+//			double gamma = (discretised_intensity - min)/(max - min);
+//			iv_histo.put((double)discretised_intensity, new double[] {nyu,gamma});
+//		}
+//		
+//		this.dciIVHisto = iv_histo;
+//		return this.dciIVHisto;
+//	}
+	
+	/**
+     * Optimized IVHistogram for Discretised calibrated image intensities (DCI)
+     * 計算量: O(N) でカウント + O(B log B) でソート (TreeMap)
+     */
+	private HashMap<Double, double[]> calculateIVHistogram4DCI(boolean verbose) {
 		HashMap<Double, double[]> iv_histo = new HashMap<>();
+
+		// 1. 全ボクセルを取得
 		double[] discretisedVoxels = Utils.getVoxels(dciImg, mask, label);
-		
-		double min = 0;
-		double max = 0;
-		
-		if(RadiomicsJ.rangeMin != null && RadiomicsJ.rangeMax != null) {
+		int totalVoxels = discretisedVoxels.length;
+		if (totalVoxels == 0)
+			return iv_histo;
+
+		// 2. 最小・最大値の決定 (Gamma計算用)
+		double min, max;
+		if (RadiomicsJ.rangeMin != null && RadiomicsJ.rangeMax != null) {
 			min = RadiomicsJ.rangeMin;
 			max = RadiomicsJ.rangeMax;
-		}else {
-			double[] voxels = Utils.getVoxels(img, mask, label);
-			min = StatUtils.min(voxels);
-			max = StatUtils.max(voxels);
-		}
-		int nv = discretisedVoxels.length;
-		/*
-		 * no duplicated array is usable, but when calculate Intensity at volume fraction,
-		 * it result shift by 1. So, I should use continuous nBins range in for-loop.
-		 */
-//		double[] no_dup_values = Arrays.stream(discretisedVoxels).distinct().toArray();//keep sort pos
-		for(int dv = (int)min; dv <= max; dv++) {
-			int discretised_intensity = dv;
-			int count = 0;
-			for(double v:discretisedVoxels) {
-				if(discretised_intensity > v) {
-					count++;
-				}
+		} else {
+			// StatUtilsを使うと2回走査になるため、ループ内で求めるか、事前に求める
+			// ここでは元のロジックに合わせてUtils.getVoxels(img...)から取るか、
+			// 単純化のため discretisedVoxels から計算します（離散化済み画像の範囲）
+			min = Double.MAX_VALUE;
+			max = -Double.MAX_VALUE;
+			for (double v : discretisedVoxels) {
+				if (v < min)
+					min = v;
+				if (v > max)
+					max = v;
 			}
-			double nyu = 1-(1d/nv)*(double)count;
-			double gamma = (discretised_intensity - min)/(max - min);
-			iv_histo.put((double)discretised_intensity, new double[] {nyu,gamma});
 		}
-		
-//		if(verbose) {
-//			System.out.println("++++++++ IV HISTOGRAM RESULT ++++++++");
-//			// converting Set to arraylist
-//	        ArrayList<Double> al = new ArrayList<>(iv_histo.keySet());
-//	        // sorting the list and then printing
-//	        Collections.sort(al);
-//	        for(Double k:al) {
-//	        	System.out.println("discretise density:"+k+", nyu:"+iv_histo.get(k)[0]+", gamma:"+iv_histo.get(k)[1]);
-//	        }
-//			System.out.println("+++++++++++++++++++++++++++++++++++++");
-//		}
-		
+
+		// Range check to avoid division by zero
+		double range = (max - min);
+		if (range == 0)
+			range = 1.0;
+
+		// 3. 頻度カウント (Frequency Counting) - O(N)
+		// TreeMapを使うことでKey(強度)が自然順序(昇順)で保持されます
+		TreeMap<Double, Integer> frequencyMap = new TreeMap<>();
+		for (double v : discretisedVoxels) {
+			frequencyMap.put(v, frequencyMap.getOrDefault(v, 0) + 1);
+		}
+
+		// 4. 累積ヒストグラムの作成 - O(B)
+		// IBSI定義: nu(x) は "強度 x 以上のボクセル数の割合"
+		// TreeMapは昇順なので、降順イテレータ(descendingMap)を使うと累積計算が楽です
+
+		long cumulativeCount = 0; // x以上の累積カウント
+
+		// 大きい強度から順に処理
+		for (Map.Entry<Double, Integer> entry : frequencyMap.descendingMap().entrySet()) {
+			double intensity = entry.getKey();
+			int count = entry.getValue();
+
+			cumulativeCount += count;
+
+			double nyu = (double) cumulativeCount / totalVoxels; // 累積体積分率
+			double gamma = (intensity - min) / range; // 強度分率
+
+			// Gammaが範囲外(0-1)になる場合のクリッピング（浮動小数点誤差対策）
+			if (gamma < 0)
+				gamma = 0;
+			if (gamma > 1)
+				gamma = 1;
+
+			iv_histo.put(intensity+1/*1-based*/, new double[] { nyu, gamma });
+		}
+
 		this.dciIVHisto = iv_histo;
 		return this.dciIVHisto;
 	}
 	
 	
-	private HashMap<Double, double[]> calculateIVHistogram4CCI(boolean verbose){
+//	private HashMap<Double, double[]> calculateIVHistogram4CCI(boolean verbose){
+//		HashMap<Double, double[]> iv_histo = new HashMap<>();
+//		HashMap<Double, Integer> iv_count = new HashMap<>();
+//		
+//		double min = 0;
+//		double max = 0;
+//		double[] discretisedVoxels_cci = Utils.getVoxels(cciImg, mask, label);
+//		if(RadiomicsJ.rangeMin != null && RadiomicsJ.rangeMax != null) {
+//			min = RadiomicsJ.rangeMin;
+//			max = RadiomicsJ.rangeMax;
+//		}else {
+//			min = StatUtils.min(discretisedVoxels_cci);
+//			max = StatUtils.max(discretisedVoxels_cci);
+//		}
+//		
+//		int nv = discretisedVoxels_cci.length;
+//		double[] no_dup_values = Arrays.stream(discretisedVoxels_cci).distinct().toArray();//keep sort pos
+//		for (double ndp : no_dup_values) {
+//			if (iv_count.get(ndp) == null) {
+//				iv_count.put(ndp, 0);
+//			}
+//			for (double dVal : discretisedVoxels_cci) {
+//				if (ndp > dVal) {
+//					iv_count.put(ndp, iv_count.get(ndp) + 1);
+//				}
+//			}
+//		}
+//		Iterator<Double> keys = iv_count.keySet().iterator();
+//		while(keys.hasNext()) {
+//			Double k = keys.next();//key is discretised value of cci
+//			int count = iv_count.get(k);
+//			double nyu = 1-(1d/nv)*(double)count;
+//			double gamma = (k - min)/(max - min);
+//			iv_histo.put(k, new double[] {nyu,gamma});
+//		}
+//		this.cciIVHisto = iv_histo;
+//		return this.cciIVHisto;
+//	}
+	
+	/**
+     * Optimized IVHistogram for Continuous calibrated image intensities (CCI)
+     * 計算量: O(N) + O(B log B)
+     */
+	private HashMap<Double, double[]> calculateIVHistogram4CCI(boolean verbose) {
 		HashMap<Double, double[]> iv_histo = new HashMap<>();
-		HashMap<Double, Integer> iv_count = new HashMap<>();
-		
-		double min = 0;
-		double max = 0;
+
+		// 1. 全ボクセルを取得 (CCI画像から直接取得)
 		double[] discretisedVoxels_cci = Utils.getVoxels(cciImg, mask, label);
-		if(RadiomicsJ.rangeMin != null && RadiomicsJ.rangeMax != null) {
+		int totalVoxels = discretisedVoxels_cci.length;
+		if (totalVoxels == 0)
+			return iv_histo;
+
+		// 2. 最小・最大値の決定
+		double min, max;
+		if (RadiomicsJ.rangeMin != null && RadiomicsJ.rangeMax != null) {
 			min = RadiomicsJ.rangeMin;
 			max = RadiomicsJ.rangeMax;
-		}else {
-			min = StatUtils.min(discretisedVoxels_cci);
-			max = StatUtils.max(discretisedVoxels_cci);
-		}
-		
-		int nv = discretisedVoxels_cci.length;
-		double[] no_dup_values = Arrays.stream(discretisedVoxels_cci).distinct().toArray();//keep sort pos
-		for (double ndp : no_dup_values) {
-			if (iv_count.get(ndp) == null) {
-				iv_count.put(ndp, 0);
-			}
-			for (double dVal : discretisedVoxels_cci) {
-				if (ndp > dVal) {
-					iv_count.put(ndp, iv_count.get(ndp) + 1);
-				}
+		} else {
+			min = Double.MAX_VALUE;
+			max = -Double.MAX_VALUE;
+			for (double v : discretisedVoxels_cci) {
+				if (v < min)
+					min = v;
+				if (v > max)
+					max = v;
 			}
 		}
-		Iterator<Double> keys = iv_count.keySet().iterator();
-		while(keys.hasNext()) {
-			Double k = keys.next();//key is discretised value of cci
-			int count = iv_count.get(k);
-			double nyu = 1-(1d/nv)*(double)count;
-			double gamma = (k - min)/(max - min);
-			iv_histo.put(k, new double[] {nyu,gamma});
+
+		double range = (max - min);
+		if (range == 0)
+			range = 1.0;
+
+		// 3. 頻度カウント - O(N)
+		// CCIの場合、値は離散化された連続値（ビン中心）になっています
+		TreeMap<Double, Integer> frequencyMap = new TreeMap<>();
+		for (double v : discretisedVoxels_cci) {
+			frequencyMap.put(v, frequencyMap.getOrDefault(v, 0) + 1);
 		}
-		
-//		if(verbose) {
-//			System.out.println("++++++++ IV HISTOGRAM CCI RESULT ++++++++");
-//			// converting Set to arraylist
-//	        ArrayList<Double> al = new ArrayList<>(iv_histo.keySet());
-//	        // sorting the list and then printing
-//	        Collections.sort(al);
-//	        for(Double k:al) {
-//	        	System.out.println("discrete density:"+k+", nyu:"+iv_histo.get(k)[0]+", gamma:"+iv_histo.get(k)[1]);
-//	        }
-//			System.out.println("+++++++++++++++++++++++++++++++++++++++++");
-//		}
+
+		// 4. 累積ヒストグラムの作成 - O(B)
+		long cumulativeCount = 0;
+
+		// 大きい強度から順に処理 (nuは "以上" の割合なので上から足す)
+		for (Map.Entry<Double, Integer> entry : frequencyMap.descendingMap().entrySet()) {
+			double intensity = entry.getKey();
+			int count = entry.getValue();
+
+			cumulativeCount += count;
+
+			double nyu = (double) cumulativeCount / totalVoxels;
+			double gamma = (intensity - min) / range;
+
+			if (gamma < 0)
+				gamma = 0;
+			if (gamma > 1)
+				gamma = 1;
+
+			iv_histo.put(intensity, new double[] { nyu, gamma });
+		}
+
 		this.cciIVHisto = iv_histo;
 		return this.cciIVHisto;
 	}
@@ -431,47 +542,28 @@ public class IntensityVolumeHistogramFeatures extends AbstractRadiomicsFeature{
 //	}
 	
 	private Double getVolumeAtIntensityFraction(int p_th, boolean continuousCalibrated) {
-		if(!continuousCalibrated) {
-			ArrayList<Double> al = new ArrayList<>(dciIVHisto.keySet());
-	        Collections.sort(al);//sort for discretized order.
-	        for(int i=0;i<dciIVHisto.size(); i++) {
-	        	double gamma = dciIVHisto.get(al.get(i))[1];
-	        	if(gamma >= p_th/100d) {
-	        		return dciIVHisto.get(al.get(i))[0];//nyu
-	        	}
-	        }
-		}else {
-			ArrayList<Double> al = new ArrayList<>(cciIVHisto.keySet());
-	        Collections.sort(al);//sort for discretized order.
-	        for(int i=0;i<cciIVHisto.size(); i++) {
-	        	double gamma = cciIVHisto.get(al.get(i))[1];
-	        	if(gamma >= p_th/100d) {
-	        		return cciIVHisto.get(al.get(i))[0];//nyu
-	        	}
-	        }
+		HashMap<Double, double[]> histo = continuousCalibrated ? cciIVHisto : dciIVHisto;
+		ArrayList<Double> al = new ArrayList<>(histo.keySet());
+		Collections.sort(al);// sort for discretized order.
+		for (int i = 0; i < histo.size(); i++) {
+			double gamma = histo.get(al.get(i))[1];
+			if (gamma >= p_th / 100d) {
+				return histo.get(al.get(i))[0];// nyu
+			}
 		}
 		return null;
 	}
 	
 	private Double getIntensityAtVolumeFraction(int p_th, boolean continuousCalibrated) {
-		if(!continuousCalibrated) {
-			ArrayList<Double> al = new ArrayList<>(dciIVHisto.keySet());
-			Collections.sort(al, Collections.reverseOrder());
-	        for(int i=0;i<dciIVHisto.size(); i++) {
-	        	double nyu = dciIVHisto.get(al.get(i))[0];
-	        	if(nyu >= p_th/100d) {
-	        		return al.get(i-1);//
-	        	}
-	        }
-		}else {
-			ArrayList<Double> al = new ArrayList<>(cciIVHisto.keySet());
-			Collections.sort(al, Collections.reverseOrder());
-	        for(int i=0;i<cciIVHisto.size(); i++) {
-	        	double nyu = cciIVHisto.get(al.get(i))[0];
-	        	if(nyu >= p_th/100d) {
-	        		return al.get(i-1);
-	        	}
-	        }
+		HashMap<Double, double[]> histo = continuousCalibrated ? cciIVHisto : dciIVHisto;
+		ArrayList<Double> al = new ArrayList<>(histo.keySet());
+		Collections.sort(al, Collections.reverseOrder());
+		for (int i = 0; i < al.size(); i++) {
+			double val = al.get(i);
+			double nyu = histo.get(val)[0];
+			if (nyu >= p_th / 100d) {
+				return val;
+			}
 		}
 		return null;
 	}
@@ -489,10 +581,10 @@ public class IntensityVolumeHistogramFeatures extends AbstractRadiomicsFeature{
 	private Double getIntensityFractionDifferenceBetweenVolumeFractions() {
 		Double v10 = getIntensityAtVolumeFraction(10, this.continuousCalibrated);
 		Double v90 = getIntensityAtVolumeFraction(90, this.continuousCalibrated);
-		if(v10 == null || v90 == null) {
+		if (v10 == null || v90 == null) {
 			return null;
 		}
-		return v10-v90;
+		return v10 - v90;
 	}
 	
 	/**
@@ -501,43 +593,66 @@ public class IntensityVolumeHistogramFeatures extends AbstractRadiomicsFeature{
 	 * intensity in the ROI, we define the area under the IVH curve F.ivh.auc = 0
 	 * https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2701316/
 	 */
-	@Deprecated
 	private Double getAreaUnderTheIVHCurve() {
-		if (!continuousCalibrated) {
-			ArrayList<Double> al = new ArrayList<>(dciIVHisto.keySet());
-			Collections.sort(al);
-			int size = al.size();
-			double sum_nu = 0d;
-			for (int i = 0; i < size; i++) {
-				if (i + 1 == size) {
-					break;
-				}
-				double d1 = al.get(i);
-				double d2 = al.get(i + 1);
-				double nu1 = dciIVHisto.get(al.get(i))[0];// nu:fractional volume
-				double nu2 = dciIVHisto.get(al.get(i + 1))[0];
-				double delta = (d2 - d1);
-				sum_nu += delta/2d * (nu1 + nu2);
-			}
-			return sum_nu / size;
-		} else {
-			ArrayList<Double> al = new ArrayList<>(cciIVHisto.keySet());
-			Collections.sort(al);
-			int size = al.size();
-			double sum_nu = 0d;
-			for (int i = 0; i < size; i++) {
-				if (i + 1 == size) {
-					break;
-				}
-				double d1 = al.get(i);
-				double d2 = al.get(i + 1);
-				double nu1 = cciIVHisto.get(al.get(i))[0];// nu:fractional volume
-				double nu2 = cciIVHisto.get(al.get(i + 1))[0];
-				double delta = (d2 - d1);
-				sum_nu += delta/2d * (nu1 + nu2);
-			}
-			return sum_nu / size;
+
+		HashMap<Double, double[]> histo = continuousCalibrated ? cciIVHisto : dciIVHisto;
+		ArrayList<Double> al = new ArrayList<>(histo.keySet());
+		Collections.sort(al);
+
+		double sum_auc = 0d;
+		for (int i = 0; i < al.size() - 1; i++) {
+			double val1 = al.get(i);
+			double val2 = al.get(i + 1);
+
+			// mapの配列 [0]がnu(体積分率), [1]がgamma(強度分率)
+			double nu1 = histo.get(val1)[0];
+			double nu2 = histo.get(val2)[0];
+			double gamma1 = histo.get(val1)[1];
+			double gamma2 = histo.get(val2)[1];
+
+			// 横軸はGammaの差分を使う
+			double deltaGamma = gamma2 - gamma1;
+
+			// 台形公式
+			sum_auc += (deltaGamma * (nu1 + nu2)) / 2.0;
 		}
+		return sum_auc; // sizeで割らない
+		
+//		if (!continuousCalibrated) {
+//			ArrayList<Double> al = new ArrayList<>(dciIVHisto.keySet());
+//			Collections.sort(al);
+//			int size = al.size();
+//			double sum_nu = 0d;
+//			for (int i = 0; i < size; i++) {
+//				if (i + 1 == size) {
+//					break;
+//				}
+//				double d1 = al.get(i);
+//				double d2 = al.get(i + 1);
+//				double nu1 = dciIVHisto.get(al.get(i))[0];// nu:fractional volume
+//				double nu2 = dciIVHisto.get(al.get(i + 1))[0];
+//				double delta = (d2 - d1);
+//				sum_nu += delta/2d * (nu1 + nu2);
+//			}
+//			return sum_nu / size;
+//		} else {
+//			ArrayList<Double> al = new ArrayList<>(cciIVHisto.keySet());
+//			Collections.sort(al);
+//			int size = al.size();
+//			double sum_nu = 0d;
+//			for (int i = 0; i < size; i++) {
+//				if (i + 1 == size) {
+//					break;
+//				}
+//				double d1 = al.get(i);
+//				double d2 = al.get(i + 1);
+//				double nu1 = cciIVHisto.get(al.get(i))[0];// nu:fractional volume
+//				double nu2 = cciIVHisto.get(al.get(i + 1))[0];
+//				double delta = (d2 - d1);
+//				sum_nu += delta/2d * (nu1 + nu2);
+//			}
+//			return sum_nu / size;
+//		}
 	}
 	
 	public String toString() {
