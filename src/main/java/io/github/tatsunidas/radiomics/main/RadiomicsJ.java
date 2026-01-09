@@ -1433,7 +1433,7 @@ public class RadiomicsJ {
 				 * do preprocessing
 				 */
 				preprocess(currentImp, currentMask, targetLabel);
-				System.out.println("Compute at "+(i+1));
+				//System.out.println("Compute at "+(i+1));
 				ResultsTable table = compute(resampledImp, resegmentedMask,RadiomicsJ.label_);
 				if(rt == null) {
 					rt = table;
@@ -1534,7 +1534,7 @@ public class RadiomicsJ {
 		 * Since 20250517, morphologicals are handled in 3D only.
 		 * If force2d enabled, will calculate Shape2D instead.
 		 */
-		if(force2D) {
+		if(force2D && debug) {
 			System.out.println("Force2D is set, skip Morphological features calculation...");
 		}
 		if(BOOL_enableMorphological && !force2D) {
