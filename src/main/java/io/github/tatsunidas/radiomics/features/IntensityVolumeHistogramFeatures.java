@@ -182,53 +182,6 @@ public class IntensityVolumeHistogramFeatures extends AbstractRadiomicsFeature{
 	}
 	
 	/**
-	 * IVHistogram for Discretised calibrated image intensities
-	 * 
-	 * nyu is a fractional volume.
-	 * gamma is a fractional intensity.
-	 * 
-	 * @param verbose
-	 * @return
-	 */
-//	private HashMap<Double, double[]> calculateIVHistogram4DCI(boolean verbose){
-//		HashMap<Double, double[]> iv_histo = new HashMap<>();
-//		double[] discretisedVoxels = Utils.getVoxels(dciImg, mask, label);
-//		
-//		double min = 0;
-//		double max = 0;
-//		
-//		if(RadiomicsJ.rangeMin != null && RadiomicsJ.rangeMax != null) {
-//			min = RadiomicsJ.rangeMin;
-//			max = RadiomicsJ.rangeMax;
-//		}else {
-//			double[] voxels = Utils.getVoxels(img, mask, label);
-//			min = StatUtils.min(voxels);
-//			max = StatUtils.max(voxels);
-//		}
-//		int nv = discretisedVoxels.length;
-//		/*
-//		 * no duplicated array is usable, but when calculate Intensity at volume fraction,
-//		 * it result shift by 1. So, I should use continuous nBins range in for-loop.
-//		 */
-////		double[] no_dup_values = Arrays.stream(discretisedVoxels).distinct().toArray();//keep sort pos
-//		for(int dv = (int)min; dv <= max; dv++) {
-//			int discretised_intensity = dv;
-//			int count = 0;
-//			for(double v:discretisedVoxels) {
-//				if(discretised_intensity > v) {
-//					count++;
-//				}
-//			}
-//			double nyu = 1-(1d/nv)*(double)count;
-//			double gamma = (discretised_intensity - min)/(max - min);
-//			iv_histo.put((double)discretised_intensity, new double[] {nyu,gamma});
-//		}
-//		
-//		this.dciIVHisto = iv_histo;
-//		return this.dciIVHisto;
-//	}
-	
-	/**
      * Optimized IVHistogram for Discretised calibrated image intensities (DCI)
      * 計算量: O(N) でカウント + O(B log B) でソート (TreeMap)
      */
@@ -302,49 +255,10 @@ public class IntensityVolumeHistogramFeatures extends AbstractRadiomicsFeature{
 	}
 	
 	
-//	private HashMap<Double, double[]> calculateIVHistogram4CCI(boolean verbose){
-//		HashMap<Double, double[]> iv_histo = new HashMap<>();
-//		HashMap<Double, Integer> iv_count = new HashMap<>();
-//		
-//		double min = 0;
-//		double max = 0;
-//		double[] discretisedVoxels_cci = Utils.getVoxels(cciImg, mask, label);
-//		if(RadiomicsJ.rangeMin != null && RadiomicsJ.rangeMax != null) {
-//			min = RadiomicsJ.rangeMin;
-//			max = RadiomicsJ.rangeMax;
-//		}else {
-//			min = StatUtils.min(discretisedVoxels_cci);
-//			max = StatUtils.max(discretisedVoxels_cci);
-//		}
-//		
-//		int nv = discretisedVoxels_cci.length;
-//		double[] no_dup_values = Arrays.stream(discretisedVoxels_cci).distinct().toArray();//keep sort pos
-//		for (double ndp : no_dup_values) {
-//			if (iv_count.get(ndp) == null) {
-//				iv_count.put(ndp, 0);
-//			}
-//			for (double dVal : discretisedVoxels_cci) {
-//				if (ndp > dVal) {
-//					iv_count.put(ndp, iv_count.get(ndp) + 1);
-//				}
-//			}
-//		}
-//		Iterator<Double> keys = iv_count.keySet().iterator();
-//		while(keys.hasNext()) {
-//			Double k = keys.next();//key is discretised value of cci
-//			int count = iv_count.get(k);
-//			double nyu = 1-(1d/nv)*(double)count;
-//			double gamma = (k - min)/(max - min);
-//			iv_histo.put(k, new double[] {nyu,gamma});
-//		}
-//		this.cciIVHisto = iv_histo;
-//		return this.cciIVHisto;
-//	}
-	
 	/**
-     * Optimized IVHistogram for Continuous calibrated image intensities (CCI)
-     * 計算量: O(N) + O(B log B)
-     */
+	 * Optimized IVHistogram for Continuous calibrated image intensities (CCI) 計算量:
+	 * O(N) + O(B log B)
+	 */
 	private HashMap<Double, double[]> calculateIVHistogram4CCI(boolean verbose) {
 		HashMap<Double, double[]> iv_histo = new HashMap<>();
 
@@ -405,141 +319,6 @@ public class IntensityVolumeHistogramFeatures extends AbstractRadiomicsFeature{
 		this.cciIVHisto = iv_histo;
 		return this.cciIVHisto;
 	}
-	
-//	private HashMap<Double, double[]> calculateIVHistogram4CCI(boolean verbose){
-//		HashMap<Double, double[]> iv_histo = new HashMap<>();
-//		double[] discretisedVoxels_dci = Utils.getVoxels(dciImg, orgMask, label);
-//		double[] discretisedVoxels_cci = Utils.getVoxels(cciImg, orgMask, label);
-//		double min_dci = StatUtils.min(discretisedVoxels_dci);
-//		double max_dci = StatUtils.max(discretisedVoxels_dci);
-//		double min = StatUtils.min(discretisedVoxels_cci);
-//		double max = StatUtils.max(discretisedVoxels_cci);
-//		/*
-//		 * see, calculateIVHistogram4DCI
-//		 */
-////		double[] no_dup_disc_values_dci = Arrays.stream(discretisedVoxels_dci).distinct().toArray();//keep sort pos
-//		int nv = discretisedVoxels_cci.length;
-//		ArrayList<Integer> done = new ArrayList<>();
-//		for(int dVal = (int)min_dci; dVal <= max_dci; dVal++) {
-//			int loc = 0;
-//			for(int j=0;j<discretisedVoxels_dci.length;j++) {
-//				if(discretisedVoxels_dci[j] == (double)dVal) {
-//					loc = j;
-//					break;
-//				}
-//			}
-//			if(done.contains(Integer.valueOf(dVal))) {
-//				continue;
-//			}else {
-//				done.add(Integer.valueOf(dVal));
-//			}
-//			double discretised_continuous_intensity = discretisedVoxels_cci[loc];
-//			int count = 0;
-//			for(double v:discretisedVoxels_cci) {
-//				if(discretised_continuous_intensity > v) {
-//					count++;
-//				}
-//			}
-//			double nyu = 1-(1d/nv)*(double)count;
-//			double gamma = (discretised_continuous_intensity - min)/(max - min);
-//			iv_histo.put(discretised_continuous_intensity, new double[] {nyu,gamma});
-//		}
-//		if(verbose) {
-//			System.out.println("++++++++ IV HISTOGRAM CCI RESULT ++++++++");
-//			// converting Set to arraylist
-//	        ArrayList<Double> al = new ArrayList<>(iv_histo.keySet());
-//	        // sorting the list and then printing
-//	        Collections.sort(al);
-//	        for(Double k:al) {
-//	        	System.out.println("discrete density:"+k+", nyu:"+iv_histo.get(k)[0]+", gamma:"+iv_histo.get(k)[1]);
-//	        }
-//			System.out.println("+++++++++++++++++++++++++++++++++++++++++");
-//		}
-//		this.cciIVHisto = iv_histo;
-//		return this.cciIVHisto;
-//	}
-	
-//	/**
-//	 * IVHistogram for Discretised calibrated image intensities
-//	 * @param verbose
-//	 * @return
-//	 */
-//	private HashMap<Double, double[]> calculateIVHistogram4DCI(boolean verbose){
-//		HashMap<Double, double[]> iv_histo = new HashMap<>();
-//		//orgImg is already discretised.
-//		double[] discretedVoxels = Utils.getVoxels(dciImg, orgMask, label);
-//		double min = StatUtils.min(discretedVoxels);
-//		double max = StatUtils.max(discretedVoxels);
-//		int nv = discretedVoxels.length;
-////		double[] no_dup_values = Arrays.stream(discretedVoxels).distinct().toArray();//keep sort pos
-//		for(int i=0;i<nBins;i++) {
-//			double discretised_intensity = i+1;
-//			int count = 0;
-//			for(double v:discretedVoxels) {
-//				if(discretised_intensity > v) {
-//					count++;
-//				}
-//			}
-//			double nyu = 1-(1d/nv)*(double)count;
-//			double gamma = (discretised_intensity - min)/(max - min);
-//			iv_histo.put(discretised_intensity, new double[] {nyu,gamma});
-//		}
-//		if(verbose) {
-//			System.out.println("++++++++ IV HISTOGRAM RESULT ++++++++");
-//			// converting Set to arraylist
-//	        ArrayList<Double> al = new ArrayList<>(iv_histo.keySet());
-//	        // sorting the list and then printing
-//	        Collections.sort(al);
-//	        for(Double k:al) {
-//	        	System.out.println("discrete density:"+k+", nyu:"+iv_histo.get(k)[0]+", gamma:"+iv_histo.get(k)[1]);
-//	        }
-//			System.out.println("+++++++++++++++++++++++++++++++++++++");
-//		}
-//		
-//		this.dciIVHisto = iv_histo;
-//		return this.dciIVHisto;
-//	}
-//	
-//	private HashMap<Double, double[]> calculateIVHistogram4CCI(boolean verbose){
-//		HashMap<Double, double[]> iv_histo = new HashMap<>();
-//		double[] discretedVoxels_dci = Utils.getVoxels(dciImg, orgMask, label);
-//		double[] discretedVoxels_cci = Utils.getVoxels(cciImg, orgMask, label);
-//		double min = StatUtils.min(discretedVoxels_cci);
-//		double max = StatUtils.max(discretedVoxels_cci);
-//		int nv = discretedVoxels_cci.length;
-//		for(int i=0;i<nBins;i++) {
-//			int loc = 0;
-//			for(int j=0;j<discretedVoxels_dci.length;j++) {
-//				if(discretedVoxels_dci[j] == (i+1)) {
-//					loc = j;
-//					break;
-//				}
-//			}
-//			double discretised_intensity = discretedVoxels_cci[loc];
-//			int count = 0;
-//			for(double v:discretedVoxels_cci) {
-//				if(discretised_intensity > v) {
-//					count++;
-//				}
-//			}
-//			double nyu = 1-(1d/nv)*(double)count;
-//			double gamma = (discretised_intensity - min)/(max - min);
-//			iv_histo.put(discretised_intensity, new double[] {nyu,gamma});
-//		}
-//		if(verbose) {
-//			System.out.println("++++++++ IV HISTOGRAM CCI RESULT ++++++++");
-//			// converting Set to arraylist
-//	        ArrayList<Double> al = new ArrayList<>(iv_histo.keySet());
-//	        // sorting the list and then printing
-//	        Collections.sort(al);
-//	        for(Double k:al) {
-//	        	System.out.println("discrete density:"+k+", nyu:"+iv_histo.get(k)[0]+", gamma:"+iv_histo.get(k)[1]);
-//	        }
-//			System.out.println("+++++++++++++++++++++++++++++++++++++++++");
-//		}
-//		this.cciIVHisto = iv_histo;
-//		return this.cciIVHisto;
-//	}
 	
 	private Double getVolumeAtIntensityFraction(int p_th, boolean continuousCalibrated) {
 		HashMap<Double, double[]> histo = continuousCalibrated ? cciIVHisto : dciIVHisto;
