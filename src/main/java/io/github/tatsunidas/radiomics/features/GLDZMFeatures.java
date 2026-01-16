@@ -23,8 +23,9 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import javax.vecmath.Point3i;
+
 import org.apache.commons.math3.stat.StatUtils;
-import org.jogamp.vecmath.Point3i;
 
 import ij.ImagePlus;
 import ij.ImageStack;

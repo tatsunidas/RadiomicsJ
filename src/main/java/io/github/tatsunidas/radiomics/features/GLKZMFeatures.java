@@ -8,7 +8,7 @@ import java.util.Set;
 
 import javax.swing.JOptionPane;
 
-import org.jogamp.vecmath.Point3i;
+import javax.vecmath.Point3i;
 
 import ij.ImagePlus;
 import ij.process.ByteProcessor;

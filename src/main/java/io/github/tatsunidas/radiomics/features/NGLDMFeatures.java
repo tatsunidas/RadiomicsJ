@@ -22,7 +22,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.jogamp.vecmath.Point3i;
+import javax.vecmath.Point3i;
 
 import ij.ImagePlus;
 import ij.process.ImageProcessor;

@@ -20,9 +20,9 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.commons.math3.stat.StatUtils;
-import org.jogamp.vecmath.Point3i;
+import javax.vecmath.Point3i;
 
+import org.apache.commons.math3.stat.StatUtils;
 import ij.ImagePlus;
 import ij.measure.Calibration;
 import io.github.tatsunidas.radiomics.main.ImagePreprocessing;

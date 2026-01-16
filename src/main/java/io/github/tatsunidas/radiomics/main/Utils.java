@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.StringTokenizer;
 
 import org.apache.commons.math3.stat.StatUtils;
-import org.jogamp.vecmath.Point3i;
 
 import ij.IJ;
 import ij.ImagePlus;
@@ -1995,7 +1994,7 @@ public class Utils {
 	    return paddedMask;
 	}
 	
-	public static boolean isOutOfRange(Point3i p, int max_w , int max_h, int max_s) {
+	public static boolean isOutOfRange(javax.vecmath.Point3i p, int max_w , int max_h, int max_s) {
 		boolean outOfRange = false;
 		if(p.x < 0 || p.x >= max_w) {
 			outOfRange = true;

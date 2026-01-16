@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.vecmath.Point3f;
+
 import org.apache.commons.math3.analysis.polynomials.PolynomialFunction;
 import org.apache.commons.math3.analysis.polynomials.PolynomialsUtils;
 import org.apache.commons.math3.linear.EigenDecomposition;
@@ -29,18 +31,16 @@ import org.apache.commons.math3.linear.MatrixUtils;
 import org.apache.commons.math3.linear.RealMatrix;
 import org.apache.commons.math3.stat.StatUtils;
 import org.apache.commons.math3.stat.correlation.Covariance;
-import org.jogamp.vecmath.Point3f;
 
 import com.github.quickhull3d.QuickHull3D;
 
-import customnode.CustomTriangleMesh;
 import ij.ImagePlus;
 import ij.measure.Calibration;
 import ij.process.ImageProcessor;
+import io.github.tatsunidas.miscellaneous.MCTriangulator;
 import io.github.tatsunidas.radiomics.main.ImagePreprocessing;
 import io.github.tatsunidas.radiomics.main.RadiomicsJ;
 import io.github.tatsunidas.radiomics.main.Utils;
-import marchingcubes.MCTriangulator;
 
 /**
  * 3.1 Morphological features HCUG
@@ -118,55 +118,7 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 	public MorphologicalFeatures(ImagePlus img, ImagePlus mask, int label) {
 		super(img,mask,null);
 		this.label = label;
-		if (mask == null) {
-			// if null, create full face mask
-			mask = ImagePreprocessing.createMask(img.getWidth(), img.getHeight(), img.getNSlices(), null, this.label,img.getCalibration().pixelWidth, img.getCalibration().pixelHeight,img.getCalibration().pixelDepth);
-			this.mask = mask;
-		}
-		
-		orgCal = img.getCalibration().copy();
-		this.mask.setCalibration(orgCal);//fail safe
-		/*
-		 * Be careful.
-		 * iso mask have always label 1 (RadiomicsJ.label_).
-		 */
-		ImagePlus isoMaskFloat = Utils.resample3D(Utils.createMaskWithLabelOne(this.mask, this.label), true, isoSize, isoSize, isoSize);
-		//to 8 bit
-		isoMask = Utils.createMaskCopyAsGray8(isoMaskFloat, RadiomicsJ.label_);
-
-		//create mesh first.
-		RadiomicsJ.workaroundIntelGraphicsBug(false/*force*/);
-		int threshold = 0;
-		boolean[] channels = { true, false, false }; // r,g,b, but only used r because image is always binary 8 bit.
-		mct = new MCTriangulator();
-		/*
-		 * Resampling: how much resampling to apply to the stack while creating the
-		 * surface mesh. A low number results in an accurate but jagged mesh with many
-		 * triangles, while a high number results in a smooth mesh with fewer triangles.
-		 * 
-		 * In the case of digital phantom1,
-		 * it set to 2 and (1,1,1) iso voxelize combination setting yields same IBSI result.
-		 */
-		int resamplingF = 2; // 1 to N.
-		
-		// should be use iso mask copy.
-		@SuppressWarnings("unchecked")
-		List<org.jogamp.vecmath.Point3f> points2 = mct.getTriangles(isoMask, threshold, channels, resamplingF);
-		if(points2 == null || points2.size()==0) {
-			resamplingF = 1; // 1 to N.
-			@SuppressWarnings("unchecked")
-			List<org.jogamp.vecmath.Point3f> points1 = mct.getTriangles(isoMask, threshold, channels, resamplingF);
-			this.points = points1;
-		}else {
-			this.points = points2;
-		}
-		//original voxels
-		voxels = Utils.getVoxels(this.img, this.mask, this.label);
-		
-		settings.put(RadiomicsFeature.IMAGE, this.img);
-		settings.put(RadiomicsFeature.MASK, this.mask);
-		settings.put(RadiomicsFeature.ISO_MASK, isoMask);
-		settings.put(RadiomicsFeature.LABEL, this.label);
+		buildup(settings);
 	}
 	
 	public void buildup(Map<String,Object> settings) {
@@ -187,8 +139,7 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 
 		//create mesh first.
 		RadiomicsJ.workaroundIntelGraphicsBug(false/*force*/);
-		int threshold = 0;
-		boolean[] channels = { true, false, false }; // r,g,b, but only used r because image is always binary 8 bit.
+		double threshold = 0.5;
 		mct = new MCTriangulator();
 		/*
 		 * Resampling: how much resampling to apply to the stack while creating the
@@ -196,23 +147,30 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 		 * triangles, while a high number results in a smooth mesh with fewer triangles.
 		 * 
 		 * In the case of digital phantom1,
-		 * it set to 2 and (1,1,1) iso voxelize combination setting yields same IBSI result.
+		 * it set to 2 and (1,1,1) iso voxelize combination setting yields same IBSI results.
 		 */
 		int resamplingF = 2; // 1 to N.
 		
-		// should be use iso mask copy.
-		@SuppressWarnings("unchecked")
-		List<org.jogamp.vecmath.Point3f> points2 = mct.getTriangles(isoMask, threshold, channels, resamplingF);
-		if(points2 == null || points2.size()==0) {
-			resamplingF = 1; // 1 to N.
-			@SuppressWarnings("unchecked")
-			List<org.jogamp.vecmath.Point3f> points1 = mct.getTriangles(isoMask, threshold, channels, resamplingF);
-			this.points = points1;
-		}else {
-			this.points = points2;
+		// should be use iso mask.
+		this.points = mct.getTriangles(isoMask, threshold, resamplingF);
+		// デバッグ出力
+		if (this.points != null) {
+		    System.out.println("DEBUG: Generated Mesh Points = " + this.points.size());
+		} else {
+		    System.out.println("DEBUG: Generated Mesh Points = null");
+		}
+		if(this.points == null || this.points.size()==0) {
+			if(resamplingF != 1) {
+				this.points = mct.getTriangles(isoMask, threshold, 1/*resamplingF*/);
+			}
 		}
 		//original voxels
 		voxels = Utils.getVoxels(this.img, this.mask, this.label);
+		
+		settings.put(RadiomicsFeature.IMAGE, this.img);
+		settings.put(RadiomicsFeature.MASK, this.mask);
+		settings.put(RadiomicsFeature.ISO_MASK, isoMask);
+		settings.put(RadiomicsFeature.LABEL, this.label);
 	}
 	
 	
@@ -289,14 +247,30 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 		if(this.mesh_v != null) {
 			return mesh_v;
 		}
-//		// calculate volume
-		CustomTriangleMesh mesh = new CustomTriangleMesh(points);
-		mesh_v = (double) mesh.getVolume();
+		// calculate volume
+		mesh_v = calculateMeshVolume(points);
 		if(mesh_v < 0) {
 			mesh_v *= -1.0; //correct negative value 
 		}
-		mesh = null;
 		return mesh_v;
+	}
+	
+	private double calculateMeshVolume(List<Point3f> points) {
+	    double v = 0;
+	    for (int i = 0; i < points.size(); i += 3) {
+	        Point3f p1 = points.get(i);
+	        Point3f p2 = points.get(i + 1);
+	        Point3f p3 = points.get(i + 2);
+	        
+	        // 3D_Viewer の CustomTriangleMesh と同じ行列式
+	        v += (p1.x * p2.y * p3.z 
+	            - p1.x * p3.y * p2.z 
+	            - p2.x * p1.y * p3.z 
+	            + p2.x * p3.y * p1.z 
+	            + p3.x * p1.y * p2.z 
+	            - p3.x * p2.y * p1.z);
+	    }
+	    return Math.abs(v / 6.0);
 	}
 	
 	
@@ -376,31 +350,61 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 		return surfaceArea;
 	}
 	
-	private Double getSurfaceAreaByMesh(List<Point3f> points) {
-		Double surfaceArea = 0d;
-		final int nPoints = points.size();
-		final Point3f origin = new Point3f((float)orgCal.xOrigin, (float)orgCal.yOrigin, (float)orgCal.zOrigin);
-//		System.out.println("Calculating surface area.., num of points : " + nPoints / 3);
-		for (int n = 0; n < nPoints; n += 3) {
-			// https://github.com/mdoube/BoneJ/blob/17ee483603afa8a7efb745512be60a29e093c94e/src/org/doube/geometry/Vectors.java#L19
-			final Point3f point0 = points.get(n);
-			final Point3f point1 = points.get(n+1);
-			final Point3f point2  = points.get(n+2);
-			final double x1 = (point1.x - point0.x);
-			final double y1 = (point1.y - point0.y);
-			final double z1 = (point1.z - point0.z);
-			final double x2 = (point2.x - point0.x);
-			final double y2 = (point2.y - point0.y);
-			final double z2 = (point2.z - point0.z);
-			final Point3f crossVector = new Point3f();
-			crossVector.x = (float) (y1 * z2 - z1 * y2);
-			crossVector.y = (float) (z1 * x2 - x1 * z2);
-			crossVector.z = (float) (x1 * y2 - y1 * x2);
-			final double deltaArea = 0.5 * crossVector.distance(origin);
-			surfaceArea += deltaArea;
-		}
-		return surfaceArea;
+	// 外積ベクトルの長さを取得するヘルパー
+	private double getVectorLength(Point3f v) {
+	    return Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 	}
+
+	private Double getSurfaceAreaByMesh(List<Point3f> points) {
+	    double totalArea = 0d;
+	    for (int n = 0; n < points.size(); n += 3) {
+	        Point3f p0 = points.get(n);
+	        Point3f p1 = points.get(n+1);
+	        Point3f p2 = points.get(n+2);
+
+	        double x1 = p1.x - p0.x;
+	        double y1 = p1.y - p0.y;
+	        double z1 = p1.z - p0.z;
+	        double x2 = p2.x - p0.x;
+	        double y2 = p2.y - p0.y;
+	        double z2 = p2.z - p0.z;
+
+	        Point3f crossVector = new Point3f();
+	        crossVector.x = (float) (y1 * z2 - z1 * y2);
+	        crossVector.y = (float) (z1 * x2 - x1 * z2);
+	        crossVector.z = (float) (x1 * y2 - y1 * x2);
+
+	        // 外積ベクトルの長さの半分が三角形の面積
+	        totalArea += 0.5 * getVectorLength(crossVector);
+	    }
+	    return totalArea;
+	}
+	
+//	private Double getSurfaceAreaByMesh(List<Point3f> points) {
+//		Double surfaceArea = 0d;
+//		final int nPoints = points.size();
+//		final Point3f origin = new Point3f((float)orgCal.xOrigin, (float)orgCal.yOrigin, (float)orgCal.zOrigin);
+////		System.out.println("Calculating surface area.., num of points : " + nPoints / 3);
+//		for (int n = 0; n < nPoints; n += 3) {
+//			// https://github.com/mdoube/BoneJ/blob/17ee483603afa8a7efb745512be60a29e093c94e/src/org/doube/geometry/Vectors.java#L19
+//			final Point3f point0 = points.get(n);
+//			final Point3f point1 = points.get(n+1);
+//			final Point3f point2  = points.get(n+2);
+//			final double x1 = (point1.x - point0.x);
+//			final double y1 = (point1.y - point0.y);
+//			final double z1 = (point1.z - point0.z);
+//			final double x2 = (point2.x - point0.x);
+//			final double y2 = (point2.y - point0.y);
+//			final double z2 = (point2.z - point0.z);
+//			final Point3f crossVector = new Point3f();
+//			crossVector.x = (float) (y1 * z2 - z1 * y2);
+//			crossVector.y = (float) (z1 * x2 - x1 * z2);
+//			crossVector.z = (float) (x1 * y2 - y1 * x2);
+//			final double deltaArea = 0.5 * crossVector.distance(origin);
+//			surfaceArea += deltaArea;
+//		}
+//		return surfaceArea;
+//	}
 	
 	
 	private Double getSurfaceToVolumeRatio() {
@@ -668,8 +672,7 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 		boolean[] channels = { true, false, false }; // r,g,b, but only used r because image is always binary 8 bit.
 		MCTriangulator mct = new MCTriangulator();//DO NOT replace field variable.
 		int resamplingF = 2; // 1 to N.
-		@SuppressWarnings("unchecked")
-		List<Point3f> points_ = mct.getTriangles(mask, threshold, channels, resamplingF);
+		List<Point3f> points_ = mct.getTriangles(mask, threshold, resamplingF);
 		Double max = 0d;
 		final int nPoints = points_.size();
 		for (int n = 0; n < nPoints; n++) {
@@ -1043,8 +1046,7 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 	private Double getVolumeDensityByAxisAlignedBoundingBox(){
 		if(mct != null && mesh_v != null) {
 			// calculate volume
-			CustomTriangleMesh mesh = new CustomTriangleMesh(points);
-			Double v = (double) mesh.getVolume();
+			Double v = getVolumeByMesh();
 			if(v < 0) {
 				v *= -1.0; //correct negative value 
 			}
@@ -1073,7 +1075,6 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 	            }
 	        }
 			double Vaabb = Math.abs(maxx-minx)*Math.abs(maxy-miny)*Math.abs(maxz-minz);
-			mesh = null;
 			return v/Vaabb;
 		}
 		
@@ -1532,7 +1533,7 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 		}
 		com.github.quickhull3d.Point3d[] points_hull = new com.github.quickhull3d.Point3d[points.size()];
 		int itr = 0;
-		for(org.jogamp.vecmath.Point3f pf : points) {
+		for(Point3f pf : points) {
 			com.github.quickhull3d.Point3d pd = new com.github.quickhull3d.Point3d(pf.x, pf.y, pf.z);
 			points_hull[itr++] = pd;
 		}
@@ -1544,12 +1545,12 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 		int[][] faces = hull.getFaces();
 		
 		//re-convert
-		List<org.jogamp.vecmath.Point3f> points_hull_ = new ArrayList<>();
+		List<Point3f> points_hull_ = new ArrayList<>();
 		for(int i=0; i<faces.length;i++) {
 			int[] vp = faces[i];
-			org.jogamp.vecmath.Point3f pf_a = new org.jogamp.vecmath.Point3f((float)vertices[vp[0]].x, (float)vertices[vp[0]].y, (float)vertices[vp[0]].z);
-			org.jogamp.vecmath.Point3f pf_b = new org.jogamp.vecmath.Point3f((float)vertices[vp[1]].x, (float)vertices[vp[1]].y, (float)vertices[vp[1]].z);
-			org.jogamp.vecmath.Point3f pf_c = new org.jogamp.vecmath.Point3f((float)vertices[vp[2]].x, (float)vertices[vp[2]].y, (float)vertices[vp[2]].z);
+			Point3f pf_a = new Point3f((float)vertices[vp[0]].x, (float)vertices[vp[0]].y, (float)vertices[vp[0]].z);
+			Point3f pf_b = new Point3f((float)vertices[vp[1]].x, (float)vertices[vp[1]].y, (float)vertices[vp[1]].z);
+			Point3f pf_c = new Point3f((float)vertices[vp[2]].x, (float)vertices[vp[2]].y, (float)vertices[vp[2]].z);
 			points_hull_.add(pf_a);
 			points_hull_.add(pf_b);
 			points_hull_.add(pf_c);
@@ -1567,12 +1568,11 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 		if(points == null || points.size()==0) {
 			return Double.NaN;
 		}
-		CustomTriangleMesh mesh = new CustomTriangleMesh(points);
-		double v = Math.abs(mesh.getVolume());
+		double v = Math.abs(getVolumeByMesh());
 		
 		com.github.quickhull3d.Point3d[] points_hull = new com.github.quickhull3d.Point3d[points.size()];
 		int itr = 0;
-		for(org.jogamp.vecmath.Point3f pf : points) {
+		for(Point3f pf : points) {
 			com.github.quickhull3d.Point3d pd = new com.github.quickhull3d.Point3d(pf.x, pf.y, pf.z);
 			points_hull[itr++] = pd;
 		}
@@ -1590,19 +1590,18 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 //		System.out.println("face vertices "+faces[0].length);//3
 		
 		//re-convert
-		List<org.jogamp.vecmath.Point3f> points_hull_ = new ArrayList<>();
+		List<Point3f> points_hull_ = new ArrayList<>();
 		for(int i=0; i<faces.length;i++) {
 			int[] vp = faces[i];
 //			System.out.println(vp[0]+" "+vp[1]+" "+vp[2]);
-			org.jogamp.vecmath.Point3f pf_a = new org.jogamp.vecmath.Point3f((float)vertices[vp[0]].x, (float)vertices[vp[0]].y, (float)vertices[vp[0]].z);
-			org.jogamp.vecmath.Point3f pf_b = new org.jogamp.vecmath.Point3f((float)vertices[vp[1]].x, (float)vertices[vp[1]].y, (float)vertices[vp[1]].z);
-			org.jogamp.vecmath.Point3f pf_c = new org.jogamp.vecmath.Point3f((float)vertices[vp[2]].x, (float)vertices[vp[2]].y, (float)vertices[vp[2]].z);
+			Point3f pf_a = new Point3f((float)vertices[vp[0]].x, (float)vertices[vp[0]].y, (float)vertices[vp[0]].z);
+			Point3f pf_b = new Point3f((float)vertices[vp[1]].x, (float)vertices[vp[1]].y, (float)vertices[vp[1]].z);
+			Point3f pf_c = new Point3f((float)vertices[vp[2]].x, (float)vertices[vp[2]].y, (float)vertices[vp[2]].z);
 			points_hull_.add(pf_a);
 			points_hull_.add(pf_b);
 			points_hull_.add(pf_c);
 		}
-		CustomTriangleMesh hull_mesh = new CustomTriangleMesh(points_hull_);
-		double vh = Math.abs(hull_mesh.getVolume());//579
+		double vh = Math.abs(calculateMeshVolume(points_hull_));//579
 		return v/vh;
 	}
 	

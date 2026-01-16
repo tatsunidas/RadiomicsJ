@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.commons.math3.stat.StatUtils;
-import org.jogamp.vecmath.Point3i;
+import javax.vecmath.Point3i;
 
 import ij.IJ;
 import ij.ImagePlus;
