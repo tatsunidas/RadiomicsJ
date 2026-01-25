@@ -11,12 +11,8 @@ It is using the imagej for the image processing backend.
 ## Dependencies
 
 See, pom.xml.
-- ImageJ 1.53 or above
-- VIB_ libs from Fiji.
-- commons-math3
-- apache-poi
 
-Externals
+### Externals
 - jog-fat.jar
 - nifti_io.jar
 
@@ -319,7 +315,7 @@ If you want quick example with GUI, see [RadiomicsJ IJ-PlugIn](https://sites.goo
 ```
 <groupId>io.github.tatsunidas</groupId>
 <artifactId>radiomicsj</artifactId>
-<version>2.1.3</version>
+<version>2.1.12</version>
 ```
 ```  
 int targetLabel = 1;
@@ -354,6 +350,8 @@ Tatsuaki Kobayashi
 
 # Release and updation
 
+I recommend current version.
+See, Maven repo-> https://central.sonatype.com/artifact/io.github.tatsunidas/radiomicsj/overview
 2022/4/7 initial commit.
 
 # Cite this article
