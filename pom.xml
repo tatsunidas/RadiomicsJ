@@ -43,7 +43,7 @@
 	  	<maven.compiler.release>8</maven.compiler.release>
 	  	<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	  	<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-	  	<gpg.keyname>0EE0FEC076F9F82F60EBF1F359EC196F0CD29781</gpg.keyname>
+	  	<gpg.keyname>0A8040F315C12652B26EACCA33CE250D7E319176</gpg.keyname>
 	  	<github.global.server>github</github.global.server>
 	</properties>
 
