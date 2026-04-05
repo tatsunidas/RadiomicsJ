@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.vecmath.Point3d;
 import javax.vecmath.Point3f;
 
 import org.apache.commons.math3.analysis.polynomials.PolynomialFunction;
@@ -32,7 +33,7 @@ import org.apache.commons.math3.linear.RealMatrix;
 import org.apache.commons.math3.stat.StatUtils;
 import org.apache.commons.math3.stat.correlation.Covariance;
 
-import com.github.quickhull3d.QuickHull3D;
+import io.github.tatsunidas.quickhull3d.QuickHull3D;
 
 import ij.ImagePlus;
 import ij.measure.Calibration;
@@ -1531,17 +1532,17 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 		if(points == null || points.size()==0) {
 			return Double.NaN;
 		}
-		com.github.quickhull3d.Point3d[] points_hull = new com.github.quickhull3d.Point3d[points.size()];
+		Point3d[] points_hull = new Point3d[points.size()];
 		int itr = 0;
 		for(Point3f pf : points) {
-			com.github.quickhull3d.Point3d pd = new com.github.quickhull3d.Point3d(pf.x, pf.y, pf.z);
+			Point3d pd = new Point3d(pf.x, pf.y, pf.z);
 			points_hull[itr++] = pd;
 		}
 		QuickHull3D hull = new QuickHull3D();
 		hull.build(points_hull);
 		hull.triangulate();
 		
-		com.github.quickhull3d.Point3d[] vertices = hull.getVertices();
+		Point3d[] vertices = hull.getVertices();
 		int[][] faces = hull.getFaces();
 		
 		//re-convert
@@ -1570,17 +1571,17 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 		}
 		double v = Math.abs(getVolumeByMesh());
 		
-		com.github.quickhull3d.Point3d[] points_hull = new com.github.quickhull3d.Point3d[points.size()];
+		Point3d[] points_hull = new Point3d[points.size()];
 		int itr = 0;
 		for(Point3f pf : points) {
-			com.github.quickhull3d.Point3d pd = new com.github.quickhull3d.Point3d(pf.x, pf.y, pf.z);
+			Point3d pd = new Point3d(pf.x, pf.y, pf.z);
 			points_hull[itr++] = pd;
 		}
 		QuickHull3D hull = new QuickHull3D();
 		hull.build(points_hull);
 		hull.triangulate();
 		
-		com.github.quickhull3d.Point3d[] vertices = hull.getVertices();
+		Point3d[] vertices = hull.getVertices();
 //		System.out.println("vertises : " + hull.getNumVertices());
 //		System.out.println("vertises : " + vertices.length);
 		

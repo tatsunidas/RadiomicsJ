@@ -169,12 +169,6 @@
 		    <version>1.5.2</version>
 		    <scope>compile</scope>
 		</dependency>
-
-		<dependency>
-		    <groupId>com.github.quickhull3d</groupId>
-		    <artifactId>quickhull3d</artifactId>
-		    <version>quickhull3d-1.0.0</version>
-		</dependency>
 		
 		<!-- https://mvnrepository.com/artifact/commons-cli/commons-cli -->
 		<dependency>
