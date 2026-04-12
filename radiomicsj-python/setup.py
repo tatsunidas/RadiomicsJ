@@ -6,9 +6,13 @@
 
 from setuptools import setup
 
+version_str = "${project.version}"
+if version_str.startswith("${"):
+    version_str = "0.0.0.dev0"
+
 setup(
     name="radiomicsj",
-    version="${project.version}",
+    version=version_str,
     description="Python wrapper for RadiomicsJ",
     author="Tatsuaki Kobayashi",
     packages=["radiomicsj", "radiomicsj.jars"],

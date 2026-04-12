@@ -1221,6 +1221,13 @@ public class RadiomicsJ {
 		return discretiseImp;
 	}
 	
+	public ResultsTable execute(String imgSeriesFileFolder, String maskSeriesFileFolder, Integer targetLabel) throws Exception {
+		if(imgSeriesFileFolder == null || maskSeriesFileFolder == null) {
+			throw new Exception("image folder path or mask folder path must be non-null.");
+		}
+		return execute(new File(imgSeriesFileFolder), new File(maskSeriesFileFolder), targetLabel);
+	}
+	
 	/**
 	 * 
 	 * @param imgSeriesFileFolder
