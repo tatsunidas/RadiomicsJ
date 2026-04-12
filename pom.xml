@@ -84,6 +84,40 @@
 						<nonFilteredFileExtension>xlsx</nonFilteredFileExtension>
 						<nonFilteredFileExtension>xls</nonFilteredFileExtension> </nonFilteredFileExtensions>
 				</configuration>
+				<executions>
+		            <execution>
+		                <id>prepare-python-resources</id>
+		                <phase>process-resources</phase>
+		                <goals>
+		                    <goal>copy-resources</goal>
+		                </goals>
+		                <configuration>
+		                    <outputDirectory>${project.build.directory}/radiomicsj-python</outputDirectory>
+		                    <resources>
+		                        <resource>
+		                            <directory>${project.basedir}/radiomicsj-python</directory>
+		                            <filtering>true</filtering>
+		                            <includes>
+		                                <include>setup.py</include>
+		                                <include>radiomicsj/core.py</include>
+		                                <include>conda-recipe/meta.yaml</include>
+		                                <include>conda-recipe/conda_build_config.yaml</include>
+		                            </includes>
+		                        </resource>
+		                        <resource>
+		                            <directory>${project.basedir}/radiomicsj-python</directory>
+		                            <filtering>false</filtering>
+		                            <excludes>
+		                                <exclude>setup.py</exclude>
+		                                <exclude>radiomicsj/core.py</exclude>
+		                                <exclude>conda-recipe/meta.yaml</exclude>
+		                                <exclude>conda-recipe/conda_build_config.yaml</exclude>
+		                            </excludes>
+		                        </resource>
+		                    </resources>
+		                </configuration>
+		            </execution>
+		        </executions>
 			</plugin>
 			<plugin>
 				<groupId>org.sonatype.central</groupId>
@@ -163,7 +197,66 @@
 				<!--configuration> <additionalClasspathElements> <additionalClasspathElement>src/test/java/</additionalClasspathElement> 
 					</additionalClasspathElements> </configuration -->
 			</plugin>
-
+			<!-- python distribution -->
+			<plugin>
+			    <artifactId>maven-antrun-plugin</artifactId>
+			    <version>3.1.0</version>
+			    <executions>
+			        <execution>
+			            <id>copy-jar-for-python</id>
+			            <phase>package</phase> <goals>
+			                <goal>run</goal>
+			            </goals>
+			            <configuration>
+			                <target>
+			                	<!-- KEEP jar file name "RadiomicsJ.jar" in tofile ! to read from python -->
+								<copy file="${project.build.directory}/${project.build.finalName}.jar"
+								      tofile="${project.build.directory}/radiomicsj-python/radiomicsj/jars/RadiomicsJ.jar"
+								      overwrite="true" />
+			                </target>
+			            </configuration>
+			        </execution>
+			    </executions>
+			</plugin>
+			<!-- conda install to local and deploy to anaconda.org -->
+			<plugin>
+			    <groupId>org.codehaus.mojo</groupId>
+			    <artifactId>exec-maven-plugin</artifactId>
+			    <version>3.1.0</version>
+			    <executions>
+			        <execution>
+			            <id>conda-build</id>
+			            <phase>install</phase>
+			            <goals>
+			                <goal>exec</goal>
+			            </goals>
+			            <configuration>
+			                <workingDirectory>${project.build.directory}/radiomicsj-python</workingDirectory>
+			                <executable>bash</executable>
+			                <arguments>
+			                    <argument>-c</argument>
+			                    <argument>source ~/miniconda3/etc/profile.d/conda.sh &amp;&amp; conda build conda-recipe/</argument>
+			                </arguments>
+			            </configuration>
+			        </execution>
+			
+			        <execution>
+			            <id>anaconda-upload</id>
+			            <phase>deploy</phase>
+			            <goals>
+			                <goal>exec</goal>
+			            </goals>
+			            <configuration>
+			                <workingDirectory>${project.build.directory}/radiomicsj-python</workingDirectory>
+			                <executable>bash</executable>
+			                <arguments>
+			                    <argument>-c</argument>
+			                    <argument>source ~/miniconda3/etc/profile.d/conda.sh &amp;&amp; anaconda upload $(conda build conda-recipe/ --output)</argument>
+			                </arguments>
+			            </configuration>
+			        </execution>
+			    </executions>
+			</plugin>
 		</plugins>
 	</build>
 	

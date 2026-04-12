@@ -1243,7 +1243,7 @@ public class RadiomicsJ {
 		 * nifti
 		 */
 		if(imgSeriesFileFolder.isFile()) {
-			if(imgSeriesFileFolder.getName().contains(".nii.gz")) {
+			if(imgSeriesFileFolder.getName().endsWith(".nii.gz") || imgSeriesFileFolder.getName().endsWith(".nii")) {
 				String p2i = imgSeriesFileFolder.getAbsolutePath();
 				String p2m = maskSeriesFileFolder.getAbsolutePath();
 				Nifti_Reader reader = new Nifti_Reader();
@@ -1268,7 +1268,7 @@ public class RadiomicsJ {
 		}else if(imgSeriesFileFolder.listFiles().length == 1 && maskSeriesFileFolder.listFiles().length == 1) {
 			imgSeriesFileFolder = imgSeriesFileFolder.listFiles()[0];
 			maskSeriesFileFolder = maskSeriesFileFolder.listFiles()[0];
-			if(imgSeriesFileFolder.getName().contains(".nii.gz")) {
+			if(imgSeriesFileFolder.getName().endsWith(".nii.gz") || imgSeriesFileFolder.getName().endsWith(".nii")) {
 				String p2i = imgSeriesFileFolder.getAbsolutePath();
 				String p2m = maskSeriesFileFolder.getAbsolutePath();
 				Nifti_Reader reader = new Nifti_Reader();
@@ -1312,9 +1312,9 @@ public class RadiomicsJ {
 			activateNoDefaultFeatures();
 		}
 		if(force2D) {
-			return extractAllSlice(img, mask,targetLabel);
+			return extractAllSlice(img, mask, targetLabel);
 		}else {
-			return extractAll(img, mask,targetLabel);
+			return extractAll(img, mask, targetLabel);
 		}
 	}
 	

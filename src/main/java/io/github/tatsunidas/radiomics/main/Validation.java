@@ -169,7 +169,7 @@ public class Validation {
 		RadiomicsJ.force2D = false;//fail safe
 		radi.setDebug(true);
 
-		ResultsTable res = radi.execute(ds[0], ds[1],RadiomicsJ.targetLabel);
+		ResultsTable res = radi.execute(ds[0], ds[1], RadiomicsJ.targetLabel);
 		
 		if(RadiomicsJ.debug)
 			System.out.println("\nFinish calculating features without any error !\n");

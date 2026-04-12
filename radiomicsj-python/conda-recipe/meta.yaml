@@ -1,0 +1,28 @@
+package:
+  name: radiomicsj
+  version: "${project.version}"
+
+source:
+  # directry of setup.py
+  path: ..
+
+build:
+  number: 0
+  script: "{{ PYTHON }} -m pip install . --no-deps -vv"
+
+requirements:
+  host:
+    - python
+    - pip
+    - setuptools
+    - numpy
+  run:
+    - python
+    - jpype1 >=1.3.0
+    - numpy
+    - openjdk
+
+about:
+  home: https://github.com/tatsunidas/RadiomicsJ
+  summary: "Python wrapper for RadiomicsJ (Java library for radiomics)"
+  license: Apache License 2.0
