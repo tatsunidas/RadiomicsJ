@@ -69,18 +69,19 @@ for path_to_image, path_to_mask in my_image_list:
 ```
 
 ## Advanced Usage
-### 1. Texture Matrices and Specific Feature Calculation
-You can directly access individual texture classes (GLCM, GLRLM, GLSZM, GLDZM, NGLDM, NGTDM) to extract specific features or retrieve the raw texture matrices as NumPy arrays.
+### 1. Specific Feature Calculation (Texture & Non-Texture)
+You can directly access individual feature classes (e.g., GLCM, GLSZM, Morphological, IntensityBasedStatistical) to extract specific features or retrieve raw texture matrices as NumPy arrays.
 
 ```python
 import numpy as np
-from radiomicsj import GLCM
+from radiomicsj import GLCM, IntensityBasedStatistical
 
 image_np = np.random.rand(5, 20, 20)
 mask_np = np.ones((5, 20, 20))
+spacing = (1.0, 1.0, 1.0)
 
-# Initialize texture class
-glcm = GLCM(image_np, mask_np, spacing=(1.0, 1.0, 1.0), n_bins=16)
+# --- Texture Features ---
+glcm = GLCM(image_np, mask_np, spacing, n_bins=16)
 
 # Calculate ONLY specific features using IDE-friendly constants
 features = glcm.calculate_features([GLCM.JointEntropy, GLCM.Contrast])
@@ -91,9 +92,14 @@ print(features)
 matrix = glcm.get_matrix(angle=(0, 1, 0))
 print(matrix.shape) 
 # -> (16, 16)
-```
 
-### 2. Feature Map Generation (Visualization)
+# --- Non-Texture Features ---
+stats = IntensityBasedStatistical(image_np, mask_np, spacing)
+stat_features = stats.calculate_features([IntensityBasedStatistical.Mean, IntensityBasedStatistical.Skewness])
+```
+>Note regarding Discretized Intensity-Based Statistics: Discretized IntensityBasedStatisticalFeatures are obtained by passing pre-discretized image data to the standard IntensityBasedStatisticalFeature class.
+
+### 2. Feature Map Generation (Visualization Texture Feature)
 Generate 2D/3D parametric feature maps using a sliding window. RadiomicsJ optimizes this heavily by supporting strided calculations in Java followed by fast scipy-based linear interpolation in Python, drastically reducing computation time while keeping boundaries smooth and clean.
 
 ```python
