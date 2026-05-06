@@ -39,6 +39,7 @@ setup(
     install_requires=[
         "jpype1>=1.3.0",
         "numpy",
-        "pandas"
+        "pandas",
+        "scipy"
     ],
 )
