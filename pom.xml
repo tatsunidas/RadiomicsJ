@@ -251,10 +251,10 @@
 			                </arguments>
 			            </configuration>
 			        </execution>
-			
 			        <execution>
 			            <id>anaconda-upload</id>
-			            <phase>deploy</phase>
+			            <!-- skip this execution, if you require this exec, replace "none" to "deploy" -->
+			            <phase>none</phase>
 			            <goals>
 			                <goal>exec</goal>
 			            </goals>
