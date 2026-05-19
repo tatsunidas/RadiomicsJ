@@ -33,10 +33,10 @@ def test_visualization_map():
         "useBinCount": True,
         "nBins": 16
     }
-
+    
     print("--- 2. Feature Mapの計算開始 ---")
     # 🌟 ここがポイント：stride=2 で間引き計算を行い、Python側で元のサイズに補間します
-	feature_map = generate_feature_map(
+    feature_map = generate_feature_map(
         image_np=image_np,
         mask_np=mask_np,
         mask_label=1,
@@ -75,6 +75,9 @@ def test_visualization_map():
     # 💡 描画のテクニック：背景（マスクが0の場所）を np.nan にすると、
     # 　Matplotlibがそこを透明（または白）として綺麗に描画してくれます。
     fmap_slice = feature_map[target_z, :, :].copy()
+    
+    print(fmap_slice.min(), fmap_slice.max())
+    
     fmap_slice[mask_np[target_z, :, :] == 0] = np.nan
     
     im3 = ax.imshow(fmap_slice, cmap='jet') # 特徴量マップは jet 等のカラーマップが見やすいです

@@ -12,10 +12,6 @@ It is using the imagej for the image processing backend.
 
 See, pom.xml.
 
-### Externals
-- jog-fat.jar
-- nifti_io.jar
-
 ## Image-Preprocessing
 
 ### Resampling(2D/3D)
@@ -332,6 +328,10 @@ res.show(RadiomicsJ.resultWindowTitle);
 # Maven repo
 
 https://central.sonatype.com/artifact/io.github.tatsunidas/radiomicsj/overview
+
+# Python wrapper
+
+PyPI: https://pypi.org/project/radiomicsj/
 
 # Development
 
