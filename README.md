@@ -429,6 +429,33 @@ for (ImagePlus fmap : fmaps.values()) {
 Generating a map calls the feature calculation at every voxel, therefore it takes a long time.
 A larger `stride` reduces the output size and the calculation time.
 
+### The margin around the roi
+
+A voxel on the edge of the roi sees a window that the roi only partly fills, so
+its value is computed from fewer voxels than a voxel in the middle and reads
+differently for that reason alone, not because the texture differs. Since 2.3.0
+the mask is therefore grown by a margin, **3 voxels by default**, before the
+windows are cut. Setting the margin to `filterSize / 2` guarantees a full window
+everywhere.
+
+The margin only widens the mask the windows come from. The map still carries
+values exactly on the original roi and has the geometry of the input image. If
+the grown mask would reach past the edge of the image, the image is padded
+first, by marching outwards from the border and filling each new voxel with the
+mean of the neighbours already known, so that the padding carries the border
+intensity outwards without inventing an edge.
+
+```java
+FeatureVisualizationMap.generate(imp, mask, slice, filter_size, d2_mode, stride,
+        margin, GLCMFeatures.class, settings, GLCMFeatureType.JointEntropy);
+```
+
+```python
+radiomicsj.generate_feature_map(..., margin=3)
+```
+
+Pass `0` to reproduce the behaviour before 2.3.0.
+
 # GLAM : gray level affinity metrics
 
 GLAM asks the question a co-occurrence matrix asks, but at every distance at once.

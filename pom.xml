@@ -128,7 +128,12 @@
 			<plugin>
 				<groupId>org.sonatype.central</groupId>
 				<artifactId>central-publishing-maven-plugin</artifactId>
-				<version>0.3.0</version>
+				<!--
+					0.3.0 could upload a bundle but not read the status back: the portal
+					answers with a "warnings" field that version cannot deserialise, so the
+					build failed after a successful upload.
+				-->
+				<version>0.8.0</version>
 				<extensions>true</extensions>
 				<configuration>
 					<publishingServerId>central</publishingServerId>

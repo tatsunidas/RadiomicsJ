@@ -21,9 +21,11 @@ RadiomicsJ 2.3.0.
 
 ## 1. The data
 
-The **IBSI CT radiomics phantom**: one lung cancer CT with a delineated gross
-tumour volume, published by the Image Biomarker Standardisation Initiative as
-the reference case for their feature validation.
+The **IBSI CT radiomics phantom**: one CT with a delineated tumour volume,
+published by the Image Biomarker Standardisation Initiative as the reference
+case for their feature validation. It was contributed by Philippe Lambin and
+published by CancerData, and is licensed **CC BY-NC 3.0**, so it is used here
+under those terms and not redistributed.
 
 | | |
 |---|---|
@@ -36,6 +38,8 @@ the reference case for their feature validation.
 | intensity range | -1000 to 3065 HU |
 | roi label | 1 |
 | roi voxels | 125256 |
+| licence | Creative Commons Attribution-NonCommercial 3.0 Unported |
+| please cite | Lambin P. Radiomics Digital Phantom, CancerData (2016), doi 10.17195/candat.2016.08.1 |
 
 **The image is not redistributed with RadiomicsJ.** Download it from the
 repository above. To verify you have the same files:

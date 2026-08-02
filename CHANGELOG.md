@@ -137,6 +137,27 @@ exactly. The fourth is a correctness fix.
   ground.
 
 
+### Changed, feature visualization map
+
+- **The roi is grown by a margin before the analysis windows are cut**, 3 voxels
+  by default, configurable through the new `margin` argument of
+  `FeatureVisualizationMap.generate` / `generateFeatureMap` and of the python
+  `generate_feature_map`. A voxel on the edge of the roi used to see a window
+  the roi only partly filled, so its value was computed from fewer voxels than a
+  voxel in the middle and differed for that reason alone. The margin only widens
+  the mask the windows come from: the map still carries values exactly on the
+  original roi and keeps the geometry of the input image. When the grown mask
+  would reach past the edge of the image, the image is padded first by marching
+  outwards from the border and filling each new voxel with the mean of the
+  neighbours already known, which carries the border intensity outwards without
+  inventing an edge. Pass `0` for the previous behaviour.
+
+### Changed, build
+
+- `central-publishing-maven-plugin` 0.3.0 to 0.8.0. 0.3.0 could upload a bundle
+  but not read the status back, so `mvn deploy` ended in a BUILD FAILURE after a
+  successful upload.
+
 ### Fixed
 
 - The python test of the IBSI digital phantom looked for the data sets under

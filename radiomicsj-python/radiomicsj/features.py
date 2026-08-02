@@ -679,9 +679,21 @@ def _numpy_to_imageplus(arr: np.ndarray, spacing: tuple = (1.0, 1.0, 1.0)):
  
 def generate_feature_map(image_np: np.ndarray, mask_np: np.ndarray, mask_label: int, spacing: tuple, 
                          feature_class: type, feature_id: str, settings: dict,
-                         filter_size: int = 7, d2_mode: bool = False, stride: int = 1, slice_idx: int = -1) -> np.ndarray:
+                         filter_size: int = 7, d2_mode: bool = False, stride: int = 1, slice_idx: int = -1,
+                         margin: int = 3) -> np.ndarray:
     """
     指定した特徴量の可視化マップ(Feature Map)を生成し、補間して返す
+
+    margin : ROI をこのボクセル数だけ膨張させてから解析窓を切り出します。
+             ROI の辺縁のボクセルは、窓の一部しか ROI に埋まらないため、
+             テクスチャの違いではなく「窓が欠けている」という理由だけで
+             中央部と違う値になります。膨張させることで、辺縁のボクセルも
+             満たされた近傍で測れるようになります。
+             膨張が画像の外に出る場合は、元画像を辺縁からマーチングで
+             局所平均を伝播させてパディングし、マスクと大きさを揃えます。
+             返ってくるマップは従来どおり元画像と同じ形状で、値も ROI 上
+             だけに入ります。0 を指定すると 2.3.0 より前と同じ挙動です。
+             既定は 3（推奨フィルタサイズ 7 の半径に対応）。
     """
     _ensure_jvm()
     
@@ -707,6 +719,8 @@ def generate_feature_map(image_np: np.ndarray, mask_np: np.ndarray, mask_label: 
         "useBinCount": str(RadiomicsFeature.USE_BIN_COUNT),
         "nBins": str(RadiomicsFeature.nBins),
         "binWidth": str(RadiomicsFeature.BinWidth),
+        "delta": str(RadiomicsFeature.DELTA),
+        "maxRadius": str(RadiomicsFeature.GLAM_MAX_RADIUS),
     }
     
     # settings を Javaの HashMap に変換
@@ -737,7 +751,7 @@ def generate_feature_map(image_np: np.ndarray, mask_np: np.ndarray, mask_label: 
     # 3. Javaメソッド呼び出し！ (ここでストライド計算が走る)
     print(f"Calculating Map... {feature_class_name} / {feature_id} (Stride: {stride})")
     fmaps_java = FeatureVisualizationMap.generate(
-        image_plus, mask_plus, slice_idx, filter_size, d2_mode, stride,
+        image_plus, mask_plus, slice_idx, filter_size, d2_mode, stride, JInteger(int(margin)),
         target_class, java_settings, enum_array
     )
     
@@ -768,9 +782,15 @@ def generate_feature_map(image_np: np.ndarray, mask_np: np.ndarray, mask_label: 
     
     # NumPyのzoomで微妙にサイズがズレる（1ピクセル等）場合はスライスで補正
     restored_map = restored_map[:z, :h, :w]
-    
+
     # 6. 滲み取り（元のマスク領域外を0にする）
-    restored_map[mask_np < mask_label] = 0.0
+    #    slice_idx で 1 枚だけ生成した場合、マップはその 1 枚しか持たないので、
+    #    マスクも対応するスライスだけを使います。
+    if slice_idx != -1:
+        mask_for_map = mask_np[slice_idx - 1:slice_idx]
+    else:
+        mask_for_map = mask_np
+    restored_map[mask_for_map < mask_label] = 0.0
 
     return restored_map
  
