@@ -465,6 +465,145 @@ class NGLDM(BaseRadiomicsFeature):
         return np.array(java_matrix, dtype=np.float64) if java_matrix else None
 
 
+class GLAM(BaseRadiomicsFeature):
+    """Gray Level Affinity Metrics.
+
+    GLCM が「隣り合う 2 つの濃度値の共起」を数えるのに対し、GLAM は
+    「あらゆる距離での共起」を一度に扱います。ROI のボクセルを相互作用する
+    粒子の混合物とみなし、動径分布関数
+
+        g(alpha, beta, r)
+
+    すなわち「濃度値 alpha のボクセルから距離 r に濃度値 beta のボクセルが
+    見つかる確率が、まったくの偶然に比べて何倍か」を求めます。1 より大きい
+    ときは その距離で 2 つの濃度値が集まり、1 より小さいときは避け合い、
+    1 のときは独立に配置されていることを意味します。
+
+    そこから 19 種類の nBins x nBins 行列（GLAMMatrix）が導かれ、各行列の
+    統計量が 150 個の特徴量になります。
+
+    距離はボクセル格子上で測るため、事前に等方ボクセルへリサンプリング
+    してください。
+
+    参考: Physics-Informed Multiscale Decoding of Tissue Microstructure,
+    The Gray Level Affinity Metrics (GLAM) Framework,
+    Journal of Imaging Informatics in Medicine (2026),
+    doi 10.1007/s10278-026-02132-6
+    """
+
+    # --- Matrix Constants ---
+    RDFPeakPosition = "RDFPeakPosition"
+    RDFDispersionRatio = "RDFDispersionRatio"
+    LogRDFPeakHeight = "LogRDFPeakHeight"
+    LogRDFMedian = "LogRDFMedian"
+    LogRDFVariance = "LogRDFVariance"
+    LogRDFSkewness = "LogRDFSkewness"
+    LogRDFKurtosis = "LogRDFKurtosis"
+    SecondVirialCoefficient = "SecondVirialCoefficient"
+    PotentialEnergy = "PotentialEnergy"
+    Compressibility = "Compressibility"
+    CoordinationNumber = "CoordinationNumber"
+    InverseCorrelationLength = "InverseCorrelationLength"
+    StructuralPressureIndex = "StructuralPressureIndex"
+    ConfigurationalDisorderIndex = "ConfigurationalDisorderIndex"
+    WassersteinDistance = "WassersteinDistance"
+    AssemblyCoupling = "AssemblyCoupling"
+    PhenotypicDistance = "PhenotypicDistance"
+    LocalPackingFraction = "LocalPackingFraction"
+    FrustrationIndex = "FrustrationIndex"
+
+    # --- Statistic Constants ---
+    Mean = "Mean"
+    Variance = "Variance"
+    Skewness = "Skewness"
+    Kurtosis = "Kurtosis"
+    Minimum = "Minimum"
+    Maximum = "Maximum"
+    DiagonalMean = "DiagonalMean"
+    OffDiagonalMean = "OffDiagonalMean"
+
+    def __init__(self, image_np: np.ndarray, mask_np: np.ndarray, spacing: tuple = (1.0, 1.0, 1.0),
+                 label: int = 1, use_bin_count: bool = True, n_bins: int = 32, bin_width: float = 25.0,
+                 max_radius: int = 100, boundary_correction: bool = True,
+                 max_reference_voxels: int = 0, num_randomisations: int = 0, random_seed: int = 42,
+                 savitzky_golay_window: int = 7, savitzky_golay_polynomial: int = 3,
+                 peak_prominence: float = 4.0, max_local_shell_radius: int = 30):
+        """
+        max_radius            動径分布関数を評価する最大距離（ボクセル単位）
+        boundary_correction   各距離シェルを ROI 内に残る割合で正規化するか。
+                              True にすると g(r) が ROI の形に引きずられません。
+                              False は GLAM 参照実装と同じ理想球シェルになります。
+        max_reference_voxels  濃度値ごとの中心ボクセル数。0 は ROI 全体（厳密）。
+                              大きな ROI では正の値にすると高速化できます。
+        num_randomisations    ランダム状態を推定するシャッフル回数。
+                              0（既定）は厳密な閉形式を使い、再現性があり
+                              サンプリング雑音もありません。
+        """
+        super().__init__(image_np, mask_np, spacing)
+
+        JInt = jpype.JClass("java.lang.Integer")
+        JLong = jpype.JClass("java.lang.Long")
+        JDouble = jpype.JClass("java.lang.Double")
+        JBoolean = jpype.JClass("java.lang.Boolean")
+        j_n_bins = JInt(n_bins) if use_bin_count else None
+        j_bin_width = JDouble(bin_width) if not use_bin_count else None
+
+        # アルゴリズム設定は RadiomicsJ の静的フィールド経由で渡します
+        RadiomicsJ_class = jpype.JClass("io.github.tatsunidas.radiomics.main.RadiomicsJ")
+        RadiomicsJ_class.glamBoundaryCorrection = JBoolean(bool(boundary_correction))
+        RadiomicsJ_class.glamMaxReferenceVoxels = JInt(int(max_reference_voxels))
+        RadiomicsJ_class.glamNumRandomisations = JInt(int(num_randomisations))
+        RadiomicsJ_class.glamRandomSeed = JLong(int(random_seed))
+        RadiomicsJ_class.glamSavitzkyGolayWindow = JInt(int(savitzky_golay_window))
+        RadiomicsJ_class.glamSavitzkyGolayPolynomial = JInt(int(savitzky_golay_polynomial))
+        RadiomicsJ_class.glamPeakProminence = JDouble(float(peak_prominence))
+        RadiomicsJ_class.glamMaxLocalShellRadius = JInt(int(max_local_shell_radius))
+        RadiomicsJ_class.glamMaxRadius = JInt(int(max_radius))
+
+        self._enum_class = jpype.JClass("io.github.tatsunidas.radiomics.features.GLAMFeatureType")
+        self._matrix_enum_class = jpype.JClass("io.github.tatsunidas.radiomics.features.GLAMMatrixType")
+        GLAMFeatures_class = jpype.JClass("io.github.tatsunidas.radiomics.features.GLAMFeatures")
+        self._java_instance = GLAMFeatures_class(
+            self.image_plus, self.mask_plus, label,
+            use_bin_count, j_n_bins, j_bin_width, JInt(int(max_radius))
+        )
+
+    def feature_name(self, matrix: str, statistic: str) -> str:
+        """行列名と統計量名から特徴量名を組み立てます。"""
+        return f"{matrix}_{statistic}"
+
+    def get_matrix(self, matrix_type: str) -> np.ndarray:
+        """濃度値親和性行列そのものを nBins x nBins の配列で返します。
+
+        行 alpha, 列 beta は離散化後の濃度値 alpha+1, beta+1 に対応します。
+        """
+        java_enum = getattr(self._matrix_enum_class, matrix_type)
+        java_matrix = self._java_instance.getMatrix(java_enum)
+        return np.array(java_matrix, dtype=np.float64) if java_matrix else None
+
+    def get_matrices(self) -> dict:
+        """すべての親和性行列を辞書で返します。"""
+        return {str(t.name()): self.get_matrix(str(t.name()))
+                for t in self._matrix_enum_class.values()}
+
+    def get_rdf(self, randomised: bool = False) -> np.ndarray:
+        """動径分布関数を g[r, alpha, beta] の形で返します（r は 1 から）。
+
+        randomised=True にすると、比較対象であるランダム配置の期待値を返します。
+        """
+        java_rdf = (self._java_instance.getRandomRadialDistributionFunction() if randomised
+                    else self._java_instance.getRadialDistributionFunction())
+        return np.array(java_rdf, dtype=np.float64) if java_rdf else None
+
+    @property
+    def max_radius(self) -> int:
+        return int(self._java_instance.getMaxRadius())
+
+    @property
+    def n_bins(self) -> int:
+        return int(self._java_instance.getNumberOfBins())
+
+
 class NGTDM(BaseRadiomicsFeature):
 	
 	# --- Feature Constants ---

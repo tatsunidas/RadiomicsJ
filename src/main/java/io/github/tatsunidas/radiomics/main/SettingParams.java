@@ -60,6 +60,15 @@ public enum SettingParams {
 	INT_deltaGLCM,//GLCM distance
 	INT_deltaNGTDM,//NGTDM distance
 	INT_deltaNGLDM,//NGLDM distance
+	INT_GLAM_maxRadius,//GLAM largest distance of the radial distribution function, in voxels
+	INT_GLAM_maxReferenceVoxels,//GLAM reference voxels per gray level, 0 uses the whole roi
+	BOOL_GLAM_boundaryCorrection,//GLAM normalise each shell by the part of it inside the roi
+	INT_GLAM_numRandomisations,//GLAM shuffles of the randomised state, 0 uses the closed form
+	LONG_GLAM_randomSeed,//GLAM seed of those shuffles
+	INT_GLAM_savitzkyGolayWindow,//GLAM smoothing window applied to g(r)
+	INT_GLAM_savitzkyGolayPolynomial,//GLAM order of the smoothing polynomial
+	DOUBLE_GLAM_peakProminence,//GLAM prominence a peak of g(r) needs to start a shell
+	INT_GLAM_maxLocalShellRadius,//GLAM search range for the first coordination shell
 	STRING_weightingNorm,
 	INTARRAY_box_sizes,//to calsulate fractal D
 	DOUBLEARRAY_resamplingFactorXYZ,
@@ -75,6 +84,7 @@ public enum SettingParams {
 	BOOL_enableGLRLM,
 	BOOL_enableGLSZM,
 	BOOL_enableGLDZM,
+	BOOL_enableGLAM,
 	BOOL_enableNGTDM,
 	BOOL_enableNGLDM,
 	BOOL_enableHomological,

@@ -1,5 +1,149 @@
 # Changelog
 
+## 2.3.0
+
+Adds the GLAM feature family, gray level affinity metrics.
+
+### Added, GLAM
+
+GLAM asks the question a co-occurrence matrix asks, but at every distance at once.
+It treats the roi voxels as a mixture of interacting particles and computes the
+radial distribution function `g(alpha, beta, r)`: how likely a voxel of gray level
+beta is at distance r from a voxel of gray level alpha, relative to pure chance.
+From those curves it derives 19 nBins x nBins affinity matrices and summarises
+each of them with 8 statistics, giving **150 new features**.
+
+Reference: Physics-Informed Multiscale Decoding of Tissue Microstructure, The Gray
+Level Affinity Metrics (GLAM) Framework, Journal of Imaging Informatics in
+Medicine (2026), doi 10.1007/s10278-026-02132-6.
+
+- `GLAMFeatures`, `GLAMFeatureType`, `GLAMMatrixType`, `GLAMStatistic`,
+  and the package private `GLAMNumerics`.
+- The affinity matrices: RDFPeakPosition, RDFDispersionRatio, LogRDFPeakHeight,
+  LogRDFMedian, LogRDFVariance, LogRDFSkewness, LogRDFKurtosis,
+  SecondVirialCoefficient, PotentialEnergy, Compressibility, CoordinationNumber,
+  InverseCorrelationLength, StructuralPressureIndex,
+  ConfigurationalDisorderIndex, WassersteinDistance, AssemblyCoupling,
+  PhenotypicDistance, LocalPackingFraction, FrustrationIndex.
+- `GLAMFeatures.getMatrix(GLAMMatrixType)` and
+  `GLAMFeatures.getRadialDistributionFunction()` expose the descriptors
+  themselves, for interpretation and visualisation.
+- Settings: `BOOL_enableGLAM`, `INT_GLAM_maxRadius`,
+  `BOOL_GLAM_boundaryCorrection`, `INT_GLAM_maxReferenceVoxels`,
+  `INT_GLAM_numRandomisations`, `LONG_GLAM_randomSeed`,
+  `INT_GLAM_savitzkyGolayWindow`, `INT_GLAM_savitzkyGolayPolynomial`,
+  `DOUBLE_GLAM_peakProminence`, `INT_GLAM_maxLocalShellRadius`. They are
+  documented in the sample properties files.
+- Python wrapper: `radiomicsj.GLAM`, with `get_matrix`, `get_matrices`,
+  `get_rdf` and the usual `get_all_features`.
+- ImageJ plugin: a GLAM checkbox.
+- `docs/GLAM_note_ja.md`, the write up with a worked example, and
+  `docs/make_glam_figures.py` with the figures it uses.
+- `docs/GLAM_benchmark_IBSI_CT.md`, a published reference result on the IBSI CT
+  radiomics phantom: the exact conditions, the 150 feature values, the 19
+  affinity matrices and the radial distribution function itself, so that another
+  implementation can be compared and a regression here would be noticed. The
+  preprocessing is IBSI configuration D, and the diagnostics reproduce the IBSI
+  voxel counts (interpolated roi 45985, re-segmented 44465). The image is not
+  redistributed, `docs/GLAM_benchmark_IBSI_CT.md` links to the IBSI data sets
+  repository and gives the checksums. Generator:
+  `src/test/java/radiomics/GLAMBenchmark.java`.
+- `RadiomicsJ.getAnalysisReadyImage()` and `getAnalysisReadyMask()`, the image
+  and intensity mask the feature families actually run on, once `preprocess()`
+  or `execute()` has run.
+
+GLAM is **off by default**. It is not part of the IBSI feature set, and it scans
+every pair of roi voxels, so it costs more than the other families.
+
+### Verified against the reference implementation
+
+Five digital phantoms (checkerboard, layered sphere, random field, clustered
+blobs, empty level) times two normalisation modes were compared element by
+element against the python implementation that accompanies the paper.
+
+| | result |
+| --- | --- |
+| radial distribution function | matches, relative error below 1e-9 |
+| 18 of the 19 affinity matrices | matches, relative error below 1e-9 |
+| InverseCorrelationLength | matches, relative error below 1e-4, see below |
+
+`src/test/java/radiomics/TestGLAMFeatures.java` with the reference values in
+`src/test/resources/glam/`.
+
+### Four deliberate departures from the reference implementation
+
+The first three are switchable, so the reference behaviour can be reproduced
+exactly. The fourth is a correctness fix.
+
+- **The randomised reference state is computed in closed form.** Several GLAM
+  matrices compare the observed arrangement against a roi whose gray levels have
+  been shuffled. Shuffling destroys every spatial correlation and leaves only the
+  geometry of the roi plus the fact that a voxel is never its own neighbour, so
+  that state has an exact expression. Measured against the Monte Carlo estimate,
+  the deviation falls exactly as one over the square root of the number of
+  shuffles (0.0165, 0.0048, 0.0059, 0.0018 for 10, 40, 160 and 640 shuffles), so
+  the closed form is its unbiased limit. The reference draws four shuffles, which
+  leaves a noise floor in every derived feature. Set `INT_GLAM_numRandomisations`
+  above zero to use the sampled estimate instead.
+- **Boundary correction is on by default.** The paper states that a geometric
+  availability factor normalises each shell for roi edge effects, but the
+  reference pipeline does not pass it and uses ideal spherical shells, which lets
+  the shape of the roi leak into g(r). Set `BOOL_GLAM_boundaryCorrection=0` for
+  the reference behaviour.
+- **The correlation length fit is converged.** The reference calls curve_fit with
+  `ftol=1e-3`, which stops well short of the minimum: refitting the identical
+  data with a tight stopping rule reaches a strictly lower residual in 73 of 76
+  cases.
+- **A gray level that does not occur in the roi is reported as undefined, not as
+  zero.** It has no reference voxel to measure from and a density of zero to
+  divide by, so its whole row and column are undefined. The reference fills those
+  cells with zero and then computes on them, which reports a second virial
+  coefficient of exactly zero (no net affinity), a peak position of one and a
+  finite phenotypic distance for a gray level that is not in the image; through
+  `AssemblyCoupling`, which differences across the gray levels, those fabricated
+  zeros also reach neighbouring levels that are perfectly good. RadiomicsJ marks
+  them NaN and the reduction statistics skip them, so a feature is the statistic
+  over the occupied gray levels. Empty bins are ordinary in practice: 2 of the 32
+  bins are empty in the IBSI CT benchmark. Locked in by the `empty_level`
+  phantom, which also checks that every occupied gray level still matches the
+  reference exactly.
+
+### Known limits of GLAM
+
+- GLAM measures distances on the voxel lattice, so the roi should be resampled to
+  isotropic voxels first. A warning is logged otherwise.
+- GLAM is a three dimensional descriptor, defined over spherical shells. It is
+  skipped under `force2D` and rejects single slice input rather than reporting
+  numbers whose normalisation no longer matches their definition.
+- The cost grows with the square of the roi size. On 8 cores a dense roi of 64000
+  voxels takes about 7 s, one of 125000 voxels about 22 s. Sub sampling the
+  centres with `INT_GLAM_maxReferenceVoxels=1000` ran about 3 times faster on a
+  113000 voxel roi and moved the second virial coefficient by 0.15 %.
+- **ConfigurationalDisorderIndex loses most of its information under boundary
+  correction, and FrustrationIndex with it.** The index divides the observed
+  ordering by how far the observed and the randomised state differ. Boundary
+  correction pins the randomised state to one, which drives that difference to
+  zero and the ratio to one: on a blocky phantom the spread over the matrix
+  falls from 1.12 without the correction to 0.17 with it, and on the IBSI CT
+  phantom every element sits at one. Where the arrangement really is random both
+  logarithms approach zero instead and the ratio becomes numerically unstable.
+  In other words its variation comes from the geometry of the roi rather than
+  from the tissue. Set `BOOL_GLAM_boundaryCorrection=0` when those two matrices
+  matter. See `docs/images/glam_boundary_correction.png`.
+- Only the statistical mechanics classes of the framework are implemented. The
+  geometric and topological classes (fractal dimension, lacunarity, Betti
+  numbers, percolation, granulometry, nematic order) are not part of this
+  release; `FractalFeatures` and `BettiNumberMap` already cover part of that
+  ground.
+
+
+### Fixed
+
+- The python test of the IBSI digital phantom looked for the data sets under
+  `src/main/resources`, where they no longer are since 2.2.0 moved them to
+  `src/test/resources`, and read the reference values through an absolute path
+  from one developer machine.
+
 ## 2.2.0
 
 This release makes RadiomicsJ pass the IBSI benchmark for the CT radiomics phantom.

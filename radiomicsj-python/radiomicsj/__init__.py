@@ -15,6 +15,7 @@ from .features import (
     GLRLM,
     GLSZM,
     GLDZM,
+    GLAM,
     NGLDM,
     NGTDM
 )

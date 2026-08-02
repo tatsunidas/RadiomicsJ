@@ -31,6 +31,9 @@ public interface RadiomicsFeature {
 	public static final String BinCount_IVH = "BinCount_IVH";
 	
 	public static final String BOX_SIZES = "BOX_SIZES";
+
+	//GLAM, largest distance in voxels at which the radial distribution is evaluated
+	public static final String GLAM_MAX_RADIUS = "GLAM_MAX_RADIUS";
 	
 	/**
 	 * calculate feature

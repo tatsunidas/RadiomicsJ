@@ -7,3 +7,7 @@
 # See pypi.env.example for the template.
 /pypi.env
 /.pypirc
+
+# python bytecode
+__pycache__/
+*.pyc

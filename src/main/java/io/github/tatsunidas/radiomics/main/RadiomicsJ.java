@@ -52,6 +52,8 @@ import io.github.tatsunidas.radiomics.features.FractalFeatureType;
 import io.github.tatsunidas.radiomics.features.FractalFeatures;
 import io.github.tatsunidas.radiomics.features.GLCMFeatureType;
 import io.github.tatsunidas.radiomics.features.GLCMFeatures;
+import io.github.tatsunidas.radiomics.features.GLAMFeatureType;
+import io.github.tatsunidas.radiomics.features.GLAMFeatures;
 import io.github.tatsunidas.radiomics.features.GLDZMFeatureType;
 import io.github.tatsunidas.radiomics.features.GLDZMFeatures;
 import io.github.tatsunidas.radiomics.features.GLRLMFeatureType;
@@ -506,6 +508,64 @@ public class RadiomicsJ {
 	public static Integer deltaNGLevelDM = 1;//distance
 	
 	/**
+	 * Texture param:GLAM largest distance, in voxels, at which the radial
+	 * distribution function is evaluated.
+	 */
+	public static Integer glamMaxRadius = 100;
+
+	/**
+	 * Texture param:GLAM reference voxels per gray level.
+	 * Zero uses every voxel of the roi, which is exact. A positive value takes an
+	 * evenly spread subset instead, trading accuracy for speed on very large rois.
+	 */
+	public static Integer glamMaxReferenceVoxels = 0;
+
+	/**
+	 * Texture param:GLAM boundary correction.
+	 * When true, each distance shell is normalised by the part of it that still
+	 * lies inside the roi, so that g(r) is not confounded by the shape of the roi.
+	 * When false, ideal spherical shells are used, which reproduces the reference
+	 * implementation of the GLAM framework.
+	 */
+	public static Boolean glamBoundaryCorrection = true;
+
+	/**
+	 * Texture param:GLAM number of shuffles used to estimate the randomised state.
+	 * Zero, the default, uses the exact closed form of that state instead, which is
+	 * both reproducible and free of sampling noise. See GLAMFeatures.
+	 */
+	public static Integer glamNumRandomisations = 0;
+
+	/**
+	 * Texture param:GLAM seed of the shuffles, only used when
+	 * glamNumRandomisations is above zero.
+	 */
+	public static Long glamRandomSeed = 42L;
+
+	/**
+	 * Texture param:GLAM Savitzky-Golay smoothing window applied to g(r) before
+	 * peaks and gradients are located. Must be an odd number.
+	 */
+	public static Integer glamSavitzkyGolayWindow = 7;
+
+	/**
+	 * Texture param:GLAM order of the polynomial of the Savitzky-Golay filter.
+	 */
+	public static Integer glamSavitzkyGolayPolynomial = 3;
+
+	/**
+	 * Texture param:GLAM minimum prominence a maximum of g(r) needs to count as the
+	 * first coordination shell.
+	 */
+	public static Double glamPeakProminence = 4d;
+
+	/**
+	 * Texture param:GLAM largest distance searched for the first coordination shell
+	 * when no prominent peak is found.
+	 */
+	public static Integer glamMaxLocalShellRadius = 30;
+
+	/**
 	 * (Not implemented)
 	 * weighting norm type
 	 */
@@ -565,7 +625,14 @@ public class RadiomicsJ {
 	boolean BOOL_enableNGTDM = true;
 	boolean BOOL_enableNGLDM = true;
 	boolean BOOL_enableFractal = true;
-	
+
+	/**
+	 * GLAM, gray level affinity metrics.
+	 * Off by default: it is not part of the IBSI feature set, and it scans every
+	 * pair of roi voxels, so it costs noticeably more than the other families.
+	 */
+	boolean BOOL_enableGLAM = false;
+
 	/**
 	 * Not implemented.
 	 */
@@ -670,6 +737,15 @@ public class RadiomicsJ {
 		deltaGLCM = 1;
 		deltaNGToneDM = 1;
 		deltaNGLevelDM = 1;
+		glamMaxRadius = 100;
+		glamMaxReferenceVoxels = 0;
+		glamBoundaryCorrection = true;
+		glamNumRandomisations = 0;
+		glamRandomSeed = 42L;
+		glamSavitzkyGolayWindow = 7;
+		glamSavitzkyGolayPolynomial = 3;
+		glamPeakProminence = 4d;
+		glamMaxLocalShellRadius = 30;
 		weightingNorm = null;
 		box_sizes = null;
 		resamplingFactorXYZ = null;
@@ -1018,6 +1094,105 @@ public class RadiomicsJ {
 							continue;
 						}
 					}
+					if(keyString.equals(SettingParams.INT_GLAM_maxRadius.name())) {
+						try{
+							Integer n = Integer.valueOf(val);
+							if(n < 2) {
+								n = 2;
+							}
+							RadiomicsJ.glamMaxRadius = n;
+						}catch(NumberFormatException e) {
+							//keep default
+							continue;
+						}
+					}
+					if(keyString.equals(SettingParams.INT_GLAM_maxReferenceVoxels.name())) {
+						try{
+							Integer n = Integer.valueOf(val);
+							if(n < 0) {
+								n = 0;
+							}
+							RadiomicsJ.glamMaxReferenceVoxels = n;
+						}catch(NumberFormatException e) {
+							//keep default
+							continue;
+						}
+					}
+					if(keyString.equals(SettingParams.BOOL_GLAM_boundaryCorrection.name())) {
+						RadiomicsJ.glamBoundaryCorrection = val.equals("1") || val.toLowerCase().equals("true") ? true:false;
+					}
+					if(keyString.equals(SettingParams.INT_GLAM_numRandomisations.name())) {
+						try{
+							Integer n = Integer.valueOf(val);
+							if(n < 0) {
+								n = 0;
+							}
+							RadiomicsJ.glamNumRandomisations = n;
+						}catch(NumberFormatException e) {
+							//keep default
+							continue;
+						}
+					}
+					if(keyString.equals(SettingParams.LONG_GLAM_randomSeed.name())) {
+						try{
+							RadiomicsJ.glamRandomSeed = Long.valueOf(val);
+						}catch(NumberFormatException e) {
+							//keep default
+							continue;
+						}
+					}
+					if(keyString.equals(SettingParams.INT_GLAM_savitzkyGolayWindow.name())) {
+						try{
+							Integer n = Integer.valueOf(val);
+							if(n < 3) {
+								n = 3;
+							}
+							if(n % 2 == 0) {
+								//the window has to be odd, so that it has a centre sample
+								n = n + 1;
+							}
+							RadiomicsJ.glamSavitzkyGolayWindow = n;
+						}catch(NumberFormatException e) {
+							//keep default
+							continue;
+						}
+					}
+					if(keyString.equals(SettingParams.INT_GLAM_savitzkyGolayPolynomial.name())) {
+						try{
+							Integer n = Integer.valueOf(val);
+							if(n < 1) {
+								n = 1;
+							}
+							RadiomicsJ.glamSavitzkyGolayPolynomial = n;
+						}catch(NumberFormatException e) {
+							//keep default
+							continue;
+						}
+					}
+					if(keyString.equals(SettingParams.DOUBLE_GLAM_peakProminence.name())) {
+						try{
+							Double n = Double.valueOf(val);
+							if(n < 0d) {
+								n = 0d;
+							}
+							RadiomicsJ.glamPeakProminence = n;
+						}catch(NumberFormatException e) {
+							//keep default
+							continue;
+						}
+					}
+					if(keyString.equals(SettingParams.INT_GLAM_maxLocalShellRadius.name())) {
+						try{
+							Integer n = Integer.valueOf(val);
+							if(n < 1) {
+								n = 1;
+							}
+							RadiomicsJ.glamMaxLocalShellRadius = n;
+						}catch(NumberFormatException e) {
+							//keep default
+							continue;
+						}
+					}
 					if(keyString.equals(SettingParams.STRING_weightingNorm.name())) {
 						if(val.length()<1) {
 							RadiomicsJ.weightingNorm = null;//default
@@ -1146,6 +1321,9 @@ public class RadiomicsJ {
 					if(keyString.equals(SettingParams.BOOL_enableGLDZM.name())) {
 						this.BOOL_enableGLDZM = val.equals("1") || val.toLowerCase().equals("true") ? true:false;
 					}
+					if(keyString.equals(SettingParams.BOOL_enableGLAM.name())) {
+						this.BOOL_enableGLAM = val.equals("1") || val.toLowerCase().equals("true") ? true:false;
+					}
 					if(keyString.equals(SettingParams.BOOL_enableNGTDM.name())) {
 						this.BOOL_enableNGTDM = val.equals("1") || val.toLowerCase().equals("true") ? true:false;
 					}
@@ -1173,6 +1351,29 @@ public class RadiomicsJ {
 	 * @param targetLabel
 	 * @throws Exception
 	 */
+	/**
+	 * The image the feature families are actually computed on, that is after
+	 * resampling and standardisation. It is available once preprocess() or
+	 * execute() has run, and is null before that.
+	 *
+	 * @return analysis ready image, or null
+	 */
+	public ImagePlus getAnalysisReadyImage() {
+		return resampledImp;
+	}
+
+	/**
+	 * The intensity mask the feature families are actually computed on, that is
+	 * after resampling and re-segmentation, with the target label converted to 1.
+	 * It is available once preprocess() or execute() has run, and is null before
+	 * that.
+	 *
+	 * @return analysis ready mask, or null
+	 */
+	public ImagePlus getAnalysisReadyMask() {
+		return resegmentedMask;
+	}
+
 	public void preprocess(ImagePlus originalImp, ImagePlus originalMask, Integer targetLabel) throws Exception {
 		if(originalMask == null) {
 			int w = originalImp.getWidth();
@@ -1943,6 +2144,48 @@ public class RadiomicsJ {
 			if(IJ_PlugIn)IJ.showProgress(++progress/enableFamilies);
 		}
 		
+		if(BOOL_enableGLAM && img.getNSlices() < 2) {
+			/*
+			 * GLAM measures a radial distribution over spherical shells, so it is only
+			 * defined on a volume. Reporting nothing is better than reporting numbers
+			 * whose normalisation silently no longer matches their definition.
+			 */
+			String reason = force2D ? "force2D is on" : "the image has a single slice";
+			System.out.println("GLAM features are skipped, because " + reason
+					+ ". GLAM is a three dimensional descriptor.");
+			if(IJ_PlugIn) {
+				IJ.log("GLAM features are skipped, because " + reason
+						+ ". GLAM is a three dimensional descriptor.");
+			}
+		} else if(BOOL_enableGLAM) {
+			if(debug) {
+				System.out.println("=================================");
+				System.out.println("GLAM features");
+			}
+			GLAMFeatures glamExecuter = new GLAMFeatures(img,
+														mask,
+														targetLabel,
+														BOOL_USE_FixedBinNumber,
+														nBinsForCalculation,
+														binWidth,
+														RadiomicsJ.glamMaxRadius);
+			for (GLAMFeatureType glam : GLAMFeatureType.values()) {
+				if(excluded.contains(glam.name())) {
+					continue;
+				}
+				Double feature = glamExecuter.calculate(glam.id());
+				if (feature == null || Double.isNaN(feature)) {
+					rt.addValue("GLAM_" + glam.name(), "NaN");
+				} else {
+					rt.addValue("GLAM_" + glam.name(), feature);
+				}
+				if (debug) {
+					System.out.println(glam.name() + ", " + feature);
+				}
+			}
+			if(IJ_PlugIn)IJ.showProgress(++progress/enableFamilies);
+		}
+
 		if(BOOL_enableNGTDM) {
 			if(debug) {
 				System.out.println("=================================");
@@ -2050,6 +2293,7 @@ public class RadiomicsJ {
 		if(BOOL_enableGLRLM)num++;
 		if(BOOL_enableGLSZM)num++;
 		if(BOOL_enableGLDZM)num++;
+		if(BOOL_enableGLAM)num++;
 		if(BOOL_enableNGTDM)num++;
 		if(BOOL_enableNGLDM)num++;
 		if(BOOL_enableFractal)num++;

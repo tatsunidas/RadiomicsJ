@@ -116,13 +116,15 @@ public class My_RadiomicsJPlugin implements PlugIn {
 		final String[] labels = new String[] {
 				"Operational", "Diagnostics", "Morphological", "LocalIntensity", "IntensityStats", 
 				"Histogram", "VolumeHistogram", "GLCM","GLRLM", "GLSZM",
-				"GLDZM", "NGTDM", "NGLDM", "Fractal", "Shape2D"};
+				"GLDZM", "NGTDM", "NGLDM", "Fractal", "Shape2D",
+				"GLAM"};
 		boolean[] defBools = new boolean[] {
 				true,true,true,true,true,
 				true,true,true,true,true,
-				true,true,true,true,false
+				true,true,true,true,false,
+				false//GLAM is not part of IBSI and scans every pair of roi voxels
 				};
-		gd.addCheckboxGroup(3, 5, labels, defBools);
+		gd.addCheckboxGroup(4, 5, labels, defBools);
 		
 		gd.showDialog();
 		
@@ -217,6 +219,8 @@ public class My_RadiomicsJPlugin implements PlugIn {
 					prop.put(SettingParams.BOOL_enableFractal.name(), state ? "true":"false");
 				}else if(label.equals(labels[14])) {
 					prop.put(SettingParams.BOOL_enableShape2D.name(), state ? "true":"false");
+				}else if(label.equals(labels[15])) {
+					prop.put(SettingParams.BOOL_enableGLAM.name(), state ? "true":"false");
 				}
 			}
 			

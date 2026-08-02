@@ -61,6 +61,7 @@ User can set standardization on your needs.
 - Neighbourhood grey tone difference based features
 - Neighbouring grey level dependence based features
 - Fractal based features (not presented in IBSI)
+- Gray level affinity metrics, GLAM (not presented in IBSI, off by default)
 - Shape2D features
 - (developping)Homological features (not presented in IBSI)  
 
@@ -311,7 +312,7 @@ If you want quick example with GUI, see [RadiomicsJ IJ-PlugIn](https://sites.goo
 ```
 <groupId>io.github.tatsunidas</groupId>
 <artifactId>radiomicsj</artifactId>
-<version>2.2.0</version>
+<version>2.3.0</version>
 ```
 ## Example 1 : feature extraction, 3D basis
 
@@ -427,6 +428,105 @@ for (ImagePlus fmap : fmaps.values()) {
 
 Generating a map calls the feature calculation at every voxel, therefore it takes a long time.
 A larger `stride` reduces the output size and the calculation time.
+
+# GLAM : gray level affinity metrics
+
+GLAM asks the question a co-occurrence matrix asks, but at every distance at once.
+It treats the roi voxels as a mixture of interacting particles and computes the
+radial distribution function
+
+```
+g(alpha, beta, r) = how likely a voxel of gray level beta is at distance r from a
+                    voxel of gray level alpha, relative to pure chance
+```
+
+A value above one means the two gray levels cluster at that distance, below one
+means they avoid each other, and one means they are arranged independently.
+From those curves 19 nBins x nBins matrices are derived (second virial
+coefficient, potential of mean force, coordination number, correlation length,
+structural pressure, configurational disorder, transport distances, ...) and each
+matrix is summarised by 8 statistics, giving 150 features.
+
+Reference: Physics-Informed Multiscale Decoding of Tissue Microstructure,
+The Gray Level Affinity Metrics (GLAM) Framework, Journal of Imaging Informatics
+in Medicine (2026), https://doi.org/10.1007/s10278-026-02132-6
+
+GLAM is **off by default**: it is not part of the IBSI feature set, and it scans
+every pair of roi voxels, so it costs more than the other families.
+
+## Example 5 : GLAM
+
+```java
+import ij.ImagePlus;
+import io.github.tatsunidas.radiomics.features.GLAMFeatureType;
+import io.github.tatsunidas.radiomics.features.GLAMFeatures;
+import io.github.tatsunidas.radiomics.features.GLAMMatrixType;
+
+// GLAM measures distances on the voxel lattice, so resample to isotropic voxels first.
+ImagePlus imp = IJ.openImage("image.tif");
+ImagePlus mask = IJ.openImage("mask.tif");
+
+GLAMFeatures glam = new GLAMFeatures(
+        imp,
+        mask,
+        1,     // mask label
+        true,  // use a fixed bin number
+        32,    // number of bins
+        null,  // bin width, used when the fixed bin number is off
+        50);   // largest distance of the radial distribution, in voxels
+
+for (GLAMFeatureType type : GLAMFeatureType.values()) {
+    System.out.println(type.name() + " : " + glam.calculate(type.id()));
+}
+
+// the affinity matrix itself, for interpretation or visualisation
+double[][] virial = glam.getMatrix(GLAMMatrixType.SecondVirialCoefficient);
+
+// the radial distribution function itself, indexed as g[r][alpha][beta], r from 1
+double[][][] g = glam.getRadialDistributionFunction();
+```
+
+Through the settings, GLAM is switched on with `BOOL_enableGLAM=1`. See
+`settings_3D_example.properties` for every GLAM parameter.
+
+A worked example that shows what GLAM sees and the GLCM does not is in
+`src/test/java/radiomics/GLAMExample.java`:
+
+```
+mvn test-compile exec:java -Dexec.mainClass=radiomics.GLAMExample -Dexec.classpathScope=test
+```
+
+It builds three phantoms with an identical intensity histogram whose gray levels
+are organised on different length scales, and prints how each family responds.
+
+Notes and limits:
+
+- **Resample to isotropic voxels first.** A warning is logged otherwise.
+- **GLAM is three dimensional.** It is skipped under `force2D` and on single slices.
+- **Cost grows with the square of the roi size.** On 8 cores, a dense roi of
+  64000 voxels takes about 7 s, one of 125000 voxels about 22 s. Set
+  `INT_GLAM_maxReferenceVoxels` to sub sample the centres on large rois: on a
+  113000 voxel roi, 1000 centres per gray level ran about 3 times faster and
+  moved the second virial coefficient by 0.15 %.
+- **The randomised reference state is exact.** RadiomicsJ uses the closed form of
+  the shuffled state instead of a few random shuffles, so the values are
+  reproducible and carry no sampling noise. Set `INT_GLAM_numRandomisations`
+  above zero to fall back to the sampled estimate.
+- **`ConfigurationalDisorderIndex` and `FrustrationIndex` need
+  `BOOL_GLAM_boundaryCorrection=0`.** They divide the observed ordering by how
+  far the observed and the randomised state differ, and boundary correction pins
+  the randomised state to one, which collapses the ratio to one. The other 17
+  matrices are unaffected.
+
+Figures that show all of this, and the script that produces them, are in
+[docs/images](docs/images) and [docs/make_glam_figures.py](docs/make_glam_figures.py).
+
+A published reference result on the IBSI CT radiomics phantom, with the exact
+conditions and the 150 values, is in
+[docs/GLAM_benchmark_IBSI_CT.md](docs/GLAM_benchmark_IBSI_CT.md).
+
+The Japanese write up with the full worked example is in
+[docs/GLAM_note_ja.md](docs/GLAM_note_ja.md).
 
 # Maven repo
 
