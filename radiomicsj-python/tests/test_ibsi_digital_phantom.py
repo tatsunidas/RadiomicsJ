@@ -5,7 +5,7 @@ import jpype
 from radiomicsj.features import _ensure_jvm
 from radiomicsj.core import RadiomicsJExtractor
 
-val_dir = "/home/tatsunidas/radiomicsj-workspace/RadiomicsJ/src/main/resources/validation/"
+val_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "src", "main", "resources", "validation") + os.sep
 
 import os
 import pandas as pd
@@ -19,7 +19,8 @@ def test_ibsi_digital_phantom():
     # 1. ワークスペースからファントム画像のディレクトリパスを絶対パスで取得
     # 現在のスクリプト位置(tests/)から、RadiomicsJのルートフォルダへ遡る
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    dp_dir = os.path.join(base_dir, "src", "main", "resources", "data_sets-master", "ibsi_1_digital_phantom", "nifti")
+    # 2.2.0 でデータセットは src/test/resources へ移動しました（配布物から除外するため）
+    dp_dir = os.path.join(base_dir, "src", "test", "resources", "data_sets-master", "ibsi_1_digital_phantom", "nifti")
     
     img_dir = os.path.join(dp_dir, "image")
     mask_dir = os.path.join(dp_dir, "mask")
