@@ -112,6 +112,29 @@ Feature values do NOT change when neither interpolation nor re-segmentation is u
   0.002 and reporting a 30% error. The raw double is used now. The three no-matches that the
   digital phantom used to report were artefacts of this.
 
+### Changed, distribution
+
+- **The IBSI data sets are no longer packaged into the jar.** They moved from
+  `src/main/resources/data_sets-master` to `src/test/resources/data_sets-master`.
+
+  | | 2.1.18 | 2.2.0 |
+  | --- | --- | --- |
+  | `radiomicsj-<version>.jar` | 26.6 MB | **0.50 MB** |
+  | PyPI package (`radiomicsj/jars/`) | 47.8 MB | **21.7 MB** |
+
+  The IBSI digital phantom validation is unaffected and still runs from the distributed
+  jar, because `TestDataLoader.digital_phantom1_scratch()` builds the phantom in code.
+  The reference values (`validation/IBSI_ValidationFile.xlsx`) and the settings files stay
+  in the jar as well.
+
+  Everything that reads a bundled data set is now a **debug only** feature, that needs
+  `src/test/resources` (`target/test-classes`) on the classpath;
+  `Validation.ibsi_ct_PAT1()`, `TestDataLoader.digital_phantom1()`, `sample_ct1()`,
+  `validationDataAt()`, the CLI `-t -tdt 1` and `-tdt 2`, and the plugin demo main.
+  They log what is missing and how to run them, instead of throwing a
+  NullPointerException. The CLI `-t -tdt 0` now uses the in-code phantom, so it keeps
+  working from the distributed jar.
+
 ### Added
 
 - `RadiomicsJ.resetSettings()`
@@ -129,9 +152,6 @@ null, so callers of 2.1.x keep compiling and behave as before.
 
 ### Known issues
 
-- The published jar is 26.6 MB, of which 34.4 MB uncompressed is the bundled IBSI data sets.
-  The library itself is about 0.7 MB. Separating the data sets into their own artifact would
-  make both the Maven Central and the PyPI upload much lighter.
 - Configuration C reports one no-match,
   `IntensityVolumeHistogram_IntensityAtVolumeFraction10` (86.25 against 88.8). The reference
   provides no tolerance for this row, and the validator classifies it as an ignorable error.

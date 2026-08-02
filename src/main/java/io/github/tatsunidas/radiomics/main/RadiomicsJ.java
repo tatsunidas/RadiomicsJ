@@ -214,17 +214,41 @@ public class RadiomicsJ {
 			ImagePlus imp = null;
 			ImagePlus mask = null;
 			if(testDataType == 0) {
-				ImagePlus[] ds = TestDataLoader.digital_phantom1();
+				/*
+				 * The IBSI digital phantom is built in code, therefore it is always
+				 * available, also from the distributed jar.
+				 */
+				ImagePlus[] ds = TestDataLoader.digital_phantom1_scratch();
 				imp = ds[0];
 				mask = ds[1];
-			}else if(testDataType == 1) {
-				ImagePlus[] ds = TestDataLoader.sample_ct1();
-				imp = ds[0];
-				mask = ds[1];
-			}else if(testDataType == 2) {
-				ImagePlus[] ds = TestDataLoader.validationDataAt("001", "PET");
-				imp = ds[0];
-				mask = ds[1];
+			}else {
+				/*
+				 * DEBUG ONLY.
+				 * The other test data sets are the IBSI data sets of src/test/resources,
+				 * and they are excluded from the distributed jar to keep it small.
+				 */
+				System.out.println("[DEBUG ONLY] test-data-type " + testDataType + " reads a bundled IBSI data set.");
+				System.out.println("[DEBUG ONLY] Only test-data-type 0 (IBSI digital phantom) works with the distributed jar.");
+				System.out.println("[DEBUG ONLY] To use the others, put src/test/resources (target/test-classes) on the classpath.");
+				try {
+					if(testDataType == 1) {
+						ImagePlus[] ds = TestDataLoader.sample_ct1();
+						imp = ds[0];
+						mask = ds[1];
+					}else if(testDataType == 2) {
+						ImagePlus[] ds = TestDataLoader.validationDataAt("001", "PET");
+						imp = ds[0];
+						mask = ds[1];
+					}
+				} catch (Throwable t) {
+					System.err.println("Sorry, the test data set is not available. -> " + t.getMessage());
+					System.err.println("Please use -tdt 0, or run RadiomicsJ from the source tree.");
+					System.exit(0);
+				}
+			}
+			if(imp == null) {
+				System.out.println("Sorry, can not prepare the test data set. return.");
+				System.exit(0);
 			}
 			try {
 				ResultsTable res = radiomics.execute(imp, mask, RadiomicsJ.targetLabel);

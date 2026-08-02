@@ -137,18 +137,68 @@ public class Validation {
 		}
 	}
 	
+	/**
+	 * DEBUG ONLY.
+	 *
+	 * Validation with the IBSI CT radiomics phantom (PAT1).
+	 * The CT phantom images are NOT packaged into the distributed jar, see
+	 * announceDebugOnlyFeature(). Run it from the source tree, where the data sets
+	 * of src/test/resources are on the classpath.
+	 *
+	 * @param type configuration C or D. (A, B and E have no settings file yet)
+	 * @return all clear or not. false, when the data sets are not available.
+	 */
 	public static boolean ibsi_ct_PAT1(ValidationConfigType type) {
+		announceDebugOnlyFeature("IBSI CT radiomics phantom (PAT1), configuration " + type);
 		String paramPath = loadSettingsPropertiesByConfigType(type);
 		if(paramPath == null) {
 			System.out.println("Incompatible Validation Configuration Type ! :"+type);
 			return false;
 		}
-		ImagePlus[] imgAndMask = TestDataLoader.sample_ct1();
+		ImagePlus[] imgAndMask = null;
+		try {
+			imgAndMask = TestDataLoader.sample_ct1();
+		} catch (Throwable t) {
+			//IllegalStateException(resource missing), IOException, and so on.
+			reportDataSetNotAvailable("ibsi_1_ct_radiomics_phantom", t);
+			return false;
+		}
+		if(imgAndMask == null || imgAndMask[0] == null || imgAndMask[1] == null) {
+			reportDataSetNotAvailable("ibsi_1_ct_radiomics_phantom", null);
+			return false;
+		}
 		try {
 			return testWithConfig(imgAndMask, type, paramPath);
 		} catch (Exception e) {
 			e.printStackTrace();
 			return false;
+		}
+	}
+
+	/**
+	 * Tell the user that this validation needs the bundled data sets,
+	 * that are available in the source tree only.
+	 *
+	 * @param what name of the validation
+	 */
+	static void announceDebugOnlyFeature(String what) {
+		System.out.println(ANSI_YELLOW + "[DEBUG ONLY] " + what);
+		System.out.println("[DEBUG ONLY] Only the IBSI digital phantom validation is available in the distributed jar,");
+		System.out.println("[DEBUG ONLY] because it builds the phantom in code (TestDataLoader.digital_phantom1_scratch()).");
+		System.out.println("[DEBUG ONLY] Every other validation reads the IBSI data sets of src/test/resources,");
+		System.out.println("[DEBUG ONLY] that are excluded from the jar to keep it small.");
+	}
+
+	/**
+	 * @param dataSetName data set folder name under data_sets-master
+	 * @param cause null-able
+	 */
+	static void reportDataSetNotAvailable(String dataSetName, Throwable cause) {
+		System.err.println(ANSI_RED + "Validation: the data set \"" + dataSetName + "\" was not found on the classpath.");
+		System.err.println("Validation: this is expected when running from the distributed jar.");
+		System.err.println("Validation: to run it, put src/test/resources (target/test-classes) on the classpath.");
+		if(cause != null) {
+			System.err.println("Validation: cause -> " + cause.getClass().getName() + " : " + cause.getMessage());
 		}
 	}
 	

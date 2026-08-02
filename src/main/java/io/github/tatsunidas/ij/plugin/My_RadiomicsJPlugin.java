@@ -47,11 +47,28 @@ public class My_RadiomicsJPlugin implements PlugIn {
 	public static void main(String[] args) {
 		@SuppressWarnings("unused")
 		ImageJ ij = new ImageJ();
-		File refFile_i = TestDataLoader.resolveResource("data_sets-master/ibsi_1_digital_phantom/tiff/phantom_img.tif");
-		File refFile_m = TestDataLoader.resolveResource("data_sets-master/ibsi_1_digital_phantom/tiff/phantom_msk.tif");
+		/*
+		 * DEBUG ONLY.
+		 * The demo images are the IBSI data sets of src/test/resources, and they are
+		 * excluded from the distributed jar. Run this main from the source tree.
+		 */
+		File refFile_i = null;
+		File refFile_m = null;
+		try {
+			refFile_i = TestDataLoader.resolveResource("data_sets-master/ibsi_1_digital_phantom/tiff/phantom_img.tif");
+			refFile_m = TestDataLoader.resolveResource("data_sets-master/ibsi_1_digital_phantom/tiff/phantom_msk.tif");
+		} catch (Throwable t) {
+			IJ.log("[DEBUG ONLY] The demo data set is not on the classpath. -> " + t.getMessage());
+			IJ.log("[DEBUG ONLY] Please open your own images, then run the RadiomicsJ plugin.");
+			return;
+		}
 		ij = IJ.getInstance();
 		ImagePlus imp = IJ.openImage(refFile_i.getAbsolutePath());
 		ImagePlus msk = IJ.openImage(refFile_m.getAbsolutePath());
+		if(imp == null || msk == null) {
+			IJ.log("[DEBUG ONLY] Failed to open the demo images.");
+			return;
+		}
 		imp.show();
 		msk.show();
 		new My_RadiomicsJPlugin().run(null);

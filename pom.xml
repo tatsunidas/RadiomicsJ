@@ -57,20 +57,18 @@
 
 	<build>
 		<resources>
-			<resource>
-				<directory>src/main/resources/data_sets-master</directory>
-				<!-- keep "data_sets-master/" prefix on the classpath, because
-				     TestDataLoader and My_RadiomicsJPlugin look up the data sets by that path. -->
-				<targetPath>data_sets-master</targetPath>
-				<filtering>false</filtering>
-			</resource>
-		
+			<!--
+				The IBSI data sets live in src/test/resources/data_sets-master, and are
+				therefore NOT packaged into the distributed jar (they are about 34MB,
+				while the library itself is under 1MB).
+				They stay on the classpath of the test scope, so TestDataLoader and
+				Validation can still reach them by "data_sets-master/...".
+				The IBSI digital phantom validation does not need them at all, because
+				TestDataLoader.digital_phantom1_scratch() builds the phantom in code.
+			-->
 			<resource>
 				<directory>src/main/resources</directory>
 				<filtering>true</filtering>
-				<excludes>
-					<exclude>data_sets-master/**</exclude>
-				</excludes>
 			</resource>
 		</resources>
 		<plugins>
