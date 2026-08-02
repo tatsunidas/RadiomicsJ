@@ -1,0 +1,67 @@
+# Publishes a GitHub Release when a version tag is pushed.
+#
+# Deployment to Maven Central and to PyPI stays a local step. This workflow only
+# rebuilds the artefacts from the tagged commit and attaches them to a release,
+# so it needs no secrets beyond the token GitHub issues for the run itself.
+#
+#   mvn deploy                       # Maven Central, from your machine
+#   git tag v2.3.0 && git push origin v2.3.0   # this workflow
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  # lets the release be rebuilt from the web ui if a run has to be repeated
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'existing tag to build, for example v2.3.0'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+
+      - name: The tag and the pom must agree
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          POM=$(mvn -B -q help:evaluate -Dexpression=project.version -DforceStdout)
+          echo "tag=$TAG pom=$POM"
+          if [ "$TAG" != "v$POM" ]; then
+            echo "::error::tag $TAG does not match the project version $POM"
+            exit 1
+          fi
+
+      # package stops short of the install phase, so the conda build that is
+      # bound there does not run here
+      - name: Build and test
+        run: mvn -B package
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          set -e
+          ls -l target/radiomicsj-*.jar
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" target/radiomicsj-*.jar --clobber
+          else
+            gh release create "$TAG" target/radiomicsj-*.jar \
+              --title "RadiomicsJ ${TAG#v}" \
+              --generate-notes
+          fi
