@@ -44,6 +44,13 @@ public class GLDZMFeatures extends AbstractRadiomicsFeature implements Texture{
 	
 	ImagePlus discImg;// discretised
 	ImagePlus dMap;// distance map
+	/**
+	 * Morphological mask, that is the roi mask BEFORE re-segmentation.
+	 * IBSI defines the distance to the roi edge by the morphological mask,
+	 * while grey levels are taken from the intensity(re-segmented) mask.
+	 * Null-able, then the intensity mask is used instead.
+	 */
+	ImagePlus morphoMask;
 	Calibration orgCal;// backup
 	
 	int w ;
@@ -96,8 +103,24 @@ public class GLDZMFeatures extends AbstractRadiomicsFeature implements Texture{
 	 * @throws Exception
 	 */
 	public GLDZMFeatures(ImagePlus img, ImagePlus mask, int label, boolean useBinCount, Integer nBins, Double binWidth) {
+		this(img, mask, null, label, useBinCount, nBins, binWidth);
+	}
+
+	/**
+	 * Tool for calculating GLDZMFeatures.
+	 *
+	 * @param img
+	 * @param mask intensity(re-segmented) mask, that gives grey levels
+	 * @param morphoMask morphological mask, that gives the roi edge. null-able, then mask is used.
+	 * @param label
+	 * @param useBinCount
+	 * @param nBins
+	 * @param binWidth
+	 */
+	public GLDZMFeatures(ImagePlus img, ImagePlus mask, ImagePlus morphoMask, int label, boolean useBinCount, Integer nBins, Double binWidth) {
 		super(img,mask,null);
 		this.label = label;
+		this.morphoMask = morphoMask;
 		if(readyToCalculate(img, mask, useBinCount, nBins, binWidth)) {
 			try{
 				fillMatrix();
@@ -275,7 +298,11 @@ public class GLDZMFeatures extends AbstractRadiomicsFeature implements Texture{
 		int h= discImg.getHeight();
 		int s = discImg.getNSlices();
 		Integer[][][] voxels = Utils.prepareVoxels(discImg, mask, label, nBins);//[z][y][x], temp voxels at it angle, for count up.
-		Integer[][][] distance_map = getDistanceMap(mask);
+		/*
+		 * IBSI: the roi edge is determined by the morphological mask,
+		 * whereas grey levels are determined by the intensity mask.
+		 */
+		Integer[][][] distance_map = getDistanceMap(morphoMask != null ? morphoMask : mask);
 		//search dist max
 		int distance_max = 1;
 		for(int z=0;z<s;z++) {

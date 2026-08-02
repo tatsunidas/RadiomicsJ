@@ -275,8 +275,13 @@ public class IntensityBasedStatisticalFeatures extends AbstractRadiomicsFeature{
 		}
 //		return StatUtils.percentile(voxelArray, p_th);//Compute the estimated percentile
 //		return new Percentile().evaluate(voxelArray, p_th);//Compute the estimated percentile
-//		int index = (int) Math.ceil((double)(p_th / 100.0) * (double)voxelArray.length);
-		int index = (int) Math.floor((double)(p_th / 100.0) * (double)voxels.length);
+		/*
+		 * IBSI uses the nearest rank method, that is
+		 * Pk = X(ceil(k/100 * n)) in 1 based rank, then -1 for the 0 based array index.
+		 * Note that Math.floor(x)+1 differs from ceil(x) when (k/100 * n) is an integer,
+		 * e.g, P10 of 100 voxels must be the 10th smallest value, not the 11th.
+		 */
+		int index = (int) Math.ceil((double)(p_th / 100.0) * (double)voxels.length) - 1;
 		if(index >= voxels.length) {
 			index = voxels.length-1;
 		}else if(index < 0) {
@@ -293,20 +298,13 @@ public class IntensityBasedStatisticalFeatures extends AbstractRadiomicsFeature{
 		if(voxels == null || voxels.length < 1) {
 			return null;
 		}
-		int index_75 = (int) Math.floor((double)(75 / 100.0) * (double)voxels.length);
-		int index_25 = (int) Math.floor((double)(25 / 100.0) * (double)voxels.length);
-		if(index_75 >= voxels.length) {
-			index_75 = voxels.length-1;
-		}else if(index_75 < 0) {
-			index_75 = 0;
+		//use the same percentile definition as getPercentile().
+		double p75 = getPercentile(75);
+		double p25 = getPercentile(25);
+		if(p75 + p25 == 0d) {
+			//undefined, e.g, symmetric intensities around zero.
+			return null;
 		}
-		if(index_25 >= voxels.length) {
-			index_25 = voxels.length-1;
-		}else if(index_25 < 0) {
-			index_25 = 0;
-		}
-		double p75 = voxels[index_75];
-		double p25 = voxels[index_25];
 		return (p75-p25)/(p75+p25);
 	}
 	
@@ -408,6 +406,10 @@ public class IntensityBasedStatisticalFeatures extends AbstractRadiomicsFeature{
 	public Double getCoefficientOfVariation() {
 		Double stde = getStandardDeviation();
 		Double mean = getMean();
+		if(stde == null || mean == null || mean == 0d) {
+			//undefined, e.g, a roi whose mean intensity is zero.
+			return null;
+		}
 		return stde/mean;
 	}
 	

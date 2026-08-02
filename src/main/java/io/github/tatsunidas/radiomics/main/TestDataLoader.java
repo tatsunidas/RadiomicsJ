@@ -5,8 +5,12 @@ import java.awt.image.ColorModel;
 import java.awt.image.ComponentColorModel;
 import java.awt.image.DataBuffer;
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 
 import ij.IJ;
 import ij.ImagePlus;
@@ -22,21 +26,11 @@ public class TestDataLoader {
 	static String parent_dir = "data_sets-master/";
 	
 	public static ImagePlus[] digital_phantom1() {
-		String p2i = parent_dir + "ibsi_1_digital_phantom/nifti/image/";
-		String i_name = "phantom.nii.gz";
-		String p2m = parent_dir + "ibsi_1_digital_phantom/nifti/mask/";
-		String m_name = "mask.nii.gz";
-		URL url_i = loader.getResource(p2i);
-		URL url_m = loader.getResource(p2m);
-		Nifti_Reader reader = new Nifti_Reader();
-		try {
-			ImagePlus img = reader.load(new File(url_i.toURI()).getAbsolutePath(), i_name);
-			ImagePlus mask = reader.load(new File(url_m.toURI()).getAbsolutePath(), m_name);
-			return new ImagePlus[] { (ImagePlus) img, (ImagePlus) mask };
-		} catch (URISyntaxException e) {
-			e.printStackTrace();
-		}
-		return null;
+		String p2i = parent_dir + "ibsi_1_digital_phantom/nifti/image/phantom.nii.gz";
+		String p2m = parent_dir + "ibsi_1_digital_phantom/nifti/mask/mask.nii.gz";
+		ImagePlus img = loadNifTi(p2i);
+		ImagePlus mask = loadNifTi(p2m);
+		return new ImagePlus[] { img, mask };
 	}
 	
 	public static ImagePlus[] digital_phantom1_scratch() {
@@ -159,25 +153,59 @@ public class TestDataLoader {
 	 * @return
 	 */
 	public static ImagePlus[] validationDataAt(String name_id, String modality) {
-		String p2i = parent_dir+"ibsi_1_validation/nifti/STS_"+name_id+"/"+modality+"_image.nii.gz";
-		String p2m = parent_dir+"ibsi_1_validation/nifti/STS_"+name_id+"/"+modality+"_mask.nii.gz";
+		String p2i = parent_dir+"ibsi_validation/nifti/STS_"+name_id+"/"+modality+"_image.nii.gz";
+		String p2m = parent_dir+"ibsi_validation/nifti/STS_"+name_id+"/"+modality+"_mask.nii.gz";
 		ImagePlus img = loadNifTi(p2i);
 		ImagePlus mask = loadNifTi(p2m);
 		return new ImagePlus[] {img, mask};
 	}
-	
+
 	public static ImagePlus loadNifTi(String path) {
-		URL url_i = loader.getResource(path);
-		File nii = null;
-		try {
-			nii = new File(url_i.toURI());
-		} catch (URISyntaxException e) {
-			e.printStackTrace();
-		}
+		File nii = resolveResource(path);
 		File parent = nii.getParentFile();
 		String name = nii.getName();
 		Nifti_Reader reader = new Nifti_Reader();
        return reader.load(parent.getAbsolutePath(), name);
+	}
+
+	/**
+	 * Resolve a bundled data set to a readable file.
+	 * Resources are usually located in a jar, that can not be read as java.io.File directly.
+	 * In that case, the resource is extracted to a temporary file.
+	 *
+	 * @param path resource path (e.g, data_sets-master/ibsi_1_digital_phantom/nifti/image/phantom.nii.gz)
+	 * @return readable file
+	 */
+	public static File resolveResource(String path) {
+		URL url = loader.getResource(path);
+		if (url == null) {
+			throw new IllegalStateException(
+					"RadiomicsJ:TestDataLoader::bundled data set not found on the classpath -> " + path);
+		}
+		if ("file".equals(url.getProtocol())) {
+			try {
+				return new File(url.toURI());
+			} catch (URISyntaxException e) {
+				//fall through, and try to extract as a stream.
+			}
+		}
+		//inside a jar
+		String name = path.substring(path.lastIndexOf('/') + 1);
+		try (InputStream in = loader.getResourceAsStream(path)) {
+			if (in == null) {
+				throw new IllegalStateException(
+						"RadiomicsJ:TestDataLoader::can not open bundled data set -> " + path);
+			}
+			File dir = Files.createTempDirectory("radiomicsj").toFile();
+			dir.deleteOnExit();
+			File dest = new File(dir, name);
+			Files.copy(in, dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
+			dest.deleteOnExit();
+			return dest;
+		} catch (IOException e) {
+			throw new IllegalStateException(
+					"RadiomicsJ:TestDataLoader::can not extract bundled data set -> " + path, e);
+		}
 	}
 	
 	/**

@@ -86,13 +86,31 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 	 * 
 	 * iso mask have always label 1 (RadiomicsJ.label_).
 	 */
-	ImagePlus isoMask;//ALWAYS 1, 1, 1 mm
-	
-	final double isoSize = 1.0;
-	
+	ImagePlus isoMask;//analysis mask (label 1, 8bit). Its voxel size follows the resampling settings.
+
+	/**
+	 * Intensity(re-segmented) mask.
+	 *
+	 * "mask" of this class is the morphological mask, that gives the shape.
+	 * A few features are however defined on the intensity mask (IBSI 3.1);
+	 *   centre of mass shift : CoM_gl part only (KLMA)
+	 *   integrated intensity : the mean intensity part only (99N0)
+	 *   Moran's I index (N365) and Geary's C measure (NPT7)
+	 * Null-able, then the morphological mask is used instead.
+	 */
+	ImagePlus intensityMask;
+
 	Calibration orgCal;// backup
 	final int label;
+	/**
+	 * Voxel intensities inside the MORPHOLOGICAL mask.
+	 * Used for shape related voxel counting.
+	 */
 	double[] voxels;
+	/**
+	 * Voxel intensities inside the INTENSITY mask, that is Xgl in IBSI.
+	 */
+	double[] voxels_gl;
 	double[] eigenValues;//major,minor,least
 	
 	double eps = Math.ulp(1.0);// 2.220446049250313E-16
@@ -117,8 +135,19 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 	}
 	
 	public MorphologicalFeatures(ImagePlus img, ImagePlus mask, int label) {
+		this(img, mask, null, label);
+	}
+
+	/**
+	 * @param img
+	 * @param mask morphological mask, that gives the shape
+	 * @param intensityMask intensity(re-segmented) mask. null-able, then mask is used.
+	 * @param label
+	 */
+	public MorphologicalFeatures(ImagePlus img, ImagePlus mask, ImagePlus intensityMask, int label) {
 		super(img,mask,null);
 		this.label = label;
+		this.intensityMask = intensityMask;
 		buildup(settings);
 	}
 	
@@ -132,11 +161,16 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 		orgCal = img.getCalibration().copy();
 		/*
 		 * Be careful.
-		 * iso mask have always label 1 (RadiomicsJ.label_).
+		 * This mask have always label 1 (RadiomicsJ.label_).
+		 *
+		 * Do NOT resample the mask again here.
+		 * Morphological features must be computed on the analysis(already resampled) mask.
+		 * Re-sampling it to 1mm dilates the roi by the partial volume threshold,
+		 * and it made the mesh volume about 8% larger than the IBSI reference.
+		 * The mesh generator reads the voxel size from the calibration,
+		 * therefore anisotropic voxels are also handled correctly.
 		 */
-		ImagePlus isoMaskFloat = Utils.resample3D(Utils.createMaskWithLabelOne(this.mask, this.label), true, isoSize, isoSize, isoSize);
-		//to 8 bit
-		isoMask = Utils.createMaskCopyAsGray8(isoMaskFloat, RadiomicsJ.label_);
+		isoMask = Utils.createMaskWithLabelOne(this.mask, this.label);
 
 		//create mesh first.
 		RadiomicsJ.workaroundIntelGraphicsBug(false/*force*/);
@@ -146,11 +180,12 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 		 * Resampling: how much resampling to apply to the stack while creating the
 		 * surface mesh. A low number results in an accurate but jagged mesh with many
 		 * triangles, while a high number results in a smooth mesh with fewer triangles.
-		 * 
-		 * In the case of digital phantom1,
-		 * it set to 2 and (1,1,1) iso voxelize combination setting yields same IBSI results.
+		 *
+		 * Keep it 1, because down sampling a binary mask loses the roi shape.
+		 * (a value of 2 used to compensate the 1mm iso re-sampling above,
+		 *  that combination happened to fit the digital phantom only.)
 		 */
-		int resamplingF = 2; // 1 to N.
+		int resamplingF = 1; // 1 to N.
 		
 		// should be use iso mask.
 		this.points = mct.getTriangles(isoMask, threshold, resamplingF);
@@ -165,9 +200,17 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 				this.points = mct.getTriangles(isoMask, threshold, 1/*resamplingF*/);
 			}
 		}
-		//original voxels
+		//original voxels, inside the morphological mask
 		voxels = Utils.getVoxels(this.img, this.mask, this.label);
-		
+		/*
+		 * Xgl, inside the intensity mask.
+		 * Identical to "voxels" unless re-segmentation removed voxels.
+		 */
+		if(this.intensityMask == null) {
+			this.intensityMask = this.mask;
+		}
+		voxels_gl = Utils.getVoxels(this.img, this.intensityMask, this.label);
+
 		settings.put(RadiomicsFeature.IMAGE, this.img);
 		settings.put(RadiomicsFeature.MASK, this.mask);
 		settings.put(RadiomicsFeature.ISO_MASK, isoMask);
@@ -452,31 +495,41 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 		int s = img.getNSlices();
 		double sum1=0.0, x_gl_sum=0.0, y_gl_sum=0.0, z_gl_sum=0.0;
 		double x_sum=0.0, y_sum=0.0, z_sum=0.0;
-		double voxelCount = Double.MIN_VALUE;
+		double voxelCount = 0d;
+		/*
+		 * IBSI 3.1.10 :
+		 *  CoM_geom is calculated from the MORPHOLOGICAL voxel point set,
+		 *  CoM_gl is intensity weighted and based on the INTENSITY mask.
+		 * These two point sets differ as soon as re-segmentation removed voxels.
+		 */
+		ImagePlus glMask = intensityMask != null ? intensityMask : mask;
 		for(int z=0;z<s;z++) {
 			ImageProcessor mp = mask.getStack().getProcessor(z+1);
+			ImageProcessor gp = glMask.getStack().getProcessor(z+1);
 			ImageProcessor ip = img.getStack().getProcessor(z+1);
 			float[][] mSlice = mp.getFloatArray();
+			float[][] gSlice = gp.getFloatArray();
 			float[][] iSlice = ip.getFloatArray();
 			for(int y=0; y<h ; y++) {
 				for(int x=0; x<w; x++) {
-					int lbl_val = (int)mSlice[x][y];
-					if (lbl_val == label) {
-						double v = (double)iSlice[x][y];
-						sum1 += v;
-						x_gl_sum += x*v;
-						y_gl_sum += y*v;
-						z_gl_sum += z*v;
+					if ((int)mSlice[x][y] == label) {
 						x_sum += (double)x;//no intensity weight
 						y_sum += (double)y;//no intensity weight
 						z_sum += (double)z;//no intensity weight
 						voxelCount += 1.0d;
 					}
+					if ((int)gSlice[x][y] == label) {
+						double v = (double)iSlice[x][y];
+						sum1 += v;
+						x_gl_sum += x*v;
+						y_gl_sum += y*v;
+						z_gl_sum += z*v;
+					}
 				}
 			}
 		}
 		//if voxels not found, can not calculation...
-		if(voxelCount == Double.MIN_VALUE) {
+		if(voxelCount == 0d || sum1 == 0d) {
 			return null;
 		}
 		//CoM geom
@@ -1044,103 +1097,54 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 	/*
 	 * This feature is also called extent
 	 */
-	private Double getVolumeDensityByAxisAlignedBoundingBox(){
-		if(mct != null && mesh_v != null) {
-			// calculate volume
-			Double v = getVolumeByMesh();
-			if(v < 0) {
-				v *= -1.0; //correct negative value 
-			}
-			double minx=0, maxx = 0, miny=0, maxy=0, minz=0, maxz=0;
-			for (Point3f vox : points) {
-	            double x = vox.getX();
-	            double y = vox.getY();
-	            double z = vox.getZ();
-	            if (x > maxx) {
-	                maxx = x;
-	            }
-	            if (x < minx) {
-	                minx = x;
-	            }
-	            if (y > maxy) {
-	                maxy = y;
-	            }
-	            if (y < miny) {
-	                miny = y;
-	            }
-	            if (z > maxz) {
-	                maxz = z;
-	            }
-	            if (z < minz) {
-	                minz = z;
-	            }
-	        }
-			double Vaabb = Math.abs(maxx-minx)*Math.abs(maxy-miny)*Math.abs(maxz-minz);
-			return v/Vaabb;
+	/**
+	 * Extents of the axis aligned bounding box of the mesh points.
+	 *
+	 * Note that min values must NOT be initialized by zero.
+	 * Mesh point coordinates are never negative, therefore a zero initialized min
+	 * keeps the image origin as the lower corner of the box,
+	 * and makes the bounding box much larger than the roi.
+	 *
+	 * @return {x extent, y extent, z extent}
+	 */
+	private double[] getAxisAlignedBoundingBoxExtents(){
+		if(points == null || points.isEmpty()) {
+			return new double[] {0d, 0d, 0d};
 		}
-		
+		double minx = Double.MAX_VALUE, maxx = -Double.MAX_VALUE;
+		double miny = Double.MAX_VALUE, maxy = -Double.MAX_VALUE;
+		double minz = Double.MAX_VALUE, maxz = -Double.MAX_VALUE;
+		for (Point3f vox : points) {
+			double x = vox.getX();
+			double y = vox.getY();
+			double z = vox.getZ();
+			if (x > maxx) maxx = x;
+			if (x < minx) minx = x;
+			if (y > maxy) maxy = y;
+			if (y < miny) miny = y;
+			if (z > maxz) maxz = z;
+			if (z < minz) minz = z;
+		}
+		return new double[] { Math.abs(maxx-minx), Math.abs(maxy-miny), Math.abs(maxz-minz) };
+	}
+
+	private Double getVolumeDensityByAxisAlignedBoundingBox(){
 		Double v = getVolumeByMesh();
 		if(v < 0) {
-			v *= -1.0; //correct negative value 
+			v *= -1.0; //correct negative value
 		}
-		double minx=0, maxx = 0, miny=0, maxy=0, minz=0, maxz=0;
-		for (Point3f vox : points) {
-            double x = vox.getX();
-            double y = vox.getY();
-            double z = vox.getZ();
-            if (x > maxx) {
-                maxx = x;
-            }
-            if (x < minx) {
-                minx = x;
-            }
-            if (y > maxy) {
-                maxy = y;
-            }
-            if (y < miny) {
-                miny = y;
-            }
-            if (z > maxz) {
-                maxz = z;
-            }
-            if (z < minz) {
-                minz = z;
-            }
-        }
-		double Vaabb = Math.abs(maxx-minx)*Math.abs(maxy-miny)*Math.abs(maxz-minz);
+		double[] aabb = getAxisAlignedBoundingBoxExtents();
+		double Vaabb = aabb[0]*aabb[1]*aabb[2];
 		return v/Vaabb;
 	}
 	
 	private Double getAreaDensityByAxisAlignedBoundingBox(){
 		if(mct != null && mesh_v != null) {
 			if(surfaceArea != null) {
-				double minx=0, maxx = 0, miny=0, maxy=0, minz=0, maxz=0;
-				for (Point3f vox : points) {
-		            double x = vox.getX();
-		            double y = vox.getY();
-		            double z = vox.getZ();
-		            if (x > maxx) {
-		                maxx = x;
-		            }
-		            if (x < minx) {
-		                minx = x;
-		            }
-		            if (y > maxy) {
-		                maxy = y;
-		            }
-		            if (y < miny) {
-		                miny = y;
-		            }
-		            if (z > maxz) {
-		                maxz = z;
-		            }
-		            if (z < minz) {
-		                minz = z;
-		            }
-		        }
-				double xy = Math.abs(maxx-minx) * Math.abs(maxy-miny) * 2;
-				double xz = Math.abs(maxx-minx) * Math.abs(maxz-minz) * 2;
-				double yz = Math.abs(maxy-miny) * Math.abs(maxz-minz) * 2;
+				double[] aabb = getAxisAlignedBoundingBoxExtents();
+				double xy = aabb[0] * aabb[1] * 2;
+				double xz = aabb[0] * aabb[2] * 2;
+				double yz = aabb[1] * aabb[2] * 2;
 				return surfaceArea/(xy+xz+yz);
 			}else {
 				surfaceArea = 0d;
@@ -1163,33 +1167,10 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 					final double deltaArea = 0.5 * crossVector.distance(origin);
 					surfaceArea += deltaArea;
 				}
-				double minx=0, maxx = 0, miny=0, maxy=0, minz=0, maxz=0;
-				for (Point3f vox : points) {
-		            double x = vox.getX();
-		            double y = vox.getY();
-		            double z = vox.getZ();
-		            if (x > maxx) {
-		                maxx = x;
-		            }
-		            if (x < minx) {
-		                minx = x;
-		            }
-		            if (y > maxy) {
-		                maxy = y;
-		            }
-		            if (y < miny) {
-		                miny = y;
-		            }
-		            if (z > maxz) {
-		                maxz = z;
-		            }
-		            if (z < minz) {
-		                minz = z;
-		            }
-		        }
-				double xy = Math.abs(maxx-minx) * Math.abs(maxy-miny) * 2;
-				double xz = Math.abs(maxx-minx) * Math.abs(maxz-minz) * 2;
-				double yz = Math.abs(maxy-miny) * Math.abs(maxz-minz) * 2;
+				double[] aabb = getAxisAlignedBoundingBoxExtents();
+				double xy = aabb[0] * aabb[1] * 2;
+				double xz = aabb[0] * aabb[2] * 2;
+				double yz = aabb[1] * aabb[2] * 2;
 				return surfaceArea/(xy+xz+yz);
 			}
 		}
@@ -1214,33 +1195,10 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 			final double deltaArea = 0.5 * crossVector.distance(origin);
 			sumArea += deltaArea;
 		}
-		double minx=0, maxx = 0, miny=0, maxy=0, minz=0, maxz=0;
-		for (Point3f vox : points) {
-            double x = vox.getX();
-            double y = vox.getY();
-            double z = vox.getZ();
-            if (x > maxx) {
-                maxx = x;
-            }
-            if (x < minx) {
-                minx = x;
-            }
-            if (y > maxy) {
-                maxy = y;
-            }
-            if (y < miny) {
-                miny = y;
-            }
-            if (z > maxz) {
-                maxz = z;
-            }
-            if (z < minz) {
-                minz = z;
-            }
-        }
-		double xy = Math.abs(maxx-minx) * Math.abs(maxy-miny) * 2;
-		double xz = Math.abs(maxx-minx) * Math.abs(maxz-minz) * 2;
-		double yz = Math.abs(maxy-miny) * Math.abs(maxz-minz) * 2;
+		double[] aabb = getAxisAlignedBoundingBoxExtents();
+		double xy = aabb[0] * aabb[1] * 2;
+		double xz = aabb[0] * aabb[2] * 2;
+		double yz = aabb[1] * aabb[2] * 2;
 		return sumArea/(xy+xz+yz);
 	}
 	
@@ -1612,11 +1570,16 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 	 * density was calibrated or no-calibrated is should be consider.
 	 */
 	private Double getIntegratedIntensity() {
+		/*
+		 * IBSI 3.1.27 : V * mean(Xgl).
+		 * The volume comes from the morphological mask (mesh),
+		 * the mean intensity comes from the INTENSITY mask.
+		 */
 		double[] voxels;
-		if(this.voxels != null) {
-			voxels = this.voxels;
+		if(this.voxels_gl != null) {
+			voxels = this.voxels_gl;
 		}else {
-			voxels = Utils.getVoxels(img, mask, /*keep original label*/this.label);
+			voxels = Utils.getVoxels(img, intensityMask != null ? intensityMask : mask, /*keep original label*/this.label);
 		}
 		if(voxels == null || voxels.length == 0) {
 			return 0d;
@@ -1771,13 +1734,19 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 		double vz = img.getCalibration().pixelDepth;
 		double index = 0;
 		double sumw = 0;
-		if(this.voxels == null) {
-			this.voxels = Utils.getVoxels(img, mask, /*keep original*/label);
+		/*
+		 * IBSI 3.1.28 : Nv,gl, Xgl and the point set Xc,gl are all
+		 * taken from the INTENSITY mask.
+		 */
+		ImagePlus glMask = intensityMask != null ? intensityMask : mask;
+		if(this.voxels_gl == null) {
+			this.voxels_gl = Utils.getVoxels(img, glMask, /*keep original*/label);
 		}
+		double[] voxels = this.voxels_gl;
 		if(voxels == null || voxels.length == 0) {
 			return null;
 		}
-		HashMap<String, double[]> xyzMaskGeo = Utils.getRoiBoundingBoxInfo(mask, /*keep original*/label, RadiomicsJ.debug);//axis aligned bb
+		HashMap<String, double[]> xyzMaskGeo = Utils.getRoiBoundingBoxInfo(glMask, /*keep original*/label, RadiomicsJ.debug);//axis aligned bb
 		double[] aabbX = xyzMaskGeo.get("x");//0:min 1:max
 		double[] aabbY = xyzMaskGeo.get("y");
 		double[] aabbZ = xyzMaskGeo.get("z");
@@ -1792,7 +1761,7 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 		int itr = 0;
 		for (int z = 0; z < s; z++) {
 			ImageProcessor ip = img.getStack().getProcessor(z+1);
-			ImageProcessor mp = mask.getStack().getProcessor(z+1);
+			ImageProcessor mp = glMask.getStack().getProcessor(z+1);
 			for(int y = 0; y < h; y++) {
 				for(int x = 0; x < w; x++) {
 					pixels[itr] = ip.getf(x, y);
@@ -1852,13 +1821,18 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 		
 		double index = 0;
 		double sumw = 0;
-		if(this.voxels == null) {
-			voxels = Utils.getVoxels(img, mask, /*keep original*/label);
+		/*
+		 * IBSI 3.1.29 : as Moran's I index, everything is based on the INTENSITY mask.
+		 */
+		ImagePlus glMask = intensityMask != null ? intensityMask : mask;
+		if(this.voxels_gl == null) {
+			this.voxels_gl = Utils.getVoxels(img, glMask, /*keep original*/label);
 		}
+		double[] voxels = this.voxels_gl;
 		if(voxels == null || voxels.length == 0) {
 			return null;
 		}
-		HashMap<String, double[]> xyzMaskGeo = Utils.getRoiBoundingBoxInfo(mask, /*keep original*/label, RadiomicsJ.debug);//axis aligned bb
+		HashMap<String, double[]> xyzMaskGeo = Utils.getRoiBoundingBoxInfo(glMask, /*keep original*/label, RadiomicsJ.debug);//axis aligned bb
 		double[] aabbX = xyzMaskGeo.get("x");//0:min 1:max
 		double[] aabbY = xyzMaskGeo.get("y");
 		double[] aabbZ = xyzMaskGeo.get("z");
@@ -1873,7 +1847,7 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 		int itr = 0;		
 		for (int z = 0; z < s; z++) {
 			ImageProcessor ip = img.getStack().getProcessor(z+1);
-			ImageProcessor mp = mask.getStack().getProcessor(z+1);
+			ImageProcessor mp = glMask.getStack().getProcessor(z+1);
 			for(int y = 0; y < h; y++) {
 				for(int x = 0; x < w; x++) {
 					pixels[itr] = ip.getf(x, y);

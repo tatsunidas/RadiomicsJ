@@ -36,6 +36,13 @@ public enum SettingParams {
 	INT_interpolation3D,
 	INT_interpolation_mask3D,
 	DOUBLE_Mask_PartialVolumeThareshold,//0.5
+	/**
+	 * Round the interpolated intensities to the nearest integer.
+	 * IBSI table 5.1 requires it for the CT phantom configurations,
+	 * because calibrated CT intensities(HU) are discrete.
+	 * Keep it off for continuous modalities such as PET(SUV) or MR.
+	 */
+	BOOL_interpolation_intensity_rounding,
 	BOOL_USE_FixedBinNumber,
 	DOUBLE_binWidth,
 	INT_binCount,

@@ -41,6 +41,7 @@ import org.apache.commons.cli.ParseException;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
+import ij.measure.Calibration;
 import ij.measure.ResultsTable;
 import ij.process.ImageProcessor;
 import ij.util.DicomTools;
@@ -342,6 +343,15 @@ public class RadiomicsJ {
 	 * mask label >= mask, and mask < (mask label+PartialVolumeThareshold)
 	 */
 	public static double mask_PartialVolumeThreshold = 0.5;
+
+	/**
+	 * Round the interpolated intensities to the nearest integer.
+	 *
+	 * IBSI table 5.1 specifies "intensity rounding : nearest integer" for the CT phantom
+	 * configurations B to E, because calibrated CT intensities(HU) are discrete.
+	 * Default is false, to keep continuous modalities (PET SUV, MR, ...) untouched.
+	 */
+	public static boolean interpolation_intensity_rounding = false;
 	
 	/**
 	 * 1 - 255 : enable label number.
@@ -415,6 +425,15 @@ public class RadiomicsJ {
 	 * see, Utils.getNumOfBinsByMinMaxRange()
 	 */
 	public static Integer nBins = 32;
+
+	/**
+	 * Number of bins actually used by the current extraction.
+	 *
+	 * With fixed bin number it is the user setting nBins, with fixed bin width
+	 * it is derived from the discretised image. Instance scoped on purpose,
+	 * so that a fixed bin width run does not destroy the nBins setting.
+	 */
+	private Integer nBinsForCalculation = 32;
 	
 	/**
 	 * fixed bin width
@@ -586,7 +605,52 @@ public class RadiomicsJ {
 	 */
 	public RadiomicsJ() {
 		RadiomicsJ.discretiseImp = null;
+		/*
+		 * Calculation settings are static, therefore a previous instance (or a previous
+		 * run in the same JVM) would otherwise leak its settings into this one.
+		 * Restore the documented defaults first, then loadSettings() applies the user values.
+		 */
+		resetSettings();
 		initExcludeList();
+	}
+
+	/**
+	 * Restore all calculation settings to their default values.
+	 *
+	 * Called by the constructor. Runtime flags that are not calculation settings
+	 * (debug, IJ_PlugIn) are left untouched, because they are set by the caller
+	 * after construction.
+	 */
+	public static void resetSettings() {
+		interpolation2D = ImageProcessor.NEAREST_NEIGHBOR;
+		interpolation_mask2D = ImageProcessor.NEAREST_NEIGHBOR;
+		interpolation3D = TRILINEAR;
+		interpolation_mask3D = TRILINEAR;
+		mask_PartialVolumeThreshold = 0.5;
+		interpolation_intensity_rounding = false;
+		targetLabel = 1;
+		normalize = false;
+		removeOutliers = false;
+		zScore = 3d;
+		normalizeScale = 1.0;
+		densityShift = 0d;
+		rangeMin = null;
+		rangeMax = null;
+		BOOL_USE_FixedBinNumber = true;
+		nBins = 32;
+		binWidth = 25d;
+		IVH_binCount = 1000;
+		IVH_binWidth = 2.5;
+		IVH_mode = 0;
+		alpha = 0;
+		deltaGLCM = 1;
+		deltaNGToneDM = 1;
+		deltaNGLevelDM = 1;
+		weightingNorm = null;
+		box_sizes = null;
+		resamplingFactorXYZ = null;
+		force2D = false;
+		activate_no_default_features = false;
 	}
 	
 	/**
@@ -854,6 +918,8 @@ public class RadiomicsJ {
 						try{
 							Double n = Double.valueOf(val);
 							if(n < 0d) {
+								System.out.println("RadiomicsJ:loadSettings::DOUBLE_densityShift must be non negative, but "
+										+ n + " was given. It is ignored, and " + RadiomicsJ.densityShift + " is used.");
 								continue;
 							}
 							RadiomicsJ.densityShift = n;
@@ -1016,6 +1082,9 @@ public class RadiomicsJ {
 							continue;
 						}
 					}
+					if(keyString.equals(SettingParams.BOOL_interpolation_intensity_rounding.name())) {
+						RadiomicsJ.interpolation_intensity_rounding = val.equals("1") || val.toLowerCase().equals("true") ? true:false;
+					}
 					
 					/*
 					 * features
@@ -1155,14 +1224,21 @@ public class RadiomicsJ {
 			if(force2D) {
 				//ignore z
 				resampledImp = Utils.resample2D(img, false, resamplingFactorXYZ[0], resamplingFactorXYZ[1], RadiomicsJ.interpolation2D);
-				resampledMask = Utils.resample2D(mask, true, resamplingFactorXYZ[0], resamplingFactorXYZ[1], RadiomicsJ.interpolation2D);
+				resampledMask = Utils.resample2D(mask, true, resamplingFactorXYZ[0], resamplingFactorXYZ[1], RadiomicsJ.interpolation_mask2D);
 			}else {
 				// trilinear interpolation
 				resampledImp = Utils.resample3D(img, false, resamplingFactorXYZ[0], resamplingFactorXYZ[1], resamplingFactorXYZ[2]);
-				resampledMask = Utils.resample3D(mask, true, resamplingFactorXYZ[0], resamplingFactorXYZ[1], resamplingFactorXYZ[2]);
+				resampledMask = Utils.resample3D(mask, true, resamplingFactorXYZ[0], resamplingFactorXYZ[1], resamplingFactorXYZ[2], RadiomicsJ.interpolation_mask3D);
+			}
+			/*
+			 * IBSI table 5.1 : intensity rounding, nearest integer.
+			 * Only interpolated images are rounded, masks are binary already.
+			 */
+			if(interpolation_intensity_rounding) {
+				resampledImp = Utils.roundIntensitiesToNearestInteger(resampledImp);
 			}
 		}else {
-			//AS-IS
+			//AS-IS. no interpolation was performed, so no rounding is needed.
 			resampledImp = Utils.createImageCopy(img);
 			resampledMask = Utils.createMaskCopy(mask);
 		}
@@ -1210,13 +1286,22 @@ public class RadiomicsJ {
 	public ImagePlus preprocessDiscretise(ImagePlus resampled, ImagePlus resegmentedMask, Integer targetLabel) throws Exception {
 		discretiseImp = null;
 		if(BOOL_USE_FixedBinNumber) {
+			nBinsForCalculation = RadiomicsJ.nBins;
 			discretiseImp = Utils.discrete(resampled, resegmentedMask, targetLabel, RadiomicsJ.nBins);
 		}else {
 			/*
 			 * Fixed Bin Width
 			 */
 			discretiseImp = Utils.discreteByBinWidth(resampled, resegmentedMask, targetLabel, binWidth);
-			RadiomicsJ.nBins = Utils.getNumOfBinsByMax(discretiseImp, resegmentedMask, targetLabel);
+			if(discretiseImp == null) {
+				throw new Exception("RadiomicsJ:preprocessDiscretise::Discretisation by fixed bin width was failed. "
+						+ "Please check DOUBLE_binWidth (current:" + binWidth + ") and the input images.");
+			}
+			/*
+			 * The bin count of fixed bin width is a RESULT of the discretisation.
+			 * Keep it separately, never overwrite the user setting RadiomicsJ.nBins.
+			 */
+			nBinsForCalculation = Utils.getNumOfBinsByMax(discretiseImp, resegmentedMask, targetLabel);
 		}
 		return discretiseImp;
 	}
@@ -1423,6 +1508,15 @@ public class RadiomicsJ {
 	 * @return
 	 */
 	public ResultsTable extractAllSlice(ImagePlus images, ImagePlus masks, Integer targetLabel) {
+		if(masks == null) {
+			/*
+			 * Create a full face mask, as extractAll() does for the 3D basis.
+			 */
+			Calibration cal = images.getCalibration();
+			masks = ImagePreprocessing.createMask(images.getWidth(), images.getHeight(), images.getNSlices(), null,
+					label_, cal.pixelWidth, cal.pixelHeight, cal.pixelDepth);
+			targetLabel = label_;
+		}
 		originalImp = images;
 		originalMask = masks;
 		ResultsTable rt = null;
@@ -1448,7 +1542,12 @@ public class RadiomicsJ {
 					if(table != null) {
 						rt.incrementCounter();
 						String[] headings = table.getHeadings();
-						int row  = 0;
+						/*
+						 * compute() may reuse a ResultsTable bound to an already shown
+						 * result window, that keeps the rows of previous runs.
+						 * The values of this slice are always in the last row.
+						 */
+						int row  = table.getCounter() - 1;
 						for(String h : headings) {
 							if(h.contains("OperationalInfo_")) {
 								String v = table.getStringValue(h, row);
@@ -1482,7 +1581,16 @@ public class RadiomicsJ {
 		if(img == null) {
 			return null;
 		}
-		
+
+		/*
+		 * IBSI defines two masks;
+		 *  intensity mask     : after re-segmentation. intensity and texture features use it.
+		 *  morphological mask : NOT affected by re-segmentation. morphological features use it,
+		 *                       and it also gives the roi edge for GLDZM distances.
+		 * "mask" argument of this method is the intensity mask.
+		 */
+		ImagePlus morphoMask = resampledMask != null ? resampledMask : mask;
+
 		ResultsTable rt = ResultsTable.getResultsTable(resultWindowTitle);
 		if(rt == null) {
 			rt = new ResultsTable();
@@ -1549,13 +1657,18 @@ public class RadiomicsJ {
 				System.out.println("=======================");
 				System.out.println("Morphological features");
 			}
-			MorphologicalFeatures f = new MorphologicalFeatures(img, mask, targetLabel);
+			/*
+			 * Shape comes from the morphological mask.
+			 * A few features (centre of mass shift, integrated intensity,
+			 * Moran's I, Geary's C) need the intensity mask as well.
+			 */
+			MorphologicalFeatures f = new MorphologicalFeatures(img, morphoMask, mask, targetLabel);
 			for (MorphologicalFeatureType ft : MorphologicalFeatureType.values()) {
 				if(excluded.contains(ft.name())) {
 					continue;
 				}
 				Double feature = f.calculate(ft.id());
-				if(feature == null || feature == Double.NaN) {
+				if(feature == null || Double.isNaN(feature)) {
 					rt.addValue("Morphology_" + ft.name(), "NaN");
 				}else {
 					rt.addValue("Morphology_" + ft.name(), feature);
@@ -1578,7 +1691,7 @@ public class RadiomicsJ {
 					continue;
 				}
 				Double feature = f.calculate(ft.id());
-				if(feature == null || feature == Double.NaN) {
+				if(feature == null || Double.isNaN(feature)) {
 					rt.addValue("LocalIntensity_" + ft.name(), "NaN");
 				}else {
 					rt.addValue("LocalIntensity_" + ft.name(), feature);
@@ -1601,7 +1714,7 @@ public class RadiomicsJ {
 					continue;
 				}
 				Double feature = executer.calculate(f.id());
-				if (feature == null || feature == Double.NaN) {
+				if (feature == null || Double.isNaN(feature)) {
 					rt.addValue("IntensityBasedStatistical_" + f.name(), "NaN");
 				} else {
 					rt.addValue("IntensityBasedStatistical_" + f.name(), feature);
@@ -1618,13 +1731,13 @@ public class RadiomicsJ {
 				System.out.println("=================================");
 				System.out.println("IntensityHistogram features");
 			}
-			IntensityHistogramFeatures executer = new IntensityHistogramFeatures(img, mask, targetLabel, BOOL_USE_FixedBinNumber, nBins,binWidth);
+			IntensityHistogramFeatures executer = new IntensityHistogramFeatures(img, mask, targetLabel, BOOL_USE_FixedBinNumber, nBinsForCalculation,binWidth);
 			for (IntensityHistogramFeatureType f : IntensityHistogramFeatureType.values()) {
 				if(excluded.contains(f.name())) {
 					continue;
 				}
 				Double feature = executer.calculate(f.id());
-				if (feature == null || feature == Double.NaN) {
+				if (feature == null || Double.isNaN(feature)) {
 					rt.addValue("IntensityHistogram_" + f.name(), "NaN");
 				} else {
 					rt.addValue("IntensityHistogram_" + f.name(), feature);
@@ -1647,7 +1760,7 @@ public class RadiomicsJ {
 					continue;
 				}
 				Double feature = executer.calculate(f.id());
-				if (feature == null || feature == Double.NaN) {
+				if (feature == null || Double.isNaN(feature)) {
 					rt.addValue("IntensityVolumeHistogram_" + f.name(), "NaN");
 				} else {
 					rt.addValue("IntensityVolumeHistogram_" + f.name(), feature);
@@ -1669,13 +1782,14 @@ public class RadiomicsJ {
 				System.out.println("If you need Shape2D, Try create single slice imageplus, then perform Shape2D.");
 				System.out.println("Or, you can try to use Shape2DFeatures class on another scripts.");
 			}else {
-				Shape2DFeatures shape2DExecuter = new Shape2DFeatures(img, mask,1,targetLabel);
+				//shape features are morphological.
+				Shape2DFeatures shape2DExecuter = new Shape2DFeatures(img, morphoMask,1,targetLabel);
 				for (Shape2DFeatureType shape : Shape2DFeatureType.values()) {
 					if(excluded.contains(shape.name())) {
 						continue;
 					}
 					Double feature = shape2DExecuter.calculate(shape.id());
-					if (feature == null || feature == Double.NaN) {
+					if (feature == null || Double.isNaN(feature)) {
 						rt.addValue("Shape2D_" + shape.name(), "NaN");
 					} else {
 						rt.addValue("Shape2D_" + shape.name(), feature);
@@ -1698,7 +1812,7 @@ public class RadiomicsJ {
 														 targetLabel,
 														 deltaGLCM,
 														 BOOL_USE_FixedBinNumber, 
-														 nBins,
+														 nBinsForCalculation,
 														 binWidth,
 														 weightingNorm);
 			for (GLCMFeatureType glcm : GLCMFeatureType.values()) {
@@ -1706,7 +1820,7 @@ public class RadiomicsJ {
 					continue;
 				}
 				Double feature = glcmExecuter.calculate(glcm.id());
-				if (feature == null|| feature == Double.NaN) {
+				if (feature == null || Double.isNaN(feature)) {
 					rt.addValue("GLCM_" + glcm.name(), "NaN");
 				} else {
 					rt.addValue("GLCM_" + glcm.name(), feature);
@@ -1727,7 +1841,7 @@ public class RadiomicsJ {
 															mask, 
 															targetLabel,
 															BOOL_USE_FixedBinNumber,
-															nBins, 
+															nBinsForCalculation, 
 															binWidth,
 															weightingNorm);
 			for (GLRLMFeatureType glrlm : GLRLMFeatureType.values()) {
@@ -1735,7 +1849,7 @@ public class RadiomicsJ {
 					continue;
 				}
 				Double feature = glrlmExecuter.calculate(glrlm.id());
-				if (feature == null|| feature == Double.NaN) {
+				if (feature == null || Double.isNaN(feature)) {
 					rt.addValue("GLRLM_" + glrlm.name(), "NaN");
 				} else {
 					rt.addValue("GLRLM_" + glrlm.name(), feature);
@@ -1756,14 +1870,14 @@ public class RadiomicsJ {
 															mask,
 															targetLabel,
 															BOOL_USE_FixedBinNumber,
-															nBins,
+															nBinsForCalculation,
 															binWidth);
 			for (GLSZMFeatureType glszm : GLSZMFeatureType.values()) {
 				if(excluded.contains(glszm.name())) {
 					continue;
 				}
 				Double feature = glszmExecuter.calculate(glszm.id());
-				if (feature == null || feature == Double.NaN) {
+				if (feature == null || Double.isNaN(feature)) {
 					rt.addValue("GLSZM_" + glszm.name(), "NaN");
 				} else {
 					rt.addValue("GLSZM_" + glszm.name(), feature);
@@ -1780,18 +1894,20 @@ public class RadiomicsJ {
 				System.out.println("=================================");
 				System.out.println("GLDZM features");
 			}
+			//grey levels from the intensity mask, roi edge from the morphological mask.
 			GLDZMFeatures gldzmExecuter = new GLDZMFeatures(img,
 															mask,
+															morphoMask,
 															targetLabel,
 															BOOL_USE_FixedBinNumber,
-															nBins,
+															nBinsForCalculation,
 															binWidth);
 			for (GLDZMFeatureType gldzm : GLDZMFeatureType.values()) {
 				if(excluded.contains(gldzm.name())) {
 					continue;
 				}
 				Double feature = gldzmExecuter.calculate(gldzm.id());
-				if (feature == null || feature == Double.NaN) {
+				if (feature == null || Double.isNaN(feature)) {
 					rt.addValue("GLDZM_" + gldzm.name(), "NaN");
 				} else {
 					rt.addValue("GLDZM_" + gldzm.name(), feature);
@@ -1813,14 +1929,14 @@ public class RadiomicsJ {
 															targetLabel,
 															deltaNGToneDM,
 															BOOL_USE_FixedBinNumber,
-															nBins,
+															nBinsForCalculation,
 															binWidth);
 			for (NGTDMFeatureType ngtdm : NGTDMFeatureType.values()) {
 				if(excluded.contains(ngtdm.name())) {
 					continue;
 				}
 				Double feature = ngtdmExecuter.calculate(ngtdm.id());
-				if (feature == null || feature == Double.NaN) {
+				if (feature == null || Double.isNaN(feature)) {
 					rt.addValue("NGTDM_" + ngtdm.name(), "NaN");
 				} else {
 					rt.addValue("NGTDM_" + ngtdm.name(), feature);
@@ -1843,14 +1959,14 @@ public class RadiomicsJ {
 															alpha, 
 															deltaNGLevelDM,
 															BOOL_USE_FixedBinNumber,
-															nBins,
+															nBinsForCalculation,
 															binWidth);
 			for(NGLDMFeatureType gldm:NGLDMFeatureType.values()) {
 				if(excluded.contains(gldm.name())) {
 					continue;
 				}
 				Double feature = gldmExecuter.calculate(gldm.id());
-				if(feature == null || feature == Double.NaN) {
+				if(feature == null || Double.isNaN(feature)) {
 					rt.addValue("NGLDM_"+gldm.name(), "NaN");
 				}else {
 					rt.addValue("NGLDM_"+gldm.name(), feature);
@@ -1874,7 +1990,7 @@ public class RadiomicsJ {
 						continue;
 					}
 					Double feature = fractalExecuter.calculate(fractal.id());
-					if(feature == null || feature == Double.NaN) {
+					if(feature == null || Double.isNaN(feature)) {
 						rt.addValue("Fractal_"+fractal.name(), "NaN");
 					}else {
 						rt.addValue("Fractal_"+fractal.name(), feature);
@@ -1886,6 +2002,13 @@ public class RadiomicsJ {
 			}
 			if(IJ_PlugIn)IJ.showProgress(++progress/enableFamilies);
 		}
+		/*
+		 * discretiseImp is a static hand-off from the pipeline to the feature classes,
+		 * that lets them skip re-discretisation. Clear it when the extraction is done,
+		 * otherwise the next direct use of a feature class (e.g, FeatureVisualizationMap)
+		 * silently reuses the discretised image of THIS extraction.
+		 */
+		RadiomicsJ.discretiseImp = null;
 		System.gc();
 		return rt;
 	}

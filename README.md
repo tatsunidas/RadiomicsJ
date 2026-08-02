@@ -311,19 +311,122 @@ If you want quick example with GUI, see [RadiomicsJ IJ-PlugIn](https://sites.goo
 ```
 <groupId>io.github.tatsunidas</groupId>
 <artifactId>radiomicsj</artifactId>
-<version>2.1.12</version>
+<version>2.2.0</version>
 ```
-```  
+## Example 1 : feature extraction, 3D basis
+
+Images and masks are stacks that share the same geometry.
+If the mask is `null`, RadiomicsJ creates a full face mask and uses label 1.
+
+```java
 int targetLabel = 1;
-ImagePlus images = new ImagePlus(path to images);
-ImagePlus masks = new ImagePlus(path to masks);// has label as 1.
+ImagePlus images = new ImagePlus("path to images");// DICOM folder, tiff stack, and so on.
+ImagePlus masks  = new ImagePlus("path to masks"); // has label as 1. null-able.
+
 RadiomicsJ radiomics = new RadiomicsJ();
 radiomics.setDebug(true);//to watch progress.
 //also you can use settings properties file.
-//radiomics.loadSettings(FilePath to settings.properties);
+//radiomics.loadSettings("FilePath to settings.properties");
+
 ResultsTable res = radiomics.execute(images, masks, targetLabel);
 res.show(RadiomicsJ.resultWindowTitle);
+
+//when the mask is null, a full face mask with label 1 is created internally.
+//ResultsTable res = radiomics.execute(images, null, RadiomicsJ.label_);
 ```
+
+## Example 2 : feature extraction, 2D basis (force2D)
+
+`force2D` computes features slice by slice, without any aggregation over slices.
+The result has **one row per slice**, so the row index of a single slice image is always `0`.
+Enable `Shape2D` as well if you need the 2D shape features.
+
+Settings are static fields, and the constructor restores their defaults.
+Set them **after** `new RadiomicsJ()`, or simply pass a properties object as below.
+
+```java
+int targetLabel = 1;
+ImagePlus images = new ImagePlus("path to images");// a stack, or a single slice.
+ImagePlus masks  = new ImagePlus("path to masks"); // null-able.
+
+RadiomicsJ radiomics = new RadiomicsJ();
+Properties prop = new Properties();
+prop.put(SettingParams.BOOL_force2D.name(), "true");
+prop.put(SettingParams.BOOL_enableShape2D.name(), "true");
+radiomics.loadSettings(prop);
+
+ResultsTable res = radiomics.execute(images, masks, targetLabel);
+res.show(RadiomicsJ.resultWindowTitle);
+
+//row index is 0 based. a single slice image gives one row, that is row 0.
+double perimeter = res.getValue("Shape2D_Perimeter", 0);
+```
+
+Note that a slice position given to a feature class directly, such as
+`new Shape2DFeatures(img, mask, slice, label)`, is **1 to N** as ImageJ does, not 0 based.
+
+## Example 3 : feature visualization map, 3D basis
+
+`FeatureVisualizationMap.generate()` slides a filter over the image and computes a
+feature at every position. `d2_mode=false` applies a 3D(XYZ) filter.
+The `slice` argument is **1 to N**, and `-1` means all slices.
+A mask is required here (it is not null-able), so create a full face mask when you need one.
+
+```java
+ImagePlus img  = new ImagePlus("path to images");
+ImagePlus mask = new ImagePlus("path to masks");
+//full face mask, if you do not have a mask.
+//ImagePlus mask = ImagePreprocessing.createMask(img.getWidth(), img.getHeight(), img.getNSlices(),
+//        null, 1, img.getCalibration().pixelWidth, img.getCalibration().pixelHeight, img.getCalibration().pixelDepth);
+
+Map<String, Object> settings = new HashMap<>();
+settings.put(RadiomicsFeature.LABEL, 1);
+settings.put(RadiomicsFeature.USE_BIN_COUNT, true);
+settings.put(RadiomicsFeature.nBins, 16);//required when USE_BIN_COUNT is true.
+
+Map<String, ImagePlus> fmaps = FeatureVisualizationMap.generate(
+        img, mask,
+        -1,    // slice : 1 to N, -1 means all slices
+        7,     // filter size, odd number is recommended
+        false, // d2_mode : false -> 3D(XYZ) filter
+        3,     // stride of X-Y axis, 1 means no thinning
+        GLCMFeatures.class, settings,
+        GLCMFeatureType.JointEntropy, GLCMFeatureType.DifferenceAverage);
+
+for (ImagePlus fmap : fmaps.values()) {
+    fmap.show();// titled as e.g, GLCMFeatures_JointEntropy_3D
+}
+```
+
+## Example 4 : feature visualization map, 2D basis
+
+`d2_mode=true` applies a 2D(XY) filter, and the map is computed within the specified slice.
+
+```java
+ImagePlus img  = new ImagePlus("path to images");
+ImagePlus mask = new ImagePlus("path to masks");
+
+Map<String, Object> settings = new HashMap<>();
+settings.put(RadiomicsFeature.LABEL, 1);
+settings.put(RadiomicsFeature.USE_BIN_COUNT, true);
+settings.put(RadiomicsFeature.nBins, 16);
+
+Map<String, ImagePlus> fmaps = FeatureVisualizationMap.generate(
+        img, mask,
+        1,     // slice : 1 to N (NOT 0 based). -1 means all slices.
+        7,     // filter size
+        true,  // d2_mode : true -> 2D(XY) filter
+        3,     // stride of X-Y axis
+        GLCMFeatures.class, settings,
+        GLCMFeatureType.JointEntropy);
+
+for (ImagePlus fmap : fmaps.values()) {
+    fmap.show();// titled as e.g, GLCMFeatures_JointEntropy_2D
+}
+```
+
+Generating a map calls the feature calculation at every voxel, therefore it takes a long time.
+A larger `stride` reduces the output size and the calculation time.
 
 # Maven repo
 

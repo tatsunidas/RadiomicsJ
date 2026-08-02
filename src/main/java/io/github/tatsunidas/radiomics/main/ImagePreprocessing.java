@@ -423,7 +423,11 @@ public class ImagePreprocessing {
 					if(lbl != label) {
 						m2.setf(x, y, 0);
 					}else {
-						if(!(v <= rangeMin) && !(v >= rangeMax)) {
+						/*
+						 * IBSI re-segmentation range is a closed interval,
+						 * that is [rangeMin, rangeMax]. Keep the boundary voxels.
+						 */
+						if(v >= rangeMin && v <= rangeMax) {
 							m2.setf(x, y, lbl);
 							included++;
 						}else {

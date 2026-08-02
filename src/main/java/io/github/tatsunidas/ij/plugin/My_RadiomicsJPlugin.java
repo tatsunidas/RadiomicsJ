@@ -21,12 +21,11 @@ import ij.gui.*;
 import ij.plugin.*;
 import io.github.tatsunidas.radiomics.main.RadiomicsJ;
 import io.github.tatsunidas.radiomics.main.SettingParams;
+import io.github.tatsunidas.radiomics.main.TestDataLoader;
 import ij.measure.ResultsTable;
 
 import java.awt.*;
 import java.io.File;
-import java.net.URISyntaxException;
-import java.net.URL;
 import java.util.*;
 
 /**
@@ -48,20 +47,14 @@ public class My_RadiomicsJPlugin implements PlugIn {
 	public static void main(String[] args) {
 		@SuppressWarnings("unused")
 		ImageJ ij = new ImageJ();
-		URL refUrl_i = My_RadiomicsJPlugin.class
-              .getClassLoader().getResource("data_sets-master/ibsi_1_digital_phantom/tiff/phantom_img.tif");
-		URL refUrl_m = My_RadiomicsJPlugin.class
-	              .getClassLoader().getResource("data_sets-master/ibsi_1_digital_phantom/tiff/phantom_msk.tif");
-		try {
-			ij = IJ.getInstance();
-			ImagePlus imp = IJ.openImage(new File(refUrl_i.toURI()).getAbsolutePath());
-			ImagePlus msk = IJ.openImage(new File(refUrl_m.toURI()).getAbsolutePath());
-			imp.show();
-			msk.show();
-			new My_RadiomicsJPlugin().run(null);
-		} catch (URISyntaxException e) {
-			e.printStackTrace();
-		}
+		File refFile_i = TestDataLoader.resolveResource("data_sets-master/ibsi_1_digital_phantom/tiff/phantom_img.tif");
+		File refFile_m = TestDataLoader.resolveResource("data_sets-master/ibsi_1_digital_phantom/tiff/phantom_msk.tif");
+		ij = IJ.getInstance();
+		ImagePlus imp = IJ.openImage(refFile_i.getAbsolutePath());
+		ImagePlus msk = IJ.openImage(refFile_m.getAbsolutePath());
+		imp.show();
+		msk.show();
+		new My_RadiomicsJPlugin().run(null);
 	}
 
 	public My_RadiomicsJPlugin(){};

@@ -220,6 +220,10 @@ public class IntensityHistogramFeatures extends IntensityBasedStatisticalFeature
 	private Double getMaximumHistogramGradient() {
 		double maxH = 0d;
 		double histGrad = 0d;
+		if(hist.length < 2) {
+			//a single bin histogram has no gradient.
+			return 0d;
+		}
 		for(int i=0;i<hist.length;i++) {
 			if(i==0) {
 				histGrad = hist[i+1] - hist[i];
@@ -247,6 +251,10 @@ public class IntensityHistogramFeatures extends IntensityBasedStatisticalFeature
 		double maxH = 0d;
 		double histGrad = 0d;
 		double index = 0;
+		if(hist.length < 2) {
+			//only the first bin exists.
+			return 1d;
+		}
 		for(int i=0;i<hist.length;i++) {
 			if(i==0) {
 				histGrad = hist[i+1] - hist[i];
@@ -276,6 +284,10 @@ public class IntensityHistogramFeatures extends IntensityBasedStatisticalFeature
 	private Double getMinimumHistogramGradient() {
 		double minH = 0d;
 		double histGrad = 0d;
+		if(hist.length < 2) {
+			//a single bin histogram has no gradient.
+			return 0d;
+		}
 		for(int i=0;i<hist.length;i++) {
 			if(i==0) {
 				histGrad = hist[i+1] - hist[i];
@@ -303,6 +315,10 @@ public class IntensityHistogramFeatures extends IntensityBasedStatisticalFeature
 		double minH = 0d;
 		double histGrad = 0d;
 		double index = 0d;
+		if(hist.length < 2) {
+			//only the first bin exists.
+			return 1d;
+		}
 		for(int i=0;i<hist.length;i++) {
 			if(i==0) {
 				histGrad = hist[i+1] - hist[i];

@@ -215,9 +215,13 @@ public class Validation {
 				continue;
 			}
 			
-			String sv = res.getStringValue(col, 0);
-			Double dv = Double.valueOf(sv);
-			
+			/*
+			 * Must not use getStringValue() here.
+			 * It formats the value by the ResultsTable decimal places (3 digits as default),
+			 * that rounds e.g, 0.00155 to 0.002 and reports a false 30% error.
+			 */
+			Double dv = res.getValueAsDouble(col, 0);
+
 			if(dv==null || Double.isNaN(dv)) {
 				System.err.println(h + " : result value is null or NaN.");
 				errors.add(h + " : result value is null or NaN.");

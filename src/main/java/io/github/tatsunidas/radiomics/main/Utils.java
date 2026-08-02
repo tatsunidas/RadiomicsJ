@@ -362,8 +362,10 @@ public class Utils {
 //			throw new IllegalArgumentException("Utils.createRoi(): mask must be ByteProcessor");
 //		}
 		
-		if (pos < 0 || pos > mask.getNSlices()) {
-			throw new IllegalArgumentException("Utils.createRoi(): mask slice position is invalid. -> "+ pos);
+		//slice position is 1 to N, as ImageJ does.
+		if (pos < 1 || pos > mask.getNSlices()) {
+			throw new IllegalArgumentException("Utils.createRoi(): mask slice position is invalid(1 to "
+					+ mask.getNSlices() + "). -> " + pos);
 		}
 		
 		return createRoi(mask.getStack().getProcessor(pos), label);
@@ -552,7 +554,8 @@ public class Utils {
 		double vx = cal.pixelWidth;
 		double vy = cal.pixelHeight;
 		if(vx == resampleX && vy == resampleY) {
-			return imp;
+			//already the requested spacing. return a copy, never the input itself.
+			return isMask ? createMaskCopy(imp) : createImageCopy(imp);
 		}
 		if(resampleX == 0 || resampleY == 0) {
 			System.out.println("please set valid number of x,y. These values are not allowed zero.");
@@ -576,9 +579,12 @@ public class Utils {
 				float[][] pixels = ip.getFloatArray();
 				for(int ny=0;ny<newH;ny++) {
 					for(int nx=0;nx<newW;nx++) {
-						if(pixels[nx][ny] > RadiomicsJ.mask_PartialVolumeThreshold) {
-							pixels[nx][ny] = RadiomicsJ.label_;//always 1
-						}
+						/*
+						 * IBSI includes a voxel when the partial volume is >= the threshold.
+						 * Use the same rule as trilinearInterpolation(), and clear the
+						 * sub threshold values instead of leaving the interpolated fraction.
+						 */
+						pixels[nx][ny] = pixels[nx][ny] >= RadiomicsJ.mask_PartialVolumeThreshold ? (float)RadiomicsJ.label_ : 0f;
 					}
 				}
 				stack.addSlice(new FloatProcessor(pixels));
@@ -602,6 +608,10 @@ public class Utils {
 	 * @return
 	 */
 	public static ImagePlus resample3D(ImagePlus imp, boolean isMask, double x, double y, double z) {
+		return resample3D(imp, isMask, x, y, z, RadiomicsJ.interpolation3D);
+	}
+
+	public static ImagePlus resample3D(ImagePlus imp, boolean isMask, double x, double y, double z, int interpType) {
 		if (isMask) {
 			int nSlices = imp.getNSlices();
 			// スタック全体の最大値を格納する変数を初期化
@@ -621,34 +631,55 @@ public class Utils {
 				throw new IllegalArgumentException("Resample3D is needed to input a ImagePlus has *1* label as mask.");
 			}
 		}
-		if(RadiomicsJ.interpolation3D == RadiomicsJ.TRILINEAR) {
-			return trilinearInterpolation(imp, isMask, x, y, z);
-		}else if(RadiomicsJ.interpolation3D == RadiomicsJ.NEAREST3D){
-			return nearestNeighbourInterpolation(imp, x, y, z);
-		}
-		
-		if(!isMask) {
-			if(RadiomicsJ.interpolation3D == RadiomicsJ.TRICUBIC_SPLINE){
-				return tricubicSplineInterporation(imp, x, y, z);
-			}else if(RadiomicsJ.interpolation3D == RadiomicsJ.TRICUBIC_POLYNOMIAL) {
-				return tricubicPolynomialInterporation(imp, x, y, z);
-			}
-		}
-		return null;
-	}
-	
-	public static ImagePlus resample3D(ImagePlus imp, boolean isMask, double x, double y, double z, int interpType) {
 		if(interpType == RadiomicsJ.TRILINEAR) {
+			//trilinearInterpolation() applies the partial volume threshold by itself.
 			return trilinearInterpolation(imp, isMask, x, y, z);
 		}else if(interpType == RadiomicsJ.NEAREST3D) {
+			//nearest neighbour keeps label values as-is.
 			return nearestNeighbourInterpolation(imp, x, y, z);
 		}else if(interpType == RadiomicsJ.TRICUBIC_SPLINE) {
-			return tricubicSplineInterporation(imp, x, y, z);
+			ImagePlus resampled = tricubicSplineInterporation(imp, x, y, z);
+			return isMask ? binarizeMaskByPartialVolume(resampled) : resampled;
 		}else if(interpType == RadiomicsJ.TRICUBIC_POLYNOMIAL) {
-			return tricubicPolynomialInterporation(imp, x, y, z);
+			ImagePlus resampled = tricubicPolynomialInterporation(imp, x, y, z);
+			return isMask ? binarizeMaskByPartialVolume(resampled) : resampled;
 		}else {
 			return null;
 		}
+	}
+
+	/**
+	 * Convert an interpolated mask back to a binary(label 1) mask,
+	 * using RadiomicsJ.mask_PartialVolumeThreshold.
+	 * Interpolated values can overshoot out of [0,1] (e.g, cubic interpolation),
+	 * therefore always threshold them here.
+	 *
+	 * @param interpolatedMask mask stack after interpolation. null-able.
+	 * @return mask stack that has label 1, or null if input is null.
+	 */
+	public static ImagePlus binarizeMaskByPartialVolume(ImagePlus interpolatedMask) {
+		if(interpolatedMask == null) {
+			return null;
+		}
+		int w = interpolatedMask.getWidth();
+		int h = interpolatedMask.getHeight();
+		int s = interpolatedMask.getNSlices();
+		ImageStack stack = new ImageStack(w, h);
+		for(int z=0;z<s;z++) {
+			ImageProcessor ip = interpolatedMask.getStack().getProcessor(z+1);
+			FloatProcessor fp = new FloatProcessor(w, h);
+			for(int y=0;y<h;y++) {
+				for(int x=0;x<w;x++) {
+					fp.setf(x, y, ip.getf(x, y) >= RadiomicsJ.mask_PartialVolumeThreshold ? (float)RadiomicsJ.label_ : 0f);
+				}
+			}
+			stack.addSlice(fp);
+		}
+		ImagePlus binarized = new ImagePlus("mask", stack);
+		Calibration cal = interpolatedMask.getCalibration().copy();
+		cal.disableDensityCalibration();
+		binarized.setCalibration(cal);
+		return binarized;
 	}
 	
 	/**
@@ -750,6 +781,62 @@ public class Utils {
 	 * @param resampleZ
 	 * @return resampled stack
 	 */
+	/**
+	 * Round every voxel intensity to the nearest integer.
+	 *
+	 * IBSI table 5.1 asks for it after interpolating calibrated and discrete intensities,
+	 * such as CT Hounsfield Units. NaN voxels are kept as-is.
+	 *
+	 * @param imp image stack. null-able.
+	 * @return rounded copy, or null if the input is null.
+	 */
+	public static ImagePlus roundIntensitiesToNearestInteger(ImagePlus imp) {
+		if(imp == null) {
+			return null;
+		}
+		int w = imp.getWidth();
+		int h = imp.getHeight();
+		int s = imp.getNSlices();
+		ImageStack stack = new ImageStack(w, h);
+		for(int z=0;z<s;z++) {
+			ImageProcessor ip = imp.getStack().getProcessor(z+1);
+			FloatProcessor fp = new FloatProcessor(w, h);
+			for(int y=0;y<h;y++) {
+				for(int x=0;x<w;x++) {
+					float v = ip.getf(x, y);
+					fp.setf(x, y, Float.isNaN(v) ? v : (float)Math.rint(v));
+				}
+			}
+			stack.addSlice(fp);
+		}
+		ImagePlus rounded = new ImagePlus(imp.getTitle(), stack);
+		Calibration cal = imp.getCalibration().copy();
+		cal.disableDensityCalibration();
+		rounded.setCalibration(cal);
+		return rounded;
+	}
+
+	/**
+	 * Position of the centre of the FIRST interpolated voxel, in original grid index units.
+	 *
+	 * IBSI(5.2.1) requires that the centres of the interpolation grid and of the original
+	 * image grid are aligned. The centre of the original grid is at (n-1)/2, and the centre
+	 * of the interpolation grid is at origin + (newN-1)/(2*scale), hence
+	 *
+	 *   origin = (n-1)/2 - (newN-1)/(2*scale)
+	 *
+	 * If newN is exactly n*scale (no ceiling remainder), this equals (0.5/scale - 0.5),
+	 * and it is 0 when no resampling is performed.
+	 *
+	 * @param n original number of voxels along the axis
+	 * @param newN interpolated number of voxels along the axis
+	 * @param scale original spacing / new spacing
+	 * @return origin in original grid index units
+	 */
+	public static double gridOrigin(int n, int newN, double scale) {
+		return ((n - 1) / 2d) - ((newN - 1) / (2d * scale));
+	}
+
 	public static ImagePlus trilinearInterpolation(ImagePlus imp, boolean isMask, double resampleX, double resampleY, double resampleZ) {
 		if(imp == null){
 			return null;
@@ -791,21 +878,44 @@ public class Utils {
 		
 		int i, j, k;
 		double x, y, z;
-		float ratio[] = new float[3];
-		ratio[0] = (float)newW / (float)w;
-		ratio[1] = (float)newH / (float)h;
-		ratio[2] = (float)newS / (float)s;
-		
+		/*
+		 * Scale must be derived from the voxel spacings, NOT from (newW/w).
+		 * newW is a ceil() rounded grid size, therefore using it stretches the image
+		 * by up to one voxel over the whole field of view.
+		 */
+		double scaleX = cal.pixelWidth / resampleX;
+		double scaleY = cal.pixelHeight / resampleY;
+		double scaleZ = cal.pixelDepth / resampleZ;
+		/*
+		 * Grid alignment.
+		 * IBSI(5.2.1) : "The centers of the interpolation and original image grids should be
+		 * aligned, i.e. the interpolation grid is centered on the center of the original image grid."
+		 * The grid size is a ceiling operation, therefore the new grid is a bit wider than
+		 * the original extent, and the offset must be derived from both grid centres.
+		 * The former "i/scale" put the centre of new voxel 0 onto the centre of old voxel 0,
+		 * that shifts the whole grid whenever the spacings differ.
+		 */
+		double originX = gridOrigin(w, newW, scaleX);
+		double originY = gridOrigin(h, newH, scaleY);
+		double originZ = gridOrigin(s, newS, scaleZ);
+
 		int slice = newW * newH;
 		int index;
 		for (i = 0; i < newW; i++) {
-			x = (i / ratio[0]);
+			/*
+			 * Out of range coordinates are clamped (edge replication),
+			 * because TrilinearInterpolation2() returns 0 for them.
+			 */
+			x = originX + (i / scaleX);
+			if(x < 0) x = 0;
 			if(x > w-1) x = w-1;
 			for (j = 0; j < newH; j++) {
-				y = (j / ratio[1]);
+				y = originY + (j / scaleY);
+				if(y < 0) y = 0;
 				if(y > h-1) y = h-1;
 				for (k = 0; k < newS; k++) {
-					z = (k / ratio[2]);
+					z = originZ + (k / scaleZ);
+					if(z < 0) z = 0;
 					if(z > s-1) z = s-1;
 					index = k * slice + j * newW + i;
 					float interp = (float) (TrilinearInterpolation2(voxels, w, h, s, x, y, z));
@@ -1074,23 +1184,29 @@ public class Utils {
 		
 		int i, j, k;
 		double x, y, z;
-		float ratio[] = new float[3];
-		ratio[0] = (float) newW / w;
-		ratio[1] = (float) newH / h;
-		ratio[2] = (float) newS / s;
-		
+		//see trilinearInterpolation() for the grid alignment.
+		double scaleX = cal.pixelWidth / resampleX;
+		double scaleY = cal.pixelHeight / resampleY;
+		double scaleZ = cal.pixelDepth / resampleZ;
+		double originX = gridOrigin(w, newW, scaleX);
+		double originY = gridOrigin(h, newH, scaleY);
+		double originZ = gridOrigin(s, newS, scaleZ);
+
 		int slice = newW * newH;
 		int index;
 		for (i = 0; i < newW; i++) {
-			x = (i / ratio[0]);
+			x = originX + (i / scaleX);
+			if (x < 0) x = 0;
 			if (x > w - 1)
 				x = w - 1;
 			for (j = 0; j < newH; j++) {
-				y = (j / ratio[1]);
+				y = originY + (j / scaleY);
+				if (y < 0) y = 0;
 				if (y > h - 1)
 					y = h - 1;
 				for (k = 0; k < newS; k++) {
-					z = (k / ratio[2]);
+					z = originZ + (k / scaleZ);
+					if (z < 0) z = 0;
 					if (z > s - 1)
 						z = s - 1;
 					index = k * slice + j * newW + i;
@@ -1278,21 +1394,27 @@ public class Utils {
 		
 		int i, j, k;
 		double x, y, z;
-		float ratio[] = new float[3];
-		ratio[0] = (float)newW / (float)w;
-		ratio[1] = (float)newH / (float)h;
-		ratio[2] = (float)newS / (float)s;
-		
+		//see trilinearInterpolation() for the grid alignment.
+		double scaleX = cal.pixelWidth / resampleX;
+		double scaleY = cal.pixelHeight / resampleY;
+		double scaleZ = cal.pixelDepth / resampleZ;
+		double originX = gridOrigin(w, newW, scaleX);
+		double originY = gridOrigin(h, newH, scaleY);
+		double originZ = gridOrigin(s, newS, scaleZ);
+
 		int slice = newW * newH;
 		int index;
 		for (i = 0; i < newW; i++) {
-			x = (i / ratio[0]);
+			x = originX + (i / scaleX);
+			if(x < 0) x = 0;
 			if(x > w-1) x = w-1;
 			for (j = 0; j < newH; j++) {
-				y = (j / ratio[1]);
+				y = originY + (j / scaleY);
+				if(y < 0) y = 0;
 				if(y > h-1) y = h-1;
 				for (k = 0; k < newS; k++) {
-					z = (k / ratio[2]);
+					z = originZ + (k / scaleZ);
+					if(z < 0) z = 0;
 					if(z > s-1) z = s-1;
 					index = k * slice + j * newW + i;
 					float interp = (float) (TricubicSplineInterporation(voxels,sw, w, h, s, x, y, z));
@@ -1355,21 +1477,27 @@ public class Utils {
 		
 		int i, j, k;
 		double x, y, z;
-		float ratio[] = new float[3];
-		ratio[0] = (float)newW / (float)w;
-		ratio[1] = (float)newH / (float)h;
-		ratio[2] = (float)newS / (float)s;
-		
+		//see trilinearInterpolation() for the grid alignment.
+		double scaleX = cal.pixelWidth / resampleX;
+		double scaleY = cal.pixelHeight / resampleY;
+		double scaleZ = cal.pixelDepth / resampleZ;
+		double originX = gridOrigin(w, newW, scaleX);
+		double originY = gridOrigin(h, newH, scaleY);
+		double originZ = gridOrigin(s, newS, scaleZ);
+
 		int slice = newW * newH;
 		int index;
 		for (i = 0; i < newW; i++) {
-			x = (i / ratio[0]);
+			x = originX + (i / scaleX);
+			if(x < 0) x = 0;
 			if(x > w-1) x = w-1;
 			for (j = 0; j < newH; j++) {
-				y = (j / ratio[1]);
+				y = originY + (j / scaleY);
+				if(y < 0) y = 0;
 				if(y > h-1) y = h-1;
 				for (k = 0; k < newS; k++) {
-					z = (k / ratio[2]);
+					z = originZ + (k / scaleZ);
+					if(z < 0) z = 0;
 					if(z > s-1) z = s-1;
 					index = k * slice + j * newW + i;
 					float interp = (float) (TricubicPolynomialInterporation(voxels,pw, w, h, s, x, y, z));
@@ -1804,9 +1932,17 @@ public class Utils {
 			min = RadiomicsJ.rangeMin;
 		}
 		
-		if(Math.abs(max-min) < binWidth) {
-			System.out.println("Utils:discreteByBinWidth::binWidth values is invalid. this stack's gray intensity range is "+(max-min)+"\n"+"But, inputed binWidth is "+binWidth+". retun null.");
+		if(binWidth <= 0d) {
+			System.out.println("Utils:discreteByBinWidth::binWidth must be a positive value, but inputed binWidth is "+binWidth+". return null.");
 			return null;
+		}
+		/*
+		 * A narrower intensity range than the bin width is not an error.
+		 * All voxels simply fall into the first bin.
+		 */
+		if(Math.abs(max-min) < binWidth && RadiomicsJ.debug) {
+			System.out.println("Utils:discreteByBinWidth::this stack's gray intensity range is "+(max-min)
+					+", that is narrower than the binWidth "+binWidth+". All voxels are discretised into a single bin.");
 		}
 		
 		ImagePlus discreImp = createImageCopyAsFloat(org, false);
