@@ -118,6 +118,15 @@
 										<exclude>tests/**</exclude>
 										<exclude>**/.pytest_cache/**</exclude>
 										<exclude>**/__pycache__/**</exclude>
+										<!--
+											The jars are put here at the package phase, the library by
+											antrun and its dependencies by maven-dependency-plugin, so
+											there is nothing to copy over from the working tree. Copying
+											it anyway carried whatever an earlier build had left in the
+											working tree into the distribution, a jar of the previous
+											version among it.
+										-->
+										<exclude>radiomicsj/jars/**</exclude>
 									</excludes>
 		                        </resource>
 		                    </resources>
@@ -232,10 +241,24 @@
 			            </goals>
 			            <configuration>
 			                <target>
+								<!--
+									The jar of the previous version is deleted first. Copying only
+									overwrites a file of the same name, and the name carries the
+									version, so a release used to leave its predecessor sitting in
+									the folder. core.py puts the whole folder on the classpath with
+									a wildcard, and which of two jars holding the same classes wins
+									is then left to the order the jvm happens to expand it in.
+									Nothing else in the folder is named radiomicsj-*.jar: the
+									dependencies keep their own names, and maven-dependency-plugin
+									puts them back at this same phase.
+								-->
+								<delete>
+									<fileset dir="${project.build.directory}/radiomicsj-python/radiomicsj/jars"
+									         includes="radiomicsj-*.jar" erroronmissingdir="false" />
+									<fileset dir="${project.basedir}/radiomicsj-python/radiomicsj/jars"
+									         includes="radiomicsj-*.jar" erroronmissingdir="false" />
+								</delete>
 			                    <!-- for distribution -->
-								<copy file="${project.build.directory}/${project.build.finalName}.jar"
-								      todir="${project.build.directory}/radiomicsj-python/radiomicsj/jars"
-								      overwrite="true" />
 								<copy file="${project.build.directory}/${project.build.finalName}.jar"
 								      todir="${project.build.directory}/radiomicsj-python/radiomicsj/jars"
 								      overwrite="true" />
