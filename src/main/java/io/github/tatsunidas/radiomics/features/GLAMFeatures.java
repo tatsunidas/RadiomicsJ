@@ -15,13 +15,17 @@
  */
 package io.github.tatsunidas.radiomics.features;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ForkJoinTask;
 import java.util.stream.IntStream;
 
 import ij.IJ;
@@ -140,7 +144,32 @@ public class GLAMFeatures extends AbstractRadiomicsFeature implements Texture {
 	/** Number of roi voxels found in shell r, summed over all reference voxels. */
 	private double[] shellOccupancy;
 
-	private EnumMap<GLAMMatrixType, double[][]> matrices;
+	/**
+	 * The affinity matrices, built the first time one is asked for.
+	 *
+	 * Only the matrix a caller wants, and whatever that matrix is derived from, is
+	 * ever computed. Extracting every feature still builds all nineteen and costs
+	 * what it always did, because no two of them share an expensive step. A feature
+	 * visualization map, on the other hand, wants a single matrix and pays for it
+	 * once per window, so building the other eighteen there is pure waste.
+	 */
+	private final EnumMap<GLAMMatrixType, double[][]> matrices = new EnumMap<>(GLAMMatrixType.class);
+
+	/**
+	 * Matrices that come out of one shared pass over a g(r) curve, so that asking
+	 * for any of them builds all of them.
+	 */
+	private static final EnumSet<GLAMMatrixType> SHAPE_GROUP = EnumSet.of(GLAMMatrixType.RDFPeakPosition,
+			GLAMMatrixType.RDFDispersionRatio, GLAMMatrixType.LogRDFPeakHeight, GLAMMatrixType.LogRDFMedian,
+			GLAMMatrixType.LogRDFVariance, GLAMMatrixType.LogRDFSkewness, GLAMMatrixType.LogRDFKurtosis);
+
+	/** Both of these come out of the same first coordination shell. */
+	private static final EnumSet<GLAMMatrixType> SHELL_GROUP = EnumSet.of(GLAMMatrixType.CoordinationNumber,
+			GLAMMatrixType.LocalPackingFraction);
+
+	/** Matrices assembled from other matrices rather than from the curves directly. */
+	private static final EnumSet<GLAMMatrixType> DERIVED = EnumSet.of(GLAMMatrixType.PhenotypicDistance,
+			GLAMMatrixType.AssemblyCoupling, GLAMMatrixType.FrustrationIndex);
 
 	private static final double LOG_FLOOR = 1e-9;
 	private static final double ACTIVE_THRESHOLD = 1e-6;
@@ -291,7 +320,7 @@ public class GLAMFeatures extends AbstractRadiomicsFeature implements Texture {
 		prepareLookupTables();
 		rdf = calculateRadialDistribution(voxelLevel);
 		rdfRandom = numRandomisations > 0 ? sampledRandomState() : closedFormRandomState();
-		matrices = buildMatrices();
+		// The matrices themselves wait until someone asks for one, see #matrices.
 	}
 
 	/**
@@ -673,13 +702,79 @@ public class GLAMFeatures extends AbstractRadiomicsFeature implements Texture {
 		return r;
 	}
 
-	private EnumMap<GLAMMatrixType, double[][]> buildMatrices() {
+	/**
+	 * Makes sure {@code type} is available in {@link #matrices}, building it and
+	 * whatever it is derived from if it is not there yet.
+	 */
+	private synchronized void ensureMatrix(GLAMMatrixType type) {
+		if (!matrices.containsKey(type)) {
+			buildMatrices(EnumSet.of(type));
+		}
+	}
+
+	/**
+	 * The matrices that have to be built so that every matrix of {@code wanted} can
+	 * be. Two of them are assembled from other matrices, and two groups fall out of
+	 * a single shared pass over a curve, so asking for one member brings its whole
+	 * group along at no extra cost.
+	 */
+	private static EnumSet<GLAMMatrixType> withDependencies(EnumSet<GLAMMatrixType> wanted) {
+		EnumSet<GLAMMatrixType> closure = EnumSet.noneOf(GLAMMatrixType.class);
+		Deque<GLAMMatrixType> pending = new ArrayDeque<>(wanted);
+		while (!pending.isEmpty()) {
+			GLAMMatrixType type = pending.pop();
+			if (!closure.add(type)) {
+				continue;
+			}
+			// group members are built from the curves directly, so they pull in nothing
+			if (SHAPE_GROUP.contains(type)) {
+				closure.addAll(SHAPE_GROUP);
+			}
+			if (SHELL_GROUP.contains(type)) {
+				closure.addAll(SHELL_GROUP);
+			}
+			if (type == GLAMMatrixType.AssemblyCoupling) {
+				pending.push(GLAMMatrixType.WassersteinDistance);
+			}
+			if (type == GLAMMatrixType.FrustrationIndex) {
+				pending.push(GLAMMatrixType.StructuralPressureIndex);
+				pending.push(GLAMMatrixType.ConfigurationalDisorderIndex);
+			}
+		}
+		return closure;
+	}
+
+	/**
+	 * Splitting the gray levels across threads pays off when this is the only work
+	 * in flight, because every cell runs a smoothing pass, a peak search and a non
+	 * linear fit. Inside a parallel feature map, though, every window already
+	 * occupies a worker, and splitting the rows as well only adds scheduling
+	 * overhead to a job that is a few hundred voxels big.
+	 */
+	private static boolean rowsShouldRunInParallel() {
+		return !ForkJoinTask.inForkJoinPool();
+	}
+
+	/**
+	 * Builds the matrices of {@code wanted} and files them under {@link #matrices}.
+	 * Matrices that are already there are left alone.
+	 */
+	private void buildMatrices(EnumSet<GLAMMatrixType> wanted) {
+		EnumSet<GLAMMatrixType> todo = withDependencies(wanted);
+		todo.removeAll(matrices.keySet());
+		if (todo.isEmpty()) {
+			return;
+		}
+
 		EnumMap<GLAMMatrixType, double[][]> result = new EnumMap<>(GLAMMatrixType.class);
-		for (GLAMMatrixType type : GLAMMatrixType.values()) {
-			result.put(type, filled(Double.NaN));
+		for (GLAMMatrixType type : todo) {
+			if (!DERIVED.contains(type)) {
+				result.put(type, filled(Double.NaN));
+			}
 		}
 		double[] r = distances();
 
+		// null stands for "not asked for on this pass"; every write below is guarded
 		double[][] potentialEnergy = result.get(GLAMMatrixType.PotentialEnergy);
 		double[][] virial = result.get(GLAMMatrixType.SecondVirialCoefficient);
 		double[][] compressibility = result.get(GLAMMatrixType.Compressibility);
@@ -700,10 +795,13 @@ public class GLAMFeatures extends AbstractRadiomicsFeature implements Texture {
 		/*
 		 * Every row of every matrix is derived from one g(alpha, beta, r) curve on its
 		 * own, and each row writes only into its own cells, so the rows can be built
-		 * side by side. It is worth it: each cell runs a smoothing pass, a peak search
-		 * and a non linear fit, which dominates the cost on small rois.
+		 * side by side.
 		 */
-		IntStream.range(0, nBins).parallel().forEach(alpha -> {
+		IntStream rows = IntStream.range(0, nBins);
+		if (rowsShouldRunInParallel()) {
+			rows = rows.parallel();
+		}
+		rows.forEach(alpha -> {
 			double densityOfAlpha = levelCounts[alpha] / (double) roiVoxelCount;
 			for (int beta = 0; beta < nBins; beta++) {
 				if (!isDefined(alpha, beta)) {
@@ -714,33 +812,59 @@ public class GLAMFeatures extends AbstractRadiomicsFeature implements Texture {
 				double[] g = curveOf(rdf, alpha, beta);
 				double[] gRandom = curveOf(rdfRandom, alpha, beta);
 
-				shapeStatistics(g, r, alpha, beta, peakPosition, dispersion, logPeak, logMedian, logVariance,
-						logSkewness, logKurtosis);
-				virial[alpha][beta] = secondVirialCoefficient(g, gRandom, r);
-				potentialEnergy[alpha][beta] = potentialOfMeanForceEnergy(g, r);
-				pressure[alpha][beta] = structuralPressureIndex(g, r, densityOfAlpha, densityOfBeta);
-				disorder[alpha][beta] = configurationalDisorderIndex(g, gRandom);
-				wasserstein[alpha][beta] = wassersteinDistance(g, gRandom, r, densityOfBeta);
-				decayRate[alpha][beta] = inverseCorrelationLength(g, gRandom, r);
-
-				int shellEnd = firstCoordinationShell(g, 15);
-				if (shellEnd >= 0) {
-					double number = coordinationNumber(g, r, densityOfBeta, shellEnd);
-					coordination[alpha][beta] = number;
-					double boundary = r[shellEnd] + 0.5;
-					double shellVolume = (4d / 3d) * Math.PI * boundary * boundary * boundary;
-					packing[alpha][beta] = shellVolume > 0d ? number / shellVolume : Double.NaN;
+				if (peakPosition != null) {
+					shapeStatistics(g, r, alpha, beta, peakPosition, dispersion, logPeak, logMedian, logVariance,
+							logSkewness, logKurtosis);
 				}
-				if (alpha == beta) {
+				if (virial != null) {
+					virial[alpha][beta] = secondVirialCoefficient(g, gRandom, r);
+				}
+				if (potentialEnergy != null) {
+					potentialEnergy[alpha][beta] = potentialOfMeanForceEnergy(g, r);
+				}
+				if (pressure != null) {
+					pressure[alpha][beta] = structuralPressureIndex(g, r, densityOfAlpha, densityOfBeta);
+				}
+				if (disorder != null) {
+					disorder[alpha][beta] = configurationalDisorderIndex(g, gRandom);
+				}
+				if (wasserstein != null) {
+					wasserstein[alpha][beta] = wassersteinDistance(g, gRandom, r, densityOfBeta);
+				}
+				if (decayRate != null) {
+					decayRate[alpha][beta] = inverseCorrelationLength(g, gRandom, r);
+				}
+				if (coordination != null) {
+					int shellEnd = firstCoordinationShell(g, 15);
+					if (shellEnd >= 0) {
+						double number = coordinationNumber(g, r, densityOfBeta, shellEnd);
+						coordination[alpha][beta] = number;
+						double boundary = r[shellEnd] + 0.5;
+						double shellVolume = (4d / 3d) * Math.PI * boundary * boundary * boundary;
+						packing[alpha][beta] = shellVolume > 0d ? number / shellVolume : Double.NaN;
+					}
+				}
+				if (compressibility != null && alpha == beta) {
 					compressibility[alpha][alpha] = isothermalCompressibility(g, r);
 				}
 			}
 		});
 
-		result.put(GLAMMatrixType.PhenotypicDistance, phenotypicDistance(r));
-		result.put(GLAMMatrixType.AssemblyCoupling, assemblyCoupling(wasserstein));
-		result.put(GLAMMatrixType.FrustrationIndex, frustrationIndex(pressure, disorder));
-		return result;
+		matrices.putAll(result);
+
+		// the derived ones read their inputs back out, which an earlier pass may have left
+		if (todo.contains(GLAMMatrixType.PhenotypicDistance)) {
+			matrices.put(GLAMMatrixType.PhenotypicDistance, phenotypicDistance(r));
+		}
+		if (todo.contains(GLAMMatrixType.AssemblyCoupling)) {
+			matrices.put(GLAMMatrixType.AssemblyCoupling,
+					assemblyCoupling(matrices.get(GLAMMatrixType.WassersteinDistance)));
+		}
+		if (todo.contains(GLAMMatrixType.FrustrationIndex)) {
+			matrices.put(GLAMMatrixType.FrustrationIndex,
+					frustrationIndex(matrices.get(GLAMMatrixType.StructuralPressureIndex),
+							matrices.get(GLAMMatrixType.ConfigurationalDisorderIndex)));
+		}
 	}
 
 	private double[][] filled(double value) {
@@ -1127,6 +1251,7 @@ public class GLAMFeatures extends AbstractRadiomicsFeature implements Texture {
 			return null;
 		}
 		GLAMFeatureType type = GLAMFeatureType.valueOf(name);
+		ensureMatrix(type.matrix());
 		double[][] matrix = matrices.get(type.matrix());
 		if (matrix == null) {
 			return null;
@@ -1140,6 +1265,7 @@ public class GLAMFeatures extends AbstractRadiomicsFeature implements Texture {
 	 * the discretised image.
 	 */
 	public double[][] getMatrix(GLAMMatrixType type) {
+		ensureMatrix(type);
 		double[][] matrix = matrices.get(type);
 		if (matrix == null) {
 			return null;

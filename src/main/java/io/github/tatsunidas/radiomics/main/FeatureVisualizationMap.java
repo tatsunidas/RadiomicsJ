@@ -2,6 +2,7 @@ package io.github.tatsunidas.radiomics.main;
 
 import ij.ImagePlus;
 import ij.ImageStack;
+import ij.measure.Calibration;
 import ij.plugin.FolderOpener;
 import ij.process.FloatProcessor;
 import io.github.tatsunidas.radiomics.features.GLCMFeatureType;
@@ -13,6 +14,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.IntStream;
 
 /**
  * Usage: Map<String, ImagePlus fmap> fmaps = FeatureVisualizationMap.generate(...);
@@ -29,6 +31,31 @@ public class FeatureVisualizationMap {
 	 * measured in a window the roi fills completely.
 	 */
 	public static final int DEFAULT_MARGIN = 3;
+
+	/**
+	 * Whether the windows of a slice are measured on several threads.
+	 *
+	 * Each window is measured on its own and writes into its own cell, so the
+	 * result does not depend on the order. Set this to false to keep the map on one
+	 * thread, for instance when profiling or when the calling code already spreads
+	 * whole maps across the cores itself.
+	 */
+	public static boolean parallel = true;
+
+	/**
+	 * Told how far a map has got, so that a caller can show it.
+	 *
+	 * Throwing from {@link #update} aborts the map: the exception travels out of
+	 * {@code generateFeatureMap} untouched, which is how a caller cancels one that
+	 * is taking longer than it is worth.
+	 */
+	public interface ProgressListener {
+		/**
+		 * @param slicesDone slices finished so far
+		 * @param slicesTotal slices this map covers
+		 */
+		void update(int slicesDone, int slicesTotal);
+	}
 
 	
 	/*
@@ -353,6 +380,22 @@ public class FeatureVisualizationMap {
 	 */
 	public static ImagePlus generateFeatureMap(ImagePlus image, ImagePlus mask, int slice/*1 to N*/, FeatureCalculator calculator,
 			int filterSize, boolean d2_mode, int stride, int margin) {
+		return generateFeatureMap(image, mask, slice, calculator, filterSize, d2_mode, stride, margin, null);
+	}
+
+	/**
+	 * Same, reporting how far along it is.
+	 *
+	 * A map over a whole stack can run for minutes, and a caller that shows it to
+	 * someone needs to say how far it has got. The callback is handed the number of
+	 * slices finished after each one, out of {@code total} given to
+	 * {@link ProgressListener#update(int, int)}.
+	 *
+	 * @param progress notified after every slice, or null. Throwing from it aborts
+	 *                 the map, which is how a caller cancels one.
+	 */
+	public static ImagePlus generateFeatureMap(ImagePlus image, ImagePlus mask, int slice/*1 to N*/, FeatureCalculator calculator,
+			int filterSize, boolean d2_mode, int stride, int margin, ProgressListener progress) {
 
 		if(image == null || image.getNSlices() == 0) {
 			throw new IllegalArgumentException("Image is null or no slices, please check input images.");
@@ -402,6 +445,22 @@ public class FeatureVisualizationMap {
 			windowMask = dilate(windowMask, margin, d2_mode);
 		}
 
+		/*
+		 * The pixels are read out once, as float planes. Cutting a window used to
+		 * convert a whole slice of the source for every window that touched it, which
+		 * on a 512 by 512 image is a quarter of a million conversions per voxel of the
+		 * map, dwarfing the feature calculation itself.
+		 */
+		final float[][] imagePlanes = floatPlanes(windowImage);
+		final float[][] maskPlanes = floatPlanes(windowMask);
+		final int windowW = windowImage.getWidth();
+		final int windowH = windowImage.getHeight();
+		final int windowS = windowImage.getNSlices();
+		final Calibration windowCal = windowImage.getCalibration();
+		// the offsets are settled by now, and a lambda may only read what no longer moves
+		final int offXY = offsetXY;
+		final int offZ = offsetZ;
+
 		ImageStack outputStack = new ImageStack(out_w, out_h);
 		ImageStack maskStack = mask.getStack();
 
@@ -412,14 +471,26 @@ public class FeatureVisualizationMap {
 			z_end = z_start+1;
 		}
 
+		int rowCount = (h + stride - 1) / stride;
 		for (int z = z_start; z < z_end; z++) {
-			FloatProcessor outputIp = new FloatProcessor(out_w, out_h);
-			FloatProcessor maskIp = maskStack.getProcessor(z + 1).convertToFloatProcessor();
+			final FloatProcessor outputIp = new FloatProcessor(out_w, out_h);
+			final FloatProcessor maskIp = maskStack.getProcessor(z + 1).convertToFloatProcessor();
+			final int zz = z;
 			System.out.println("Processing slice: " + (z + 1) + "/" + s);
 
-			// ★ y と x のループを stride 幅で進める
-			for (int y = 0; y < h; y += stride) {
-				int out_y = y / stride; // 出力先の縮小座標
+			/*
+			 * Every window is measured on its own and writes into its own cell of the
+			 * output, so the rows of a slice can be measured side by side. A row is the
+			 * unit rather than a single window because a window outside the roi costs
+			 * nothing, and per row the scheduling overhead disappears next to the work.
+			 */
+			IntStream rows = IntStream.range(0, rowCount);
+			if (parallel) {
+				rows = rows.parallel();
+			}
+			rows.forEach(out_y -> {
+				int y = out_y * stride;
+				// ★ x のループを stride 幅で進める
 				for (int x = 0; x < w; x += stride) {
 					int out_x = x / stride; // 出力先の縮小座標
 
@@ -430,10 +501,10 @@ public class FeatureVisualizationMap {
 
 					// 部分抽出は「元画像の座標 (x, y)」で行う（重要）
 					// マージンを付けた場合は、その分だけ座標をずらして参照する
-					ImagePlus sub_vol = getSubVolume(windowImage, x + offsetXY, y + offsetXY, z + offsetZ, filterSize,
-							d2_mode);
-					ImagePlus sub_mask = getSubVolume(windowMask, x + offsetXY, y + offsetXY, z + offsetZ, filterSize,
-							d2_mode);
+					ImagePlus sub_vol = getSubVolume(imagePlanes, windowW, windowH, windowS, windowCal,
+							x + offXY, y + offXY, zz + offZ, filterSize, d2_mode);
+					ImagePlus sub_mask = getSubVolume(maskPlanes, windowW, windowH, windowS, windowCal,
+							x + offXY, y + offXY, zz + offZ, filterSize, d2_mode);
 
 					try {
 						Double value = calculator.calculate(sub_vol, sub_mask);
@@ -446,16 +517,19 @@ public class FeatureVisualizationMap {
 						Throwable cause = e.getCause();
 						if (cause != null) {
 							System.err.println("--> Root Cause:");
-							cause.printStackTrace(); 
+							cause.printStackTrace();
 						} else {
 							e.printStackTrace();
 						}
-						System.err.println("Error calculating feature at (" + x + "," + y + "," + z + "): " + e.getMessage());
+						System.err.println("Error calculating feature at (" + x + "," + y + "," + zz + "): " + e.getMessage());
 						outputIp.setf(out_x, out_y, 0f);
 					}
 				}
-			}
+			});
 			outputStack.addSlice(outputIp);
+			if (progress != null) {
+				progress.update(z - z_start + 1, z_end - z_start);
+			}
 		}
 		String name = d2_mode ? "FeatureMap_2D":"FeatureMap_3D";
 		ImagePlus fmap = new ImagePlus(name, outputStack);
@@ -697,10 +771,24 @@ public class FeatureVisualizationMap {
      * @param filterSize フィルターの直径（奇数を推奨）
      * @return 抽出されたサブボリュームのImagePlus
      */
-	private static ImagePlus getSubVolume(ImagePlus originalImage, int cx, int cy, int cz/*0 to N-1*/, int filterSize, boolean patch2DMode) {
-		int w = originalImage.getWidth();
-		int h = originalImage.getHeight();
-		int s = originalImage.getNSlices();
+	/**
+	 * The pixels of a volume as float planes, read out once.
+	 *
+	 * A stack that is already float hands back its own arrays here rather than a
+	 * copy, which is what we want: the windows only ever read them.
+	 */
+	private static float[][] floatPlanes(ImagePlus imp) {
+		ImageStack stack = imp.getStack();
+		int s = imp.getNSlices();
+		float[][] planes = new float[s][];
+		for (int z = 0; z < s; z++) {
+			planes[z] = (float[]) stack.getProcessor(z + 1).convertToFloatProcessor().getPixels();
+		}
+		return planes;
+	}
+
+	private static ImagePlus getSubVolume(float[][] planes, int w, int h, int s, Calibration cal, int cx, int cy,
+			int cz/*0 to N-1*/, int filterSize, boolean patch2DMode) {
 		int r = filterSize / 2; // 半径
 
 		// 境界チェックを行い、抽出範囲を決定
@@ -721,23 +809,19 @@ public class FeatureVisualizationMap {
 		//int subS = zEnd - zStart + 1;
 
 		ImageStack subStack = new ImageStack(subW, subH);
-		ImageStack originalStack = originalImage.getStack();
 
 		for (int z = zStart; z <= zEnd; z++) {
-			FloatProcessor subIp = new FloatProcessor(subW, subH);
-			// originalStackは1-based index
-			FloatProcessor originalIp = originalStack.getProcessor(z + 1).convertToFloatProcessor();
+			float[] plane = planes[z];
+			float[] sub = new float[subW * subH];
 			for (int y = yStart; y <= yEnd; y++) {
-				for (int x = xStart; x <= xEnd; x++) {
-					subIp.setf(x - xStart, y - yStart, originalIp.getf(x, y));
-				}
+				System.arraycopy(plane, y * w + xStart, sub, (y - yStart) * subW, subW);
 			}
-			subStack.addSlice(subIp);
+			subStack.addSlice(new FloatProcessor(subW, subH, sub, null));
 		}
 
 		ImagePlus subVolume = new ImagePlus("sub-volume", subStack);
 		// 元の画像のピクセルサイズ情報をコピー
-		subVolume.setCalibration(originalImage.getCalibration().copy());
+		subVolume.setCalibration(cal.copy());
 		return subVolume;
 	}
 }

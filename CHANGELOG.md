@@ -1,5 +1,39 @@
 # Changelog
 
+## 2.4.0
+
+Makes the feature visualization map fast enough to offer GLAM on it. Nothing
+about the values changes: every map and every feature comes out exactly as it
+did in 2.3.0, only sooner.
+
+### Changed, feature visualization map
+
+- **The pixels are read out once.** Cutting an analysis window converted a whole
+  slice of the source to float for every window that touched it. On a 512 by 512
+  image that is a quarter of a million conversions per voxel of the map, which
+  dwarfed the feature calculation the map exists to perform.
+- **The rows of a slice are measured in parallel**, since every window is
+  measured on its own and writes into its own cell of the output. Together with
+  the change above, a GLCM map over a 12k voxel roi with a kernel of seven went
+  from 13.2 s to 3.6 s on eight cores.
+- `FeatureVisualizationMap.parallel` turns the threads off, for profiling or for
+  callers that already spread whole maps across the cores themselves.
+
+### Changed, GLAM
+
+- **The affinity matrices are built the first time one is asked for**, rather
+  than all nineteen up front. Asking for every feature still builds all of them
+  and costs what it did, because no two matrices share an expensive step. A
+  feature map, which wants one matrix and pays for it once per window, got 2.2x
+  faster.
+- Splitting the gray levels across threads is now skipped when the caller is
+  already inside a parallel job, where it only added scheduling overhead.
+
+> Note for feature maps: GLAM measures every pair of voxels in a window, so its
+> cost grows with roughly the sixth power of the kernel width. Measured on a 12k
+> voxel roi at stride 3: kernel 7 took 0.45 s, kernel 11 took 2.7 s and kernel 15
+> took 17 s. Give it a roi, not a whole slice.
+
 ## 2.3.0
 
 Adds the GLAM feature family, gray level affinity metrics.
