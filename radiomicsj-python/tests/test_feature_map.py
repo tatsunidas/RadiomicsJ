@@ -1,7 +1,16 @@
+from pathlib import Path
+
 import numpy as np
+import matplotlib
+# 結果は画像として書き出すだけなので、ウィンドウを持たないバックエンドを選ぶ。
+# pyplot をimportする前に指定する必要がある。
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from radiomicsj.features import generate_feature_map
 from radiomicsj import GLCM # importしておく
+
+# 書き出し先（tests/.gitignore で無視される）
+OUTPUT_DIR = Path(__file__).parent / "output"
 
 def test_visualization_map():
     print("--- 1. 準備: ダミー画像の作成 ---")
@@ -51,7 +60,6 @@ def test_visualization_map():
     )
 
     print(f"--- 3. 計算完了！ 結果のShape: {feature_map.shape} ---")
-    print("描画ウィンドウを開きます...")
 
     # 表示するスライス（真ん中のスライス Z=7）
     target_z = z // 2
@@ -85,7 +93,16 @@ def test_visualization_map():
     fig.colorbar(im3, ax=ax)
 
     plt.tight_layout()
-    plt.show()
+
+    # plt.show() はバックエンドによってはウィンドウを閉じるまで戻ってこないため、
+    # 誰も閉じない無人実行ではそこで止まってしまう。画像に書き出して終了する。
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    out_path = OUTPUT_DIR / "feature_map.png"
+    fig.savefig(out_path, dpi=100)
+    plt.close(fig)
+    print(f"--- 4. 書き出し完了: {out_path} ---")
+
+    assert out_path.is_file()
 
 if __name__ == "__main__":
     test_visualization_map()
