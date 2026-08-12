@@ -18,6 +18,10 @@ did in 2.3.0, only sooner.
   from 13.2 s to 3.6 s on eight cores.
 - `FeatureVisualizationMap.parallel` turns the threads off, for profiling or for
   callers that already spread whole maps across the cores themselves.
+- `generateFeatureMap` takes a `ProgressListener`, told after every slice how far
+  the map has got, since one over a whole stack can run for minutes and a caller
+  that shows it to someone has to say so. Throwing from the listener aborts the
+  map, which is how a caller cancels one.
 
 ### Changed, GLAM
 
