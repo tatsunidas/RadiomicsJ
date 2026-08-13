@@ -5,6 +5,7 @@ import ij.ImageStack;
 import ij.measure.Calibration;
 import ij.plugin.FolderOpener;
 import ij.process.FloatProcessor;
+import io.github.tatsunidas.radiomics.features.GLAMFeatures;
 import io.github.tatsunidas.radiomics.features.GLCMFeatureType;
 import io.github.tatsunidas.radiomics.features.GLCMFeatures;
 import io.github.tatsunidas.radiomics.features.RadiomicsFeature;
@@ -417,6 +418,13 @@ public class FeatureVisualizationMap {
 		if (slice != -1 && (slice > s || slice < 1)) {
 			throw new IllegalArgumentException("Please input valid slice position. This slice position out-of-range.");
 		}
+
+		/*
+		 * Warnings that a feature raises once per instance would be raised once per
+		 * window here, which is thousands of identical lines. They are let through once
+		 * per map instead.
+		 */
+		GLAMFeatures.resetIsotropyWarning();
 		if (slice == -1) {
 			System.out.println("Take too long time to generate feature map..., Take time to coffee-break.");
 		}

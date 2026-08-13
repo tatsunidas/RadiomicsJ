@@ -21,12 +21,16 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
 import ij.ImagePlus;
+import ij.ImageStack;
+import ij.process.FloatProcessor;
 import io.github.tatsunidas.radiomics.features.GLAMFeatureType;
 import io.github.tatsunidas.radiomics.features.GLAMFeatures;
 import io.github.tatsunidas.radiomics.features.GLAMMatrixType;
@@ -77,6 +81,7 @@ public class TestGLAMFeatures {
 		test.everyFeatureIsReachable();
 		test.undefinedGrayLevelsAreReportedAsUndefined();
 		test.subSamplingApproximatesTheExactResult();
+		test.anisotropyIsWarnedOncePerRun();
 		System.out.println("GLAM validation: all clear.");
 	}
 
@@ -249,6 +254,84 @@ public class TestGLAMFeatures {
 		}
 		assertTrue(deviation < 0.05 * scale,
 				"sub sampled second virial coefficient drifted too far: " + deviation + " against a scale of " + scale);
+	}
+
+	/**
+	 * A feature map builds one GLAMFeatures per voxel window, so a warning that is
+	 * raised per instance is raised tens of thousands of times per map. The
+	 * anisotropy warning must be worth one line per run instead.
+	 */
+	@Test
+	public void anisotropyIsWarnedOncePerRun() throws Exception {
+		ImagePlus image = anisotropicBlock(false);
+		ImagePlus mask = anisotropicBlock(true);
+
+		RadiomicsJ.resetSettings();
+		GLAMFeatures.resetIsotropyWarning();
+		try {
+			String firstRun = captureLog(() -> {
+				for (int window = 0; window < 3; window++) {
+					new GLAMFeatures(image, mask, 1, true, 2, null, 2);
+				}
+			});
+			assertEquals(1, countLines(firstRun, "not isotropic"),
+					"three windows of one run must share a single warning, but the log was:\n" + firstRun);
+
+			GLAMFeatures.resetIsotropyWarning();
+			String secondRun = captureLog(() -> new GLAMFeatures(image, mask, 1, true, 2, null, 2));
+			assertEquals(1, countLines(secondRun, "not isotropic"),
+					"the next run must warn about its own image again, but the log was:\n" + secondRun);
+		} finally {
+			RadiomicsJ.resetSettings();
+			GLAMFeatures.resetIsotropyWarning();
+		}
+	}
+
+	/** A solid two level block, calibrated with slices thicker than the pixels. */
+	private ImagePlus anisotropicBlock(boolean asMask) {
+		int size = 6;
+		ImageStack stack = new ImageStack(size, size);
+		for (int z = 0; z < size; z++) {
+			FloatProcessor fp = new FloatProcessor(size, size);
+			for (int y = 0; y < size; y++) {
+				for (int x = 0; x < size; x++) {
+					fp.setf(x, y, asMask ? 1f : ((x + y + z) % 2 == 0 ? 1f : 2f));
+				}
+			}
+			stack.addSlice(fp);
+		}
+		ImagePlus imp = new ImagePlus(asMask ? "anisotropic_mask" : "anisotropic", stack);
+		imp.getCalibration().pixelWidth = 1d;
+		imp.getCalibration().pixelHeight = 1d;
+		imp.getCalibration().pixelDepth = 3d;
+		return imp;
+	}
+
+	/** Headless, IJ.log writes to the standard output. */
+	private String captureLog(ThrowingRunnable body) throws Exception {
+		ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+		PrintStream original = System.out;
+		System.setOut(new PrintStream(buffer, true, "UTF-8"));
+		try {
+			body.run();
+		} finally {
+			System.setOut(original);
+		}
+		return buffer.toString("UTF-8");
+	}
+
+	private int countLines(String log, String needle) {
+		int found = 0;
+		for (String line : log.split("\n")) {
+			if (line.contains(needle)) {
+				found++;
+			}
+		}
+		return found;
+	}
+
+	private interface ThrowingRunnable {
+		void run() throws Exception;
 	}
 
 	// ------------------------------------------------------------------

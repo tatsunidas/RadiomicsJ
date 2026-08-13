@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.4.1
+
+### Fixed, GLAM
+
+- **The anisotropy warning is written once per run, not once per window.** GLAM
+  warns that distances are measured on the voxel lattice when the spacing is not
+  isotropic, and a feature visualization map builds one GLAM per analysis window
+  from the same calibration: a single map over an anisotropic image left about
+  64,000 identical lines, 9.5 MB, in the log. The warning now names a spacing at
+  most once, and an extraction and a feature map each let the next image speak up
+  again.
+
 ## 2.4.0
 
 Makes the feature visualization map fast enough to offer GLAM on it. Nothing

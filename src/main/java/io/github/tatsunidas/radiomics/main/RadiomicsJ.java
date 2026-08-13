@@ -1808,6 +1808,12 @@ public class RadiomicsJ {
 		}
 
 		/*
+		 * Each case gets its own warning about anisotropic voxels, even when the case
+		 * before it was calibrated the same way.
+		 */
+		GLAMFeatures.resetIsotropyWarning();
+
+		/*
 		 * IBSI defines two masks;
 		 *  intensity mask     : after re-segmentation. intensity and texture features use it.
 		 *  morphological mask : NOT affected by re-segmentation. morphological features use it,

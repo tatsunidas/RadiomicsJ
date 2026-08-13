@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ForkJoinTask;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
 
 import ij.IJ;
@@ -64,7 +65,8 @@ import io.github.tatsunidas.radiomics.main.Utils;
  * <h2>Distances are measured in voxels</h2>
  * The radial distribution function is evaluated on the voxel lattice, so the
  * roi should be resampled to isotropic voxels before the extraction. A warning
- * is logged when the voxel spacing is not isotropic.
+ * is logged once per run when the voxel spacing is not isotropic, see
+ * {@link #resetIsotropyWarning()}.
  *
  * <h2>The randomised reference state</h2>
  * Several matrices compare the observed arrangement against the arrangement one
@@ -336,15 +338,39 @@ public class GLAMFeatures extends AbstractRadiomicsFeature implements Texture {
 		}
 	}
 
+	/**
+	 * The spacing the isotropy warning last named, or null when nothing has been
+	 * reported yet. A feature visualisation map builds one GLAMFeatures per voxel
+	 * window, and every one of them sees the same calibration, so an unguarded
+	 * warning writes one identical line per window: a single map used to leave tens
+	 * of thousands of them in the log. Remembering the spacing keeps the warning at
+	 * one line per run, and still lets a differently calibrated image speak up.
+	 */
+	private static final AtomicReference<String> lastReportedSpacing = new AtomicReference<>();
+
+	/**
+	 * Lets the next anisotropic image warn again, whatever its spacing. Called at
+	 * the start of an extraction and of a feature map, so that each run reports the
+	 * spacing once instead of once per window.
+	 */
+	public static void resetIsotropyWarning() {
+		lastReportedSpacing.set(null);
+	}
+
 	private void warnWhenVoxelsAreNotIsotropic() {
 		double sx = img.getCalibration().pixelWidth;
 		double sy = img.getCalibration().pixelHeight;
 		double sz = img.getCalibration().pixelDepth;
 		double tolerance = 1e-4 * Math.max(sx, Math.max(sy, sz));
-		if (Math.abs(sx - sy) > tolerance || Math.abs(sx - sz) > tolerance) {
-			IJ.log("GLAM: the voxels are not isotropic (" + sx + ", " + sy + ", " + sz
-					+ "). GLAM measures distances on the voxel lattice, so please resample to isotropic voxels first.");
+		if (Math.abs(sx - sy) <= tolerance && Math.abs(sx - sz) <= tolerance) {
+			return;
 		}
+		String spacing = sx + ", " + sy + ", " + sz;
+		if (spacing.equals(lastReportedSpacing.getAndSet(spacing))) {
+			return;
+		}
+		IJ.log("GLAM: the voxels are not isotropic (" + spacing
+				+ "). GLAM measures distances on the voxel lattice, so please resample to isotropic voxels first.");
 	}
 
 	/**
