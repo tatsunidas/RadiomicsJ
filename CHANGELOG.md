@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.5.0 (unreleased)
+
+### Added, image filtering
+
+- **Laplacian of Gaussian filter as defined by IBSI 2**,
+  `ImageFiltering.laplacianOfGaussian(imp, sigmaMm, truncate, padding, planar)`.
+  - The kernel is equation 4.2 of the IBSI 2 reference manual (arXiv 2006.05470
+    v9): sigma is given in mm and converted to voxels, and the kernel is cut off
+    at `floor(truncate * sigma + 0.5)` voxels.
+  - There are four paddings (constant, nearest, mirror, periodic), and the
+    filter runs either on each axial slice or on the volume.
+  - A bright blob responds negatively, and the kernel is neither scale
+    normalised nor corrected to sum to zero, both as in the manual.
+  - The response is per voxel squared, so the filter refuses a grid that is not
+    isotropic (in plane only, for the planar filter). Resample first.
+  - It matches the IBSI 2 consensus maps of test set 1 (2.a, 2.b, 2.c) to within
+    0.04% of their range, against a tolerance of 1%.
+  - Definition, arguments and timings: `docs/LoG_filter.md`. The extraction
+    settings do not use the filter yet.
+
 ## 2.4.1
 
 ### Fixed, GLAM
