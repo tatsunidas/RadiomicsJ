@@ -86,6 +86,8 @@ public enum SettingParams {
 	STRING_waveletSets,//separable undecimated wavelets as name:combination:level, separated by semicolons: db3:LLH:1;haar:HHH:2, IBSI 2
 	STRING_waveletPadding,//wavelet filter edge: CONSTANT, NEAREST, MIRROR, PERIODIC
 	STRING_waveletPooling,//wavelet rotation invariance, pooling of the right angle rotations: MAX, AVERAGE, MIN, empty for none
+	INTARRAY_simoncelliLevels,//Simoncelli wavelet levels (B maps), 1 or more, IBSI 2
+	STRING_simoncelliPadding,//Simoncelli wavelet edge: CONSTANT, NEAREST, MIRROR, PERIODIC
 	DOUBLE_gaborDeltaTheta,//Gabor orientation step in radians for the pooling, pi must be a whole number of steps
 	STRING_logPadding,//LoG edge: CONSTANT, NEAREST, MIRROR, PERIODIC
 	BOOL_force2D,//slice by slice calculation

@@ -67,6 +67,10 @@ public class TestFilteredFeatureReference {
 		}
 	}
 
+	/** features whose reference value is empty in reference_values.csv; they are reported, not counted as passed */
+	private static final java.util.Set<String> NO_REFERENCE = new java.util.HashSet<>(
+			java.util.Arrays.asList("8.B stat_qcod"));
+
 	@AfterEach
 	public void reset() {
 		RadiomicsJ.resetSettings();
@@ -102,6 +106,11 @@ public class TestFilteredFeatureReference {
 
 	private static ResultsTable configurationB(double[] logSigma, int[] meanSupport, String laws, String gabor,
 			String wavelet) throws Exception {
+		return configurationB(logSigma, meanSupport, laws, gabor, wavelet, null);
+	}
+
+	private static ResultsTable configurationB(double[] logSigma, int[] meanSupport, String laws, String gabor,
+			String wavelet, int[] simoncelli) throws Exception {
 		ImagePlus img = TestDataLoader.loadNifTi(PHANTOM + "image/phantom.nii.gz");
 		ImagePlus msk = TestDataLoader.loadNifTi(PHANTOM + "mask/mask.nii.gz");
 		RadiomicsJ rj = new RadiomicsJ();
@@ -133,6 +142,10 @@ public class TestFilteredFeatureReference {
 			RadiomicsJ.waveletPadding = Padding.MIRROR;
 			RadiomicsJ.waveletPooling = Pooling.AVERAGE;
 		}
+		if (simoncelli != null) {
+			RadiomicsJ.simoncelliLevels = simoncelli;
+			RadiomicsJ.simoncelliPadding = Padding.MIRROR;
+		}
 		return rj.extractAll(img, msk, 1);
 	}
 
@@ -154,13 +167,21 @@ public class TestFilteredFeatureReference {
 	/** returns the tags that are out of tolerance, and prints every comparison */
 	private static List<String> compare(String filterId, ResultsTable rt, String prefix) throws Exception {
 		List<String> failed = new ArrayList<>();
-		int n = 0;
+		int n = 0, missing = 0;
 		for (String[] c : reference(filterId)) {
 			String id = IDS.get(c[2]);
 			if (id == null) {
 				continue;
 			}
 			String column = prefix + "IntensityBasedStatistical_" + IntensityBasedStatisticalFeatureType.findType(id);
+			if (c.length < 5 || c[3].isEmpty() || c[4].isEmpty()) {
+				// the reference data holds no value: not reached, and neither passed nor failed
+				System.out.println(String.format("%s %-12s %14.6g  no reference value in the data", filterId, c[2],
+						rt.getValue(column, 0)));
+				assertTrue(NO_REFERENCE.contains(filterId + " " + c[2]), "unexpected empty reference " + filterId + " " + c[2]);
+				missing++;
+				continue;
+			}
 			double ref = Double.parseDouble(c[3]), tol = Double.parseDouble(c[4]);
 			double v = rt.getValue(column, 0);
 			boolean ok = Math.abs(v - ref) <= tol;
@@ -171,7 +192,10 @@ public class TestFilteredFeatureReference {
 			}
 			n++;
 		}
-		assertTrue(n == IDS.size(), "compared " + n + " of " + IDS.size() + " features for " + filterId);
+		assertTrue(n + missing == IDS.size(), "compared " + n + " and " + missing + " without reference of " + IDS.size()
+				+ " features for " + filterId);
+		System.out.println(filterId + ": " + (n - failed.size()) + " within tolerance, " + failed.size() + " out, " + missing
+				+ " without a reference value");
 		return failed;
 	}
 
@@ -218,5 +242,14 @@ public class TestFilteredFeatureReference {
 		List<String> failed = compare("7.B", configurationB(null, null, null, null, "db3:HHH:2"),
 				"wavelet_db3_HHH_l2_average_");
 		assertTrue(failed.isEmpty(), "out of tolerance: " + failed);
+	}
+
+	@Test
+	public void simoncelliMatchesTheReferencesOfConfigurationB() throws Exception {
+		ResultsTable rt = configurationB(null, null, null, null, null, new int[] { 1, 2 });
+		List<String> first = compare("8.B", rt, "simoncelli_l1_");
+		List<String> second = compare("9.B", rt, "simoncelli_l2_");
+		assertTrue(first.isEmpty(), "8.B out of tolerance: " + first);
+		assertTrue(second.isEmpty(), "9.B out of tolerance: " + second);
 	}
 }
