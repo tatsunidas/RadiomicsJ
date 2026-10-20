@@ -12,6 +12,7 @@ mirror padding. It compares the 18 intensity based statistical features with
 | 2.B | mean, M = 5 | 18 of 18 |
 | 3.B | LoG, sigma 1.5 mm | 18 of 18 |
 | 4.B | Laws L5E5E5, 3D rotation invariance (max), energy map delta 7 | 18 of 18 |
+| 5.B | Gabor, sigma 5 mm, lambda 2 mm, gamma 3/2, average over steps of pi/8 and the orthogonal planes | 18 of 18 |
 
 Configuration A (a 2D filter, the features over the whole roi) is not tested:
 `BOOL_force2D` takes the features slice by slice.

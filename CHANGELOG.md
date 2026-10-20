@@ -45,11 +45,20 @@
   4 in 2D; max, average or min pooling) and the energy map. It matches the nine IBSI 2
   consensus maps of tests 3.a, 3.b and 3.c (within 1e-5 % of their range). Details:
   `docs/LawsFilter.md`.
+- **Gabor filter as defined by IBSI 2**,
+  `ImageFiltering.gaborFilter(imp, sigmaMm, lambdaMm, gamma, theta, padding, pooling, dTheta, planar)`,
+  and `STRING_gaborSets` / `STRING_gaborPadding` / `STRING_gaborPooling` / `DOUBLE_gaborDeltaTheta`
+  in the extraction settings. The modulus of the 2D response, optionally pooled over
+  orientations, and for a volume averaged over the three orthogonal planes. Columns are
+  prefixed `gabor_s<sigma>_l<lambda>_g<gamma>_t<theta>[_<pooling>_dt<step>]_`. It matches the
+  four IBSI 2 consensus maps of tests 4.a and 4.b (within 0.11 % of their range). Details:
+  `docs/GaborFilter.md`.
 - **The Laplacian of Gaussian and the mean filter are two passes of one list.** Their
   settings and column names are as before.
 - The features of filtered images agree with the IBSI 2 reference values of the CT
-  phantom, configuration B: no filter, mean (M = 5), LoG (1.5 mm) and Laws (L5E5E5,
-  max pooling, energy map of distance 7) are 18 of 18 features within tolerance each. See `docs/IBSI2_reference_features.md`.
+  phantom, configuration B: no filter, mean (M = 5), LoG (1.5 mm), Laws (L5E5E5,
+  max pooling, energy map of distance 7) and Gabor (5 mm, 2 mm, 3/2, average over steps of pi/8 and
+  the orthogonal planes) are 18 of 18 features within tolerance each. See `docs/IBSI2_reference_features.md`.
 
 ### Fixed, interpolation
 

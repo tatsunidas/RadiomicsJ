@@ -80,6 +80,10 @@ public enum SettingParams {
 	STRING_lawsPadding,//Laws filter edge: CONSTANT, NEAREST, MIRROR, PERIODIC
 	STRING_lawsPooling,//Laws rotation invariance, pooling of the right angle rotations: MAX, AVERAGE, MIN, empty for none
 	INT_lawsEnergyDelta,//Laws energy map distance in voxels, 0 for no energy map
+	STRING_gaborSets,//Gabor filters as sigma(mm):lambda(mm):gamma:theta(rad), separated by semicolons, IBSI 2
+	STRING_gaborPadding,//Gabor filter edge: CONSTANT, NEAREST, MIRROR, PERIODIC
+	STRING_gaborPooling,//Gabor rotation invariance, pooling of the orientations: MAX, AVERAGE, MIN, empty for none
+	DOUBLE_gaborDeltaTheta,//Gabor orientation step in radians for the pooling, pi must be a whole number of steps
 	STRING_logPadding,//LoG edge: CONSTANT, NEAREST, MIRROR, PERIODIC
 	BOOL_force2D,//slice by slice calculation
 	BOOL_activate_no_default_features,
