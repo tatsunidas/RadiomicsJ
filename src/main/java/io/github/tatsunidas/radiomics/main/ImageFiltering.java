@@ -309,30 +309,9 @@ public class ImageFiltering {
 				: planar ? ROTATIONS_2D : ROTATIONS_3D;
 		float[][] pooled = null;
 		for (int[] rotation : rotations) {
-			float[][] r = src;
-			for (int axis = 0; axis < dims; axis++) {
-				int pick = Math.abs(rotation[axis]) - 1;
-				// convolve() correlates, so a kernel is reversed to convolve and a flipped one is not
-				r = convolve(r, w, h, d, rotation[axis] < 0 ? g[pick] : reversed(g[pick]), padding, axis);
-			}
-			if (pooled == null) {
-				pooled = r;
-				continue;
-			}
-			for (int z = 0; z < d; z++) {
-				for (int i = 0; i < r[z].length; i++) {
-					float a = pooled[z][i], b = r[z][i];
-					pooled[z][i] = pooling == Pooling.MAX ? Math.max(a, b) : pooling == Pooling.MIN ? Math.min(a, b) : a + b;
-				}
-			}
+			pooled = pool(pooled, rotated(src, w, h, d, g, rotation, padding), pooling);
 		}
-		if (pooling == Pooling.AVERAGE) {
-			for (float[] s : pooled) {
-				for (int i = 0; i < s.length; i++) {
-					s[i] /= rotations.length;
-				}
-			}
-		}
+		pooled = pooledAverage(pooled, pooling, rotations.length);
 		ImagePlus res = response("Laws", pooled, imp);
 		if (energyDelta > 0) {
 			for (int z = 1; z <= d; z++) {
@@ -344,6 +323,42 @@ public class ImageFiltering {
 			res = meanFilter(res, 2 * energyDelta + 1, padding, planar);
 		}
 		return res;
+	}
+
+	/** the separable response of one right angle rotation: axis k takes kernel |rotation[k]|, flipped when negative */
+	private static float[][] rotated(float[][] src, int w, int h, int d, double[][] g, int[] rotation, Padding padding) {
+		float[][] r = src;
+		for (int axis = 0; axis < g.length; axis++) {
+			int pick = Math.abs(rotation[axis]) - 1;
+			// convolve() correlates, so a kernel is reversed to convolve and a flipped one is not
+			r = convolve(r, w, h, d, rotation[axis] < 0 ? g[pick] : reversed(g[pick]), padding, axis);
+		}
+		return r;
+	}
+
+	/** folds the response of one rotation into the pooled one (a running sum for AVERAGE), in place */
+	private static float[][] pool(float[][] pooled, float[][] r, Pooling pooling) {
+		if (pooled == null) {
+			return r;
+		}
+		for (int z = 0; z < r.length; z++) {
+			for (int i = 0; i < r[z].length; i++) {
+				float a = pooled[z][i], b = r[z][i];
+				pooled[z][i] = pooling == Pooling.MAX ? Math.max(a, b) : pooling == Pooling.MIN ? Math.min(a, b) : a + b;
+			}
+		}
+		return pooled;
+	}
+
+	private static float[][] pooledAverage(float[][] pooled, Pooling pooling, int count) {
+		if (pooling == Pooling.AVERAGE) {
+			for (float[] s : pooled) {
+				for (int i = 0; i < s.length; i++) {
+					s[i] /= count;
+				}
+			}
+		}
+		return pooled;
 	}
 
 	/** the 1D kernels named by a Laws kernel set, which must hold 3 names (2 for a planar filter) */
@@ -613,6 +628,129 @@ public class ImageFiltering {
 					"RadiomicsJ:gaborFilter::sigma, lambda and gamma must be positive in '" + set + "'.");
 		}
 		return v;
+	}
+
+	/**
+	 * Separable undecimated wavelet filter as defined by IBSI 2 (reference manual
+	 * section 4.6.2 and 4.6.3, with the implementation troubleshooting steps).
+	 *
+	 * The 1D kernels are the decomposition filters of PyWavelets: L is dec_lo and H dec_hi,
+	 * convolved with the image. A kernel of even length gets a zero appended to make it odd.
+	 * The kernels of level j are those of level 1 dilated by 2^(j-1) with the a trous
+	 * algorithm (zeros between the taps, the trailing zero kept).
+	 *
+	 * The response of "LHL" has L along x, H along y and L along z. For level j, the
+	 * iterations 1 to j-1 filter every axis with the low-pass kernel of their level and
+	 * the last iteration filters with the letters of the combination; the response of
+	 * each iteration is padded again before the next. With a pooling, every iteration
+	 * uses the same right angle rotation (appendix A: 24 in 3D, 4 in 2D) and the
+	 * responses of the rotations are pooled voxel by voxel at the end.
+	 *
+	 * @param imp image, read through its density calibration
+	 * @param wavelet name as in PyWavelets: haar, db2, db3, db4, coif1, coif2, coif3
+	 * @param combination L or H per axis, 3 letters (2 for a planar filter)
+	 * @param level decomposition level, 1 or more
+	 * @param padding how the image is extended past its edge
+	 * @param pooling null for the response without rotations
+	 * @param planar true filters every axial slice on its own, false the volume
+	 * @return response map in 32 bit float, on the grid of the input
+	 */
+	public static ImagePlus waveletFilter(ImagePlus imp, String wavelet, String combination, int level, Padding padding,
+			Pooling pooling, boolean planar) {
+		if (imp == null || padding == null) {
+			throw new IllegalArgumentException("RadiomicsJ:waveletFilter::image and padding are required.");
+		}
+		String letters = waveletCheck(wavelet, combination, level, planar);
+		int w = imp.getWidth();
+		int h = imp.getHeight();
+		int d = imp.getStackSize();
+		float[][] src = calibratedVoxels(imp);
+		int[][] rotations = pooling == null ? new int[][] { planar ? ROTATIONS_2D[0] : ROTATIONS_3D[0] }
+				: planar ? ROTATIONS_2D : ROTATIONS_3D;
+		float[][] pooled = null;
+		for (int[] rotation : rotations) {
+			float[][] r = src;
+			for (int j = 1; j <= level; j++) {
+				double[][] g = new double[letters.length()][];
+				for (int axis = 0; axis < g.length; axis++) {
+					g[axis] = waveletKernel(wavelet, j == level && letters.charAt(axis) == 'H', j);
+				}
+				r = rotated(r, w, h, d, g, rotation, padding);
+			}
+			pooled = pool(pooled, r, pooling);
+		}
+		return response("Wavelet", pooledAverage(pooled, pooling, rotations.length), imp);
+	}
+
+	/** the combination in upper case, after checking the wavelet name, the letters and the level */
+	public static String waveletCheck(String wavelet, String combination, int level, boolean planar) {
+		waveletLowPass(wavelet);
+		int dims = planar ? 2 : 3;
+		String letters = combination == null ? "" : combination.trim().toUpperCase();
+		if (!letters.matches("[LH]{" + dims + "}")) {
+			throw new IllegalArgumentException("RadiomicsJ:waveletFilter::the combination takes " + dims
+					+ " letters L or H for " + (planar ? "a planar" : "a volumetric") + " filter, got '" + combination + "'.");
+		}
+		if (level < 1) {
+			throw new IllegalArgumentException("RadiomicsJ:waveletFilter::the level must be 1 or more, got " + level);
+		}
+		return letters;
+	}
+
+	/** name, combination and level of a wavelet filter given as name:combination:level */
+	public static String[] waveletSet(String set) {
+		String[] t = set.trim().split("\\s*:\\s*");
+		if (t.length != 3) {
+			throw new IllegalArgumentException(
+					"RadiomicsJ:waveletFilter::a wavelet filter is given as name:combination:level, got '" + set + "'.");
+		}
+		try {
+			Integer.parseInt(t[2]);
+		} catch (NumberFormatException e) {
+			throw new IllegalArgumentException("RadiomicsJ:waveletFilter::not a level in '" + set + "'.");
+		}
+		return t;
+	}
+
+	/** the kernel of one level, dilated by the a trous algorithm and odd in length */
+	private static double[] waveletKernel(String wavelet, boolean highPass, int level) {
+		double[] lo = waveletLowPass(wavelet);
+		int n = lo.length;
+		double[] g = new double[n];
+		for (int i = 0; i < n; i++) {
+			// dec_hi[i] = (-1)^(i+1) dec_lo[n-1-i], as in PyWavelets
+			g[i] = highPass ? ((i % 2 == 0) ? -1 : 1) * lo[n - 1 - i] : lo[i];
+		}
+		int dilation = 1 << (level - 1);
+		// the kernels have an even number of taps, so n * dilation is even and one zero makes it odd
+		double[] k = new double[n * dilation + 1];
+		for (int i = 0; i < n; i++) {
+			k[i * dilation] = g[i];
+		}
+		return k;
+	}
+
+	/** dec_lo of PyWavelets 1.8.0 */
+	private static double[] waveletLowPass(String wavelet) {
+		switch (wavelet == null ? "" : wavelet.trim().toLowerCase()) {
+		case "haar":
+			return new double[] { 0.7071067811865476, 0.7071067811865476 };
+		case "db2":
+			return new double[] { -0.12940952255126037, 0.2241438680420134, 0.8365163037378079, 0.48296291314453416 };
+		case "db3":
+			return new double[] { 0.03522629188570953, -0.08544127388202666, -0.13501102001025458, 0.45987750211849154, 0.8068915093110925, 0.33267055295008263 };
+		case "db4":
+			return new double[] { -0.010597401785069032, 0.0328830116668852, 0.030841381835560764, -0.18703481171909309, -0.027983769416859854, 0.6308807679298589, 0.7148465705529157, 0.2303778133088965 };
+		case "coif1":
+			return new double[] { -0.015655728135791993, -0.07273261951252645, 0.3848648468648578, 0.8525720202116004, 0.3378976624574818, -0.07273261951252645 };
+		case "coif2":
+			return new double[] { -0.000720549445520347, -0.0018232088709110323, 0.005611434819368834, 0.02368017194684777, -0.05943441864643109, -0.07648859907828076, 0.4170051844232391, 0.8127236354494135, 0.3861100668227629, -0.0673725547237256, -0.04146493678687178, 0.01638733646320364 };
+		case "coif3":
+			return new double[] { -3.459977319727278e-05, -7.0983302506379e-05, 0.0004662169598204029, 0.0011175187708306303, -0.0025745176881367972, -0.009007976136730624, 0.015880544863669452, 0.03455502757329774, -0.08230192710629983, -0.07179982161915484, 0.42848347637737, 0.7937772226260872, 0.40517690240911824, -0.06112339000297255, -0.06577191128146936, 0.023452696142077168, 0.007782596425672746, -0.003793512864380802 };
+		default:
+			throw new IllegalArgumentException("RadiomicsJ:waveletFilter::unknown wavelet '" + wavelet
+					+ "', expected haar, db2, db3, db4, coif1, coif2 or coif3.");
+		}
 	}
 
 	private static double[] reversed(double[] k) {

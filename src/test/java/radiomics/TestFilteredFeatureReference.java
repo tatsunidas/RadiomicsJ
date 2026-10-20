@@ -97,6 +97,11 @@ public class TestFilteredFeatureReference {
 
 	private static ResultsTable configurationB(double[] logSigma, int[] meanSupport, String laws, String gabor)
 			throws Exception {
+		return configurationB(logSigma, meanSupport, laws, gabor, null);
+	}
+
+	private static ResultsTable configurationB(double[] logSigma, int[] meanSupport, String laws, String gabor,
+			String wavelet) throws Exception {
 		ImagePlus img = TestDataLoader.loadNifTi(PHANTOM + "image/phantom.nii.gz");
 		ImagePlus msk = TestDataLoader.loadNifTi(PHANTOM + "mask/mask.nii.gz");
 		RadiomicsJ rj = new RadiomicsJ();
@@ -122,6 +127,11 @@ public class TestFilteredFeatureReference {
 			RadiomicsJ.gaborPadding = Padding.MIRROR;
 			RadiomicsJ.gaborPooling = Pooling.AVERAGE;
 			RadiomicsJ.gaborDeltaTheta = Math.PI / 8;
+		}
+		if (wavelet != null) {
+			RadiomicsJ.waveletSets = new String[] { wavelet };
+			RadiomicsJ.waveletPadding = Padding.MIRROR;
+			RadiomicsJ.waveletPooling = Pooling.AVERAGE;
 		}
 		return rj.extractAll(img, msk, 1);
 	}
@@ -193,6 +203,20 @@ public class TestFilteredFeatureReference {
 	public void gaborMatchesTheReferenceOfConfigurationB() throws Exception {
 		List<String> failed = compare("5.B", configurationB(null, null, null, "5:2:1.5:0"),
 				"gabor_s5_l2_g1.5_t0_average_dt0.3927_");
+		assertTrue(failed.isEmpty(), "out of tolerance: " + failed);
+	}
+
+	@Test
+	public void waveletLevel1MatchesTheReferenceOfConfigurationB() throws Exception {
+		List<String> failed = compare("6.B", configurationB(null, null, null, null, "db3:LLH:1"),
+				"wavelet_db3_LLH_l1_average_");
+		assertTrue(failed.isEmpty(), "out of tolerance: " + failed);
+	}
+
+	@Test
+	public void waveletLevel2MatchesTheReferenceOfConfigurationB() throws Exception {
+		List<String> failed = compare("7.B", configurationB(null, null, null, null, "db3:HHH:2"),
+				"wavelet_db3_HHH_l2_average_");
 		assertTrue(failed.isEmpty(), "out of tolerance: " + failed);
 	}
 }
