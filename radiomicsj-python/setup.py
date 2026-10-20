@@ -30,7 +30,7 @@ setup(
         "Documentation": "https://github.com/tatsunidas/RadiomicsJ/blob/master/README.md",
     },
     
-    author="Tatsuaki Kobayashi",
+    author="Tatsunidas, Visionary Imaging Services, Inc.",
     packages=["radiomicsj", "radiomicsj.jars"],
     package_data={
         "radiomicsj": ["jars/*.jar"],

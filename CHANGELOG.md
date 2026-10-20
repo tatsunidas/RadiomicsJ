@@ -1,6 +1,21 @@
 # Changelog
 
-## 2.5.0 (unreleased)
+## 2.5.0 (2026-10-20)
+
+Adds the convolutional filters of IBSI 2 to the extraction: Laplacian of Gaussian,
+mean, Laws kernels, Gabor, separable wavelets (Haar, Daubechies, Coiflet) and the
+Simoncelli wavelet. Each is a setting that adds the features of the filtered image to the
+same result row, under its own column prefix, and each matches the IBSI 2 reference
+response maps and, on the CT phantom, the reference feature values (details below and in
+`docs/`). Nothing changes while no filter is set.
+
+**Two fixes change feature values**, whether or not a filter is used:
+the tricubic spline interpolation (`TRICUBIC_SPLINE`) now interpolates, and four
+diagnostics of the re-segmented morphological mask are corrected. See "Fixed,
+interpolation" and "Fixed, diagnostics". Results computed with 2.4.1 or earlier through the
+spline interpolation are not comparable with this release.
+
+Slice-wise extraction (`BOOL_force2D`) no longer hides slices that failed.
 
 ### Added, image filtering
 
@@ -73,6 +88,16 @@
   phantom, configuration B: no filter, mean (M = 5), LoG (1.5 mm), Laws (L5E5E5,
   max pooling, energy map of distance 7), Gabor (5 mm, 2 mm, 3/2, average over steps of pi/8 and
   the orthogonal planes), Daubechies 3 (LLH level 1, HHH level 2, average pooling) and Simoncelli (levels 1 and 2) are 18 of 18 features within tolerance each, except 8.B (Simoncelli level 1), where the reference holds no value for the quartile coefficient of dispersion and 17 of 17 are within tolerance. See `docs/IBSI2_reference_features.md`.
+
+### Changed, build and test
+
+- **CI on real runners.** `mvn test` runs on Linux (JDK 11, 17, 21, and Java 8 as the
+  runtime of a library built by JDK 21, which is how it is released), Windows and macOS;
+  a second job builds the Python wheel, installs it in a clean environment and computes the
+  IBSI 1 digital phantom on the three systems with Python 3.10 and 3.12. CodeQL and
+  Dependabot are on. The GitHub Release takes its notes from this file.
+- The developer entry of the pom reads Tatsunidas, Visionary Imaging Services, Inc. (the
+  company name was misspelled).
 
 ### Fixed, interpolation
 
