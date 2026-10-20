@@ -312,7 +312,7 @@ If you want quick example with GUI, see [RadiomicsJ IJ-PlugIn](https://sites.goo
 ```
 <groupId>io.github.tatsunidas</groupId>
 <artifactId>radiomicsj</artifactId>
-<version>2.4.1</version>
+<version>2.5.0</version>
 ```
 ## Example 1 : feature extraction, 3D basis
 
@@ -576,7 +576,7 @@ This work was supported by the Visionary Imaging Services, Inc (Japan).
 
 # Author
 
-Tatsuaki Kobayashi 
+Tatsunidas (Visionary Imaging Services, Inc.) 
 
 # Release and updation
 

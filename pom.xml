@@ -6,7 +6,7 @@
 	<!-- keep lowercase -->
 	<artifactId>radiomicsj</artifactId>
 	<!-- PLEASE will be change RadiomicsJ.version-->
-	<version>2.4.1</version>
+	<version>2.5.0</version>
 	<packaging>jar</packaging>
 	<name>RadiomicsJ</name>
 	<description>A library to compte radiomics features.</description>
@@ -21,9 +21,9 @@
 	
 	<developers>
 		<developer>
-      		<name>Tatsuaki Kobayashi</name>
+      		<name>Tatsunidas</name>
       		<email>t_kobayashi@vis-ionary.com</email>
-      		<organization>Visionry Imaging Services, Inc.</organization>
+      		<organization>Visionary Imaging Services, Inc.</organization>
       		<organizationUrl>https://www.vis-ionary.com</organizationUrl>
     	</developer>
 	</developers>
