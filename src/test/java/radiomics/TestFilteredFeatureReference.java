@@ -32,6 +32,7 @@ import ij.ImagePlus;
 import ij.measure.ResultsTable;
 import io.github.tatsunidas.radiomics.features.IntensityBasedStatisticalFeatureType;
 import io.github.tatsunidas.radiomics.main.ImageFiltering.Padding;
+import io.github.tatsunidas.radiomics.main.ImageFiltering.Pooling;
 import io.github.tatsunidas.radiomics.main.RadiomicsJ;
 import io.github.tatsunidas.radiomics.main.TestDataLoader;
 
@@ -87,6 +88,10 @@ public class TestFilteredFeatureReference {
 	}
 
 	private static ResultsTable configurationB(double[] logSigma, int[] meanSupport) throws Exception {
+		return configurationB(logSigma, meanSupport, null);
+	}
+
+	private static ResultsTable configurationB(double[] logSigma, int[] meanSupport, String laws) throws Exception {
 		ImagePlus img = TestDataLoader.loadNifTi(PHANTOM + "image/phantom.nii.gz");
 		ImagePlus msk = TestDataLoader.loadNifTi(PHANTOM + "mask/mask.nii.gz");
 		RadiomicsJ rj = new RadiomicsJ();
@@ -101,6 +106,12 @@ public class TestFilteredFeatureReference {
 		RadiomicsJ.logPadding = Padding.MIRROR;
 		RadiomicsJ.meanSupport = meanSupport;
 		RadiomicsJ.meanPadding = Padding.MIRROR;
+		if (laws != null) {
+			RadiomicsJ.lawsKernels = new String[] { laws };
+			RadiomicsJ.lawsPadding = Padding.MIRROR;
+			RadiomicsJ.lawsPooling = Pooling.MAX;
+			RadiomicsJ.lawsEnergyDelta = 7;
+		}
 		return rj.extractAll(img, msk, 1);
 	}
 
@@ -158,6 +169,12 @@ public class TestFilteredFeatureReference {
 	@Test
 	public void laplacianOfGaussianMatchesTheReferenceOfConfigurationB() throws Exception {
 		List<String> failed = compare("3.B", configurationB(new double[] { 1.5d }, null), "log_sigma1.5mm_");
+		assertTrue(failed.isEmpty(), "out of tolerance: " + failed);
+	}
+
+	@Test
+	public void lawsMatchesTheReferenceOfConfigurationB() throws Exception {
+		List<String> failed = compare("4.B", configurationB(null, null, "L5E5E5"), "laws_L5E5E5_max_d7_");
 		assertTrue(failed.isEmpty(), "out of tolerance: " + failed);
 	}
 }

@@ -230,6 +230,145 @@ public class ImageFiltering {
 		return response("mean", out, imp);
 	}
 
+	/** How the responses of the right angle rotations of a filter are combined voxel by voxel. */
+	public enum Pooling {
+		MAX, AVERAGE, MIN
+	}
+
+	private static final double SQRT2 = Math.sqrt(2), SQRT6 = Math.sqrt(6), SQRT10 = Math.sqrt(10), SQRT70 = Math.sqrt(70);
+
+	/** the 1D Laws kernels, normalised as in IBSI 2 section 4.4 */
+	private static double[] lawsKernel(String name) {
+		switch (name) {
+		case "L3": return scaled(1 / SQRT6, 1, 2, 1);
+		case "L5": return scaled(1 / SQRT70, 1, 4, 6, 4, 1);
+		case "E3": return scaled(1 / SQRT2, -1, 0, 1);
+		case "E5": return scaled(1 / SQRT10, -1, -2, 0, 2, 1);
+		case "S3": return scaled(1 / SQRT6, -1, 2, -1);
+		case "S5": return scaled(1 / SQRT6, -1, 0, 2, 0, -1);
+		case "W5": return scaled(1 / SQRT10, -1, 2, 0, -2, 1);
+		case "R5": return scaled(1 / SQRT70, 1, -4, 6, -4, 1);
+		default:
+			throw new IllegalArgumentException("RadiomicsJ:lawsFilter::unknown Laws kernel " + name
+					+ ", use L3, L5, E3, E5, S3, S5, W5 or R5.");
+		}
+	}
+
+	private static double[] scaled(double factor, double... v) {
+		double[] k = new double[v.length];
+		for (int i = 0; i < v.length; i++) {
+			k[i] = factor * v[i];
+		}
+		return k;
+	}
+
+	/**
+	 * The right angle rotations of a separable filter g1 x g2 (x g3), IBSI 2
+	 * appendix A: for each axis k1, k2, (k3) the number of the 1D kernel it takes,
+	 * negative when that kernel is flipped. 4 rotations in 2D, 24 in 3D.
+	 */
+	static final int[][] ROTATIONS_2D = {
+			{1, 2}, {-2, 1}, {-1, -2}, {2, -1} };
+	static final int[][] ROTATIONS_3D = {
+			{1, 2, 3}, {-3, 2, 1}, {-1, 2, -3}, {3, 2, -1}, {2, 3, 1}, {2, -3, -1},
+			{2, -1, 3}, {-1, -2, 3}, {-2, 1, 3}, {-3, -1, 2}, {-3, -2, -1}, {-3, 1, -2},
+			{-2, -1, -3}, {1, -2, -3}, {2, 1, -3}, {3, -1, -2}, {3, -2, 1}, {3, 1, 2},
+			{-1, 3, 2}, {-2, 3, -1}, {1, 3, -2}, {-1, -3, -2}, {-2, -3, 1}, {1, -3, 2} };
+
+	/**
+	 * Laws kernel filter as defined by IBSI 2 (reference manual section 4.4).
+	 *
+	 * The response map h of "E5L5S5" is the image convolved with E5 along x, L5
+	 * along y and S5 along z. With a pooling, the responses of all right angle
+	 * rotations of the kernel (appendix A) are combined voxel by voxel, which makes
+	 * the filter pseudo rotation invariant. With an energy distance, the absolute
+	 * response (after the pooling) is averaged over a cube of 2 delta + 1 voxels,
+	 * with the same padding.
+	 *
+	 * @param imp image, read through its density calibration
+	 * @param kernels the 1D kernels, 3 names for a volumetric filter or 2 for a planar one,
+	 *        concatenated (E5L5S5) or separated by commas or spaces; L3 L5 E3 E5 S3 S5 W5 R5
+	 * @param padding how the image is extended past its edge
+	 * @param pooling null for the response of the kernel as given
+	 * @param energyDelta Chebyshev distance of the energy map in voxels, 0 or less for none
+	 * @param planar true filters every axial slice on its own, false the volume
+	 * @return response map in 32 bit float, on the grid of the input
+	 */
+	public static ImagePlus lawsFilter(ImagePlus imp, String kernels, Padding padding, Pooling pooling, int energyDelta,
+			boolean planar) {
+		if (imp == null || padding == null || kernels == null) {
+			throw new IllegalArgumentException("RadiomicsJ:lawsFilter::image, kernels and padding are required.");
+		}
+		double[][] g = lawsKernels(kernels, planar);
+		int dims = g.length;
+		int w = imp.getWidth();
+		int h = imp.getHeight();
+		int d = imp.getStackSize();
+		float[][] src = calibratedVoxels(imp);
+		int[][] rotations = pooling == null ? new int[][] { planar ? ROTATIONS_2D[0] : ROTATIONS_3D[0] }
+				: planar ? ROTATIONS_2D : ROTATIONS_3D;
+		float[][] pooled = null;
+		for (int[] rotation : rotations) {
+			float[][] r = src;
+			for (int axis = 0; axis < dims; axis++) {
+				int pick = Math.abs(rotation[axis]) - 1;
+				// convolve() correlates, so a kernel is reversed to convolve and a flipped one is not
+				r = convolve(r, w, h, d, rotation[axis] < 0 ? g[pick] : reversed(g[pick]), padding, axis);
+			}
+			if (pooled == null) {
+				pooled = r;
+				continue;
+			}
+			for (int z = 0; z < d; z++) {
+				for (int i = 0; i < r[z].length; i++) {
+					float a = pooled[z][i], b = r[z][i];
+					pooled[z][i] = pooling == Pooling.MAX ? Math.max(a, b) : pooling == Pooling.MIN ? Math.min(a, b) : a + b;
+				}
+			}
+		}
+		if (pooling == Pooling.AVERAGE) {
+			for (float[] s : pooled) {
+				for (int i = 0; i < s.length; i++) {
+					s[i] /= rotations.length;
+				}
+			}
+		}
+		ImagePlus res = response("Laws", pooled, imp);
+		if (energyDelta > 0) {
+			for (int z = 1; z <= d; z++) {
+				float[] s = (float[]) res.getStack().getProcessor(z).getPixels();
+				for (int i = 0; i < s.length; i++) {
+					s[i] = Math.abs(s[i]);
+				}
+			}
+			res = meanFilter(res, 2 * energyDelta + 1, padding, planar);
+		}
+		return res;
+	}
+
+	/** the 1D kernels named by a Laws kernel set, which must hold 3 names (2 for a planar filter) */
+	public static double[][] lawsKernels(String kernels, boolean planar) {
+		String[] names = kernels.trim().split("[\\s,]+|(?<=\\d)(?=[A-Z])");
+		int dims = planar ? 2 : 3;
+		if (names.length != dims) {
+			throw new IllegalArgumentException("RadiomicsJ:lawsFilter::" + (planar ? "a planar" : "a volumetric")
+					+ " filter takes " + dims + " kernels, got '" + kernels + "'.");
+		}
+		double[][] g = new double[dims][];
+		for (int i = 0; i < dims; i++) {
+			g[i] = lawsKernel(names[i]);
+		}
+		return g;
+	}
+
+	private static double[] reversed(double[] k) {
+		double[] r = new double[k.length];
+		for (int i = 0; i < k.length; i++) {
+			r[i] = k[k.length - 1 - i];
+		}
+		return r;
+	}
+
 	/** voxel values through the density calibration of the image, one array per slice */
 	private static float[][] calibratedVoxels(ImagePlus imp) {
 		Calibration cal = imp.getCalibration();
