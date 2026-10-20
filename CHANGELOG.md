@@ -17,8 +17,21 @@
     isotropic (in plane only, for the planar filter). Resample first.
   - It matches the IBSI 2 consensus maps of test set 1 (2.a, 2.b, 2.c) to within
     0.04% of their range, against a tolerance of 1%.
-  - Definition, arguments and timings: `docs/LoG_filter.md`. The extraction
-    settings do not use the filter yet.
+  - Definition, arguments and timings: `docs/LoG_filter.md`.
+- **Laplacian of Gaussian scales in the extraction settings.**
+  `DOUBLEARRAY_logSigmaMm=1.5,3.0` adds the features of the filtered image to the
+  result row, in columns prefixed `log_sigma1.5mm_` and `log_sigma3.0mm_`.
+  `DOUBLE_logTruncate` (default 4) and `STRING_logPadding` (default `MIRROR`)
+  complete the filter. Nothing changes when no scale is set.
+  - The filter runs on the resampled image, so the voxels must be isotropic by
+    then (in plane only with `BOOL_force2D`). Otherwise the extraction stops and
+    says to set `DOUBLEARRAY_resamplingFactorXYZ`.
+  - Re-segmentation and normalisation follow the intensities of the original, so
+    the filtered images reuse its re-segmented mask. They are only discretised
+    again, with the same bin settings: `DOUBLE_binWidth` is in the units of the
+    original image, so a fixed bin number is the safer choice.
+  - Morphology, Shape2D, diagnostics and operational information describe the
+    original image and are not repeated.
 
 ### Fixed, diagnostics
 

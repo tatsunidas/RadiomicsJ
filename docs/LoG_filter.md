@@ -50,6 +50,29 @@ million:
 
 Resample the image to isotropic voxels first.
 
+## In the extraction settings
+
+    DOUBLEARRAY_logSigmaMm=1.5,3.0
+    DOUBLE_logTruncate=4
+    STRING_logPadding=MIRROR
+
+Every scale adds the features of its filtered image to the result row, as
+`log_sigma<scale>mm_<family>_<feature>` (for example
+`log_sigma3.0mm_IntensityHistogram_...`). With `BOOL_force2D` the filter is planar.
+
+- The filter takes the resampled image, so it must be isotropic by then
+  (`DOUBLEARRAY_resamplingFactorXYZ`). If it is not, the extraction stops with
+  that advice.
+- The range filter, outlier removal and normalisation belong to the intensities
+  of the original, so the filtered images use the original's re-segmented mask.
+- The filtered image is discretised again with the same bin settings. A fixed bin
+  width is in the units of the original image and does not suit a filter
+  response, so use a fixed bin number.
+- Morphology, Shape2D, diagnostics and operational information are not repeated.
+- There are no IBSI 2 reference values for the features of a filtered image, only
+  for the response maps. `TestLoGExtraction` checks that every column equals the
+  plain extraction of the filtered image.
+
 ## Agreement with IBSI 2
 
 Test set 1 of the manual (table 6.1), against the consensus response maps of
