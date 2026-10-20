@@ -471,6 +471,19 @@ public class RadiomicsJ {
 	static double[] resamplingFactorXYZ=null;
 	
 	/**
+	 * Laplacian of Gaussian (IBSI 2) scales in mm. null or empty: no filtered image is analysed.
+	 * Each scale adds the features of the filtered image to the result row, with the
+	 * column prefix log_sigma[scale]mm_.
+	 */
+	public static double[] logSigmaMm = null;
+	/** half width of the LoG kernel as a multiple of sigma. IBSI 2 uses 4. */
+	public static double logTruncate = 4d;
+	/** extension of the image past its edge for the LoG filter. */
+	public static ImageFiltering.Padding logPadding = ImageFiltering.Padding.MIRROR;
+	/** true while compute() runs on a filtered image: shape, diagnostics and operational info describe the original only. */
+	private boolean filteredPass = false;
+	
+	/**
 	 * num of bins to calculate IVH features under FBN discrete.
 	 */
 	public static Integer IVH_binCount = 1000;
@@ -749,6 +762,9 @@ public class RadiomicsJ {
 		weightingNorm = null;
 		box_sizes = null;
 		resamplingFactorXYZ = null;
+		logSigmaMm = null;
+		logTruncate = 4d;
+		logPadding = ImageFiltering.Padding.MIRROR;
 		force2D = false;
 		activate_no_default_features = false;
 	}
@@ -1263,6 +1279,15 @@ public class RadiomicsJ {
 							RadiomicsJ.resamplingFactorXYZ = Utils.s2doubles(val);
 						}
 					}
+					if(keyString.equals(SettingParams.DOUBLEARRAY_logSigmaMm.name())) {
+						RadiomicsJ.logSigmaMm = val.length()<1 ? null : Utils.s2doubles(val);
+					}
+					if(keyString.equals(SettingParams.DOUBLE_logTruncate.name())) {
+						RadiomicsJ.logTruncate = Double.parseDouble(val);
+					}
+					if(keyString.equals(SettingParams.STRING_logPadding.name())) {
+						RadiomicsJ.logPadding = ImageFiltering.Padding.valueOf(val.trim().toUpperCase());
+					}
 					if(keyString.equals(SettingParams.BOOL_force2D.name())) {
 						RadiomicsJ.force2D = val.equals("1") || val.toLowerCase().equals("true") ? true:false;
 					}
@@ -1653,7 +1678,7 @@ public class RadiomicsJ {
 		 * standardization
 		 */
 		preprocess(originalImp, originalMask, targetLabel);
-		return compute(resampledImp, resegmentedMask,RadiomicsJ.label_);
+		return computeWithFilters();
 	}
 	
 	
@@ -1760,7 +1785,7 @@ public class RadiomicsJ {
 				 */
 				preprocess(currentImp, currentMask, targetLabel);
 				//System.out.println("Compute at "+(i+1));
-				ResultsTable table = compute(resampledImp, resegmentedMask,RadiomicsJ.label_);
+				ResultsTable table = computeWithFilters();
 				if(rt == null) {
 					rt = table;
 				}else {
@@ -1789,6 +1814,63 @@ public class RadiomicsJ {
 				e.printStackTrace();
 				continue;
 			}
+		}
+		return rt;
+	}
+	
+
+	/**
+	 * compute() on the original image, then on each Laplacian of Gaussian filtered image.
+	 * The features of a filtered image join the row of the original with the column
+	 * prefix log_sigma[scale]mm_. Re-segmentation and normalisation follow the intensities
+	 * of the original image, so the filtered images reuse the re-segmented mask and are
+	 * only discretised again.
+	 */
+	ResultsTable computeWithFilters() throws Exception {
+		ResultsTable rt = compute(resampledImp, resegmentedMask, RadiomicsJ.label_);
+		if(rt == null || logSigmaMm == null || logSigmaMm.length == 0) {
+			return rt;
+		}
+		int row = rt.getCounter() - 1;
+		ImagePlus original = resampledImp;
+		try {
+			filteredPass = true;
+			for(double sigma : logSigmaMm) {
+				ImagePlus filtered;
+				try {
+					filtered = ImageFiltering.laplacianOfGaussian(original, sigma, logTruncate, logPadding, force2D);
+				}catch(IllegalArgumentException e) {
+					throw new IllegalArgumentException("RadiomicsJ:LoG filter sigma " + sigma + " mm was refused: " + e.getMessage()
+							+ " Make the resampled voxels isotropic with DOUBLEARRAY_resamplingFactorXYZ.", e);
+				}
+				resampledImp = filtered;
+				preprocessDiscretise(filtered, resegmentedMask, RadiomicsJ.label_);
+				ResultsTable t = compute(filtered, resegmentedMask, RadiomicsJ.label_);
+				if(t == null) {
+					continue;
+				}
+				int last = t.getCounter() - 1;
+				String prefix = "log_sigma" + sigma + "mm_";
+				for(String h : t.getHeadings()) {
+					if(h.equals(" ")) {
+						continue;//row label column
+					}
+					String v = t.getStringValue(h, last);
+					double d = t.getValue(h, last);
+					if(Double.isNaN(d) && !v.equals("NaN")) {
+						rt.setValue(prefix + h, row, v);
+					}else {
+						rt.setValue(prefix + h, row, d);
+					}
+				}
+				if(t == rt) {
+					rt.deleteRow(last);
+				}
+			}
+		}finally {
+			filteredPass = false;
+			resampledImp = original;
+			RadiomicsJ.discretiseImp = null;
 		}
 		return rt;
 	}
@@ -1832,7 +1914,7 @@ public class RadiomicsJ {
 		int progress = 0;
 		if(IJ_PlugIn)IJ.showProgress(progress/enableFamilies);
 		
-		if(BOOL_enableOperationalInfo) {
+		if(BOOL_enableOperationalInfo && !filteredPass) {
 			if(debug) {
 				System.out.println("=======================");
 				System.out.println("OperationalInformations");
@@ -1854,7 +1936,7 @@ public class RadiomicsJ {
 		/*
 		 * diagnostics...
 		 */
-		if(BOOL_enableDiagnostics) {
+		if(BOOL_enableDiagnostics && !filteredPass) {
 			if(debug) {
 				System.out.println("=======================");
 				System.out.println("Diagnostics information");
@@ -1883,7 +1965,7 @@ public class RadiomicsJ {
 		if(force2D && debug) {
 			System.out.println("Force2D is set, skip Morphological features calculation...");
 		}
-		if(BOOL_enableMorphological && !force2D) {
+		if(BOOL_enableMorphological && !force2D && !filteredPass) {
 			if(debug) {
 				System.out.println("=======================");
 				System.out.println("Morphological features");
@@ -2003,7 +2085,7 @@ public class RadiomicsJ {
 			if(IJ_PlugIn)IJ.showProgress(++progress/enableFamilies);
 		}
 		
-		if(BOOL_enableShape2D || force2D) {
+		if((BOOL_enableShape2D || force2D) && !filteredPass) {
 			if(debug) {
 				System.out.println("=================================");
 				System.out.println("Shape2D features");

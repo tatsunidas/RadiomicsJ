@@ -72,6 +72,9 @@ public enum SettingParams {
 	STRING_weightingNorm,
 	INTARRAY_box_sizes,//to calsulate fractal D
 	DOUBLEARRAY_resamplingFactorXYZ,
+	DOUBLEARRAY_logSigmaMm,//Laplacian of Gaussian scales in mm, IBSI 2
+	DOUBLE_logTruncate,//LoG kernel half width in sigma, 4
+	STRING_logPadding,//LoG edge: CONSTANT, NEAREST, MIRROR, PERIODIC
 	BOOL_force2D,//slice by slice calculation
 	BOOL_activate_no_default_features,
 	BOOL_enableIntensityBasedStatistics,
