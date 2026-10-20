@@ -18,16 +18,17 @@ concurrency:
 
 jobs:
   test:
-    name: test (${{ matrix.os }}, JDK ${{ matrix.java }})
+    name: test (${{ matrix.os }}, JDK ${{ matrix.java }}${{ matrix.runtime && format(', run on Java {0}', matrix.runtime) || '' }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         include:
-          # the library is compiled for Java 8 (maven.compiler.release); 8 is the runtime of
-          # users who have no newer one, 11 and 17 are the other long term supported releases
-          - { os: ubuntu-latest, java: '8' }
+          # the library is compiled for Java 8 (maven.compiler.release) by a newer JDK, as it is
+          # released; the first entry runs the tests on a Java 8 runtime, which is what a user
+          # without a newer one has. 11 and 17 are the other long term supported releases
+          - { os: ubuntu-latest, java: '21', runtime: '8' }
           - { os: ubuntu-latest, java: '11' }
           - { os: ubuntu-latest, java: '17' }
           - { os: ubuntu-latest, java: '21' }
@@ -36,18 +37,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # installed first so that the JDK of the build, set up next, is the one in JAVA_HOME
+      - uses: actions/setup-java@v4
+        if: matrix.runtime
+        with:
+          java-version: ${{ matrix.runtime }}
+          distribution: temurin
+
       - uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: temurin
           cache: maven
 
-      # javac 8 has no --release option, which the pom sets; the target is still Java 8
       - name: Test
         shell: bash
         run: |
-          if [ "${{ matrix.java }}" = "8" ]; then
-            mvn -B test -Dmaven.compiler.release=
+          if [ -n "${{ matrix.runtime }}" ]; then
+            RUNTIME_HOME="$JAVA_HOME_${{ matrix.runtime }}_X64"
+            "$RUNTIME_HOME/bin/java" -version
+            mvn -B test -Djvm="$RUNTIME_HOME/bin/java"
           else
             mvn -B test
           fi
