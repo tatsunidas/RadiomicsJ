@@ -1,0 +1,108 @@
+# Tests on real runners of each operating system, and an install-and-run check of the Python wheel.
+#
+# The tests need no secrets; the token of the run can only read the repository.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (${{ matrix.os }}, JDK ${{ matrix.java }}${{ matrix.runtime && format(', run on Java {0}', matrix.runtime) || '' }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # the library is compiled for Java 8 (maven.compiler.release) by a newer JDK, as it is
+          # released; the first entry runs the tests on a Java 8 runtime, which is what a user
+          # without a newer one has. 11 and 17 are the other long term supported releases
+          - { os: ubuntu-latest, java: '21', runtime: '8' }
+          - { os: ubuntu-latest, java: '11' }
+          - { os: ubuntu-latest, java: '17' }
+          - { os: ubuntu-latest, java: '21' }
+          - { os: windows-latest, java: '21' }
+          - { os: macos-latest, java: '21' }
+    steps:
+      - uses: actions/checkout@v4
+
+      # installed first so that the JDK of the build, set up next, is the one in JAVA_HOME
+      - uses: actions/setup-java@v4
+        if: matrix.runtime
+        with:
+          java-version: ${{ matrix.runtime }}
+          distribution: temurin
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: temurin
+          cache: maven
+
+      - name: Test
+        shell: bash
+        run: |
+          if [ -n "${{ matrix.runtime }}" ]; then
+            RUNTIME_HOME="$JAVA_HOME_${{ matrix.runtime }}_X64"
+            "$RUNTIME_HOME/bin/java" -version
+            mvn -B test -Djvm="$RUNTIME_HOME/bin/java"
+          else
+            mvn -B test
+          fi
+
+  python:
+    name: python wheel (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ['3.10', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      # package stops short of the install phase, where the conda build is bound
+      - name: Build the jars and the python sources
+        run: mvn -B package -DskipTests
+
+      - name: Build the wheel
+        shell: bash
+        working-directory: target/radiomicsj-python
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --wheel
+          ls -l dist
+
+      # a clean environment, away from the source tree, so that only the wheel is imported
+      - name: Install the wheel and run it
+        shell: bash
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          if [ -d "$RUNNER_TEMP/venv/Scripts" ]; then VPY="$RUNNER_TEMP/venv/Scripts/python"; else VPY="$RUNNER_TEMP/venv/bin/python"; fi
+          "$VPY" -m pip install target/radiomicsj-python/dist/*.whl
+          VERSION=$(mvn -B -q help:evaluate -Dexpression=project.version -DforceStdout)
+          cd "$RUNNER_TEMP"
+          "$VPY" "$GITHUB_WORKSPACE/radiomicsj-python/smoke/installed_smoke.py" "$VERSION" \
+            "$GITHUB_WORKSPACE/radiomicsj-python/tests/ibsi_1_digital_phantom/nifti"

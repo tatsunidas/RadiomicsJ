@@ -58,10 +58,18 @@ jobs:
         run: |
           set -e
           ls -l target/radiomicsj-*.jar
+          VERSION="${TAG#v}"
+          # the notes are the section of the changelog for this version, if there is one
+          awk -v v="$VERSION" '
+            $0 ~ "^## " v "( |$)" { on = 1; next }
+            on && /^## / { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          if [ -s notes.md ]; then NOTES=(--notes-file notes.md); else NOTES=(--generate-notes); fi
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" target/radiomicsj-*.jar --clobber
           else
             gh release create "$TAG" target/radiomicsj-*.jar \
-              --title "RadiomicsJ ${TAG#v}" \
-              --generate-notes
+              --title "RadiomicsJ $VERSION" \
+              "${NOTES[@]}"
           fi
