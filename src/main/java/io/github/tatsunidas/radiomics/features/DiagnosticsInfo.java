@@ -157,6 +157,9 @@ public class DiagnosticsInfo {
 		diagnostics.put(DiagnosticsInfoType.DiagnosticsInterpolatedROIIntMaskMeanIntensity.name(),ibsf.getMean());
 		diagnostics.put(DiagnosticsInfoType.DiagnosticsInterpolatedROIIntMaskMinimumIntensity.name(),ibsf.getMinimum());
 		diagnostics.put(DiagnosticsInfoType.DiagnosticsInterpolatedROIIntMaskMaximumIntensity.name(),ibsf.getMaximum());
+		// the morphological mask is not re-segmented, see below
+		HashMap<String, double[]> morphXyz = xyz;
+		double morphCount = count;
 		/*
 		 * re-segmented roi
 		 */
@@ -169,12 +172,14 @@ public class DiagnosticsInfo {
 		diagnostics.put(DiagnosticsInfoType.DiagnosticsResegmentedROIIntMaskBoundingBoxDimensionX.name(),xyz.get("x")[1]-xyz.get("x")[0]+1);
 		diagnostics.put(DiagnosticsInfoType.DiagnosticsResegmentedROIIntMaskBoundingBoxDimensionY.name(),xyz.get("y")[1]-xyz.get("y")[0]+1);
 		diagnostics.put(DiagnosticsInfoType.DiagnosticsResegmentedROIIntMaskBoundingBoxDimensionZ.name(),xyz.get("z")[1]-xyz.get("z")[0]+1);
-		// RadiomicsJ, Re-segmented MorphMask is same as re-segmented ROIMask
-		diagnostics.put(DiagnosticsInfoType.DiagnosticsResegmentedROIMorphMaskBoundingBoxDimensionX.name(),xyz.get("x")[1]-xyz.get("x")[0]+1);
-		diagnostics.put(DiagnosticsInfoType.DiagnosticsResegmentedROIMorphMaskBoundingBoxDimensionY.name(),xyz.get("y")[1]-xyz.get("y")[0]+1);
-		diagnostics.put(DiagnosticsInfoType.DiagnosticsResegmentedROIMorphMaskBoundingBoxDimensionZ.name(),xyz.get("z")[1]-xyz.get("z")[0]+1);
+		// Re-segmentation only narrows the intensity mask (IBSI). The morphological
+		// features are computed on the interpolated mask (morphoMask in RadiomicsJ),
+		// so the re-segmented morphological mask is that one.
+		diagnostics.put(DiagnosticsInfoType.DiagnosticsResegmentedROIMorphMaskBoundingBoxDimensionX.name(),morphXyz.get("x")[1]-morphXyz.get("x")[0]+1);
+		diagnostics.put(DiagnosticsInfoType.DiagnosticsResegmentedROIMorphMaskBoundingBoxDimensionY.name(),morphXyz.get("y")[1]-morphXyz.get("y")[0]+1);
+		diagnostics.put(DiagnosticsInfoType.DiagnosticsResegmentedROIMorphMaskBoundingBoxDimensionZ.name(),morphXyz.get("z")[1]-morphXyz.get("z")[0]+1);
 		diagnostics.put(DiagnosticsInfoType.DiagnosticsResegmentedROIIntMaskVoxelCount.name(),count);
-		diagnostics.put(DiagnosticsInfoType.DiagnosticsResegmentedROIMorphMaskVoxelCount.name(),count);
+		diagnostics.put(DiagnosticsInfoType.DiagnosticsResegmentedROIMorphMaskVoxelCount.name(),morphCount);
 		diagnostics.put(DiagnosticsInfoType.DiagnosticsResegmentedROIIntMaskMeanIntensity.name(),ibsf.getMean());
 		diagnostics.put(DiagnosticsInfoType.DiagnosticsResegmentedROIIntMaskMinimumIntensity.name(),ibsf.getMinimum());
 		diagnostics.put(DiagnosticsInfoType.DiagnosticsResegmentedROIIntMaskMaximumIntensity.name(),ibsf.getMaximum());
