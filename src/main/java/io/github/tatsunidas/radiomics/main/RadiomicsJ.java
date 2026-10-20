@@ -503,6 +503,9 @@ public class RadiomicsJ {
 	public static ImageFiltering.Padding waveletPadding = ImageFiltering.Padding.MIRROR;
 	/** null for no rotation invariance */
 	public static ImageFiltering.Pooling waveletPooling = null;
+	/** levels of the Simoncelli wavelet (B maps) of the filtered passes; null for none */
+	public static int[] simoncelliLevels = null;
+	public static ImageFiltering.Padding simoncelliPadding = ImageFiltering.Padding.MIRROR;
 	/** true while compute() runs on a filtered image: shape, diagnostics and operational info describe the original only. */
 	private boolean filteredPass = false;
 	
@@ -801,6 +804,8 @@ public class RadiomicsJ {
 		waveletSets = null;
 		waveletPadding = ImageFiltering.Padding.MIRROR;
 		waveletPooling = null;
+		simoncelliLevels = null;
+		simoncelliPadding = ImageFiltering.Padding.MIRROR;
 		force2D = false;
 		activate_no_default_features = false;
 	}
@@ -1360,6 +1365,12 @@ public class RadiomicsJ {
 					if(keyString.equals(SettingParams.STRING_waveletPooling.name())) {
 						RadiomicsJ.waveletPooling = val.trim().length()<1 ? null : ImageFiltering.Pooling.valueOf(val.trim().toUpperCase());
 					}
+					if(keyString.equals(SettingParams.INTARRAY_simoncelliLevels.name())) {
+						RadiomicsJ.simoncelliLevels = val.length()<1 ? null : Utils.s2ints(val);
+					}
+					if(keyString.equals(SettingParams.STRING_simoncelliPadding.name())) {
+						RadiomicsJ.simoncelliPadding = ImageFiltering.Padding.valueOf(val.trim().toUpperCase());
+					}
 					if(keyString.equals(SettingParams.DOUBLE_gaborDeltaTheta.name())) {
 						RadiomicsJ.gaborDeltaTheta = Double.parseDouble(val.trim());
 					}
@@ -1864,6 +1875,13 @@ public class RadiomicsJ {
 				ImageFiltering.waveletCheck(t[0], t[1], Integer.parseInt(t[2]), force2D);
 			}
 		}
+		if(simoncelliLevels != null) {
+			for(int l : simoncelliLevels) {
+				if(l < 1) {
+					throw new IllegalArgumentException("RadiomicsJ:simoncelli::the level must be 1 or more, got " + l);
+				}
+			}
+		}
 		for(int i=0;i<num;i++) {
 			try {
 				currentImp = new ImagePlus(i+"", images.getStack().getProcessor(i+1).duplicate());
@@ -1961,6 +1979,12 @@ public class RadiomicsJ {
 				int level = Integer.parseInt(t[2]);
 				passes.put("wavelet_" + name + "_" + letters + "_l" + level + pooling + "_",
 						imp -> ImageFiltering.waveletFilter(imp, name, letters, level, waveletPadding, waveletPooling, force2D));
+			}
+		}
+		if(simoncelliLevels != null) {
+			for(int l : simoncelliLevels) {
+				passes.put("simoncelli_l" + l + "_",
+						imp -> ImageFiltering.simoncelliFilter(imp, l, simoncelliPadding, force2D));
 			}
 		}
 		return passes;

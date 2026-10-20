@@ -753,6 +753,185 @@ public class ImageFiltering {
 		}
 	}
 
+	/**
+	 * Simoncelli wavelet as defined by IBSI 2 (reference manual section 4.6.4, equation 4.8):
+	 * the B map of a level is the image times the band-pass function
+	 *
+	 * g[nu] = cos(pi / 2 log2(2 |nu| / nuB)) for nuB / 4 <= |nu| <= nuB, 0 elsewhere
+	 *
+	 * in the Fourier domain, with nuB = pi / 2^(level - 1) rad/sample, the real part of the
+	 * inverse transform. |nu| is taken in rad/sample on every axis, so the voxel spacing does
+	 * not enter, and the wavelet is circularly symmetric: there is no rotation to pool.
+	 *
+	 * The frequency of an axis of M samples runs over linspace(-pi, pi, M), placed with the
+	 * zero frequency at M / 2 as numpy's ifftshift does. This is what the IBSI 2 reference maps
+	 * 8.a.2 and 8.a.3 follow to 1e-6 of their range; the standard 2 pi k / M grid misses 8.a.3
+	 * by 8 %.
+	 *
+	 * With PERIODIC padding the transform is of the image itself, as the manual describes. For
+	 * another padding the image is first extended by a margin on every axis, filtered, and cropped.
+	 *
+	 * @param imp image, read through its density calibration
+	 * @param level decomposition level, 1 or more
+	 * @param padding how the image is extended past its edge
+	 * @param margin voxels added on each side for a padding other than PERIODIC, 0 or less for
+	 *        the default of min(N / 2, 2^(level + 3)), two periods of the lowest frequency of the band
+	 * @param planar true filters every axial slice on its own, false the volume
+	 * @return response map in 32 bit float, on the grid of the input
+	 */
+	public static ImagePlus simoncelliFilter(ImagePlus imp, int level, Padding padding, int margin, boolean planar) {
+		if (imp == null || padding == null) {
+			throw new IllegalArgumentException("RadiomicsJ:simoncelliFilter::image and padding are required.");
+		}
+		if (level < 1 || level > 30) {
+			throw new IllegalArgumentException("RadiomicsJ:simoncelliFilter::the level must be 1 or more, got " + level);
+		}
+		int[] n = { imp.getWidth(), imp.getHeight(), planar ? 1 : imp.getStackSize() };
+		int slices = planar ? imp.getStackSize() : 1;
+		int[] m = new int[3];
+		for (int a = 0; a < 3; a++) {
+			if (padding != Padding.PERIODIC && n[a] > 1) {
+				m[a] = margin > 0 ? margin : Math.min(n[a] / 2, 1 << Math.min(level + 3, 20));
+			}
+		}
+		int[] e = { n[0] + 2 * m[0], n[1] + 2 * m[1], n[2] + 2 * m[2] };
+		double vb = Math.PI / (1L << (level - 1));
+		double[][] nu2 = new double[3][];
+		for (int a = 0; a < 3; a++) {
+			nu2[a] = new double[e[a]];
+			for (int i = 0; i < e[a]; i++) {
+				int k = (i + e[a] / 2) % e[a];
+				double nu = e[a] < 2 ? 0 : -Math.PI + 2 * Math.PI * k / (e[a] - 1);
+				nu2[a][i] = nu * nu;
+			}
+		}
+		float[][] src = calibratedVoxels(imp);
+		int w = n[0], h = n[1];
+		float[][] out = new float[imp.getStackSize()][w * h];
+		IntStream range = IntStream.range(0, slices);
+		if (parallel && slices > 1) {
+			range = range.parallel();
+		}
+		range.forEach(s -> {
+			double[] re = new double[e[0] * e[1] * e[2]], im = new double[re.length];
+			for (int z = 0; z < e[2]; z++) {
+				int sz = planar ? s : padIndex(z - m[2], n[2], padding);
+				for (int y = 0; y < e[1]; y++) {
+					int sy = padIndex(y - m[1], n[1], padding);
+					for (int x = 0; x < e[0]; x++) {
+						int sx = padIndex(x - m[0], n[0], padding);
+						re[(z * e[1] + y) * e[0] + x] = sx < 0 || sy < 0 || sz < 0 ? 0 : src[sz][sy * w + sx];
+					}
+				}
+			}
+			fft3(re, im, e, false);
+			for (int z = 0; z < e[2]; z++) {
+				for (int y = 0; y < e[1]; y++) {
+					for (int x = 0; x < e[0]; x++) {
+						double nu = Math.sqrt(nu2[0][x] + nu2[1][y] + nu2[2][z]);
+						double g = nu >= vb / 4 && nu <= vb ? Math.cos(Math.PI / 2 * Math.log(2 * nu / vb) / Math.log(2)) : 0;
+						int i = (z * e[1] + y) * e[0] + x;
+						re[i] *= g;
+						im[i] *= g;
+					}
+				}
+			}
+			fft3(re, im, e, true);
+			for (int z = 0; z < n[2]; z++) {
+				float[] o = out[planar ? s : z];
+				for (int y = 0; y < h; y++) {
+					for (int x = 0; x < w; x++) {
+						o[y * w + x] = (float) re[((z + m[2]) * e[1] + y + m[1]) * e[0] + x + m[0]];
+					}
+				}
+			}
+		});
+		return response("Simoncelli", out, imp);
+	}
+
+	public static ImagePlus simoncelliFilter(ImagePlus imp, int level, Padding padding, boolean planar) {
+		return simoncelliFilter(imp, level, padding, 0, planar);
+	}
+
+	/** FFT along each axis of a volume of e[0] x e[1] x e[2], index (z * e[1] + y) * e[0] + x */
+	private static void fft3(double[] re, double[] im, int[] e, boolean inverse) {
+		for (int axis = 0; axis < 3; axis++) {
+			int len = e[axis];
+			if (len < 2) {
+				continue;
+			}
+			int stride = axis == 0 ? 1 : axis == 1 ? e[0] : e[0] * e[1];
+			int lines = re.length / len;
+			double[] r = new double[len], q = new double[len];
+			for (int line = 0; line < lines; line++) {
+				// the line-th set of voxels that differ along this axis only
+				int low = line % stride, high = line / stride;
+				int start = high * stride * len + low;
+				for (int i = 0; i < len; i++) {
+					r[i] = re[start + i * stride];
+					q[i] = im[start + i * stride];
+				}
+				fftAny(r, q, len, inverse);
+				for (int i = 0; i < len; i++) {
+					re[start + i * stride] = r[i];
+					im[start + i * stride] = q[i];
+				}
+			}
+		}
+	}
+
+	/** FFT of any length: radix 2 for a power of two, Bluestein's chirp-z transform otherwise */
+	static void fftAny(double[] re, double[] im, int n, boolean inverse) {
+		if (n < 2) {
+			return;
+		}
+		if ((n & (n - 1)) == 0) {
+			fft(re, im, n, inverse);
+			return;
+		}
+		if (inverse) {
+			for (int i = 0; i < n; i++) {
+				im[i] = -im[i];
+			}
+		}
+		int m = Integer.highestOneBit(2 * n - 1) << 1;
+		double[] wr = new double[n], wi = new double[n];
+		for (int k = 0; k < n; k++) {
+			double ang = Math.PI * ((long) k * k % (2L * n)) / n;
+			wr[k] = Math.cos(ang);
+			wi[k] = -Math.sin(ang);
+		}
+		double[] ar = new double[m], ai = new double[m], br = new double[m], bi = new double[m];
+		for (int k = 0; k < n; k++) {
+			ar[k] = re[k] * wr[k] - im[k] * wi[k];
+			ai[k] = re[k] * wi[k] + im[k] * wr[k];
+			br[k] = wr[k];
+			bi[k] = -wi[k];
+			if (k > 0) {
+				br[m - k] = wr[k];
+				bi[m - k] = -wi[k];
+			}
+		}
+		fft(ar, ai, m, false);
+		fft(br, bi, m, false);
+		for (int k = 0; k < m; k++) {
+			double t = ar[k] * br[k] - ai[k] * bi[k];
+			ai[k] = ar[k] * bi[k] + ai[k] * br[k];
+			ar[k] = t;
+		}
+		fft(ar, ai, m, true);
+		for (int k = 0; k < n; k++) {
+			re[k] = ar[k] * wr[k] - ai[k] * wi[k];
+			im[k] = ar[k] * wi[k] + ai[k] * wr[k];
+		}
+		if (inverse) {
+			for (int i = 0; i < n; i++) {
+				re[i] /= n;
+				im[i] = -im[i] / n;
+			}
+		}
+	}
+
 	private static double[] reversed(double[] k) {
 		double[] r = new double[k.length];
 		for (int i = 0; i < k.length; i++) {

@@ -60,12 +60,19 @@
   `wavelet_<name>_<combination>_l<level>[_<pooling>]_`. Optional pseudo rotation invariance
   with the right angle rotations of appendix A. It matches the six IBSI 2 consensus maps of
   tests 5.a, 6.a and 7.a (within 1e-5 % of their range). Details: `docs/WaveletFilter.md`.
+- **Simoncelli wavelet as defined by IBSI 2**,
+  `ImageFiltering.simoncelliFilter(imp, level, padding, planar)`, and `INTARRAY_simoncelliLevels` /
+  `STRING_simoncelliPadding` in the extraction settings. The B map of each level, computed in
+  the Fourier domain (any length by Bluestein's algorithm). Columns are prefixed
+  `simoncelli_l<level>_`. It matches the IBSI 2 consensus maps of tests 8.a.2 and 8.a.3 within 5e-6 %
+  of their range and 8.a.1 within 0.38 % (cause of that residual unknown). Details:
+  `docs/SimoncelliFilter.md`.
 - **The Laplacian of Gaussian and the mean filter are two passes of one list.** Their
   settings and column names are as before.
 - The features of filtered images agree with the IBSI 2 reference values of the CT
   phantom, configuration B: no filter, mean (M = 5), LoG (1.5 mm), Laws (L5E5E5,
   max pooling, energy map of distance 7), Gabor (5 mm, 2 mm, 3/2, average over steps of pi/8 and
-  the orthogonal planes) and Daubechies 3 (LLH level 1, HHH level 2, average pooling) are 18 of 18 features within tolerance each. See `docs/IBSI2_reference_features.md`.
+  the orthogonal planes), Daubechies 3 (LLH level 1, HHH level 2, average pooling) and Simoncelli (levels 1 and 2) are 18 of 18 features within tolerance each, except 8.B (Simoncelli level 1), where the reference holds no value for the quartile coefficient of dispersion and 17 of 17 are within tolerance. See `docs/IBSI2_reference_features.md`.
 
 ### Fixed, interpolation
 

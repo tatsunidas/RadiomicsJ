@@ -15,6 +15,8 @@ mirror padding. It compares the 18 intensity based statistical features with
 | 5.B | Gabor, sigma 5 mm, lambda 2 mm, gamma 3/2, average over steps of pi/8 and the orthogonal planes | 18 of 18 |
 | 6.B | Daubechies 3, 3D LLH, level 1, rotation invariance (average) | 18 of 18 |
 | 7.B | Daubechies 3, 3D HHH, level 2, rotation invariance (average) | 18 of 18 |
+| 8.B | Simoncelli, 3D B map, level 1 | 17 of 17; the reference value of the quartile coefficient of dispersion (stat_qcod) is empty in the data, so it is not counted |
+| 9.B | Simoncelli, 3D B map, level 2 | 18 of 18 |
 
 Configuration A (a 2D filter, the features over the whole roi) is not tested:
 `BOOL_force2D` takes the features slice by slice.
