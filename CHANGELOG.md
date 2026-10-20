@@ -37,11 +37,19 @@
   and `INTARRAY_meanSupport` / `STRING_meanPadding` in the extraction settings. Columns
   are prefixed `mean_M<support>_`. It matches the IBSI 2 consensus maps of tests 1.a.1
   to 1.a.4 and 1.b.1 (within 6e-6 % of their range). Details: `docs/MeanFilter.md`.
+- **Laws kernel filter as defined by IBSI 2**,
+  `ImageFiltering.lawsFilter(imp, kernels, padding, pooling, energyDelta, planar)`, and
+  `STRING_lawsKernels` / `STRING_lawsPadding` / `STRING_lawsPooling` / `INT_lawsEnergyDelta`
+  in the extraction settings. Columns are prefixed `laws_<kernel>[_<pooling>][_d<delta>]_`.
+  Optional pseudo rotation invariance (the 24 right angle rotations of appendix A in 3D,
+  4 in 2D; max, average or min pooling) and the energy map. It matches the nine IBSI 2
+  consensus maps of tests 3.a, 3.b and 3.c (within 1e-5 % of their range). Details:
+  `docs/LawsFilter.md`.
 - **The Laplacian of Gaussian and the mean filter are two passes of one list.** Their
   settings and column names are as before.
 - The features of filtered images agree with the IBSI 2 reference values of the CT
-  phantom, configuration B: no filter, mean (M = 5) and LoG (1.5 mm) are 18 of 18
-  features within tolerance each. See `docs/IBSI2_reference_features.md`.
+  phantom, configuration B: no filter, mean (M = 5), LoG (1.5 mm) and Laws (L5E5E5,
+  max pooling, energy map of distance 7) are 18 of 18 features within tolerance each. See `docs/IBSI2_reference_features.md`.
 
 ### Fixed, interpolation
 

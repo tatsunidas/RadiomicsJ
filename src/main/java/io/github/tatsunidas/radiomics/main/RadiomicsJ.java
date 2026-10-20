@@ -484,6 +484,13 @@ public class RadiomicsJ {
 	public static int[] meanSupport = null;
 	/** extension of the image past its edge for the mean filter. */
 	public static ImageFiltering.Padding meanPadding = ImageFiltering.Padding.MIRROR;
+	/** Laws kernels of the filtered passes, each as 3 (2 with force2D) names such as L5E5E5; null for none */
+	public static String[] lawsKernels = null;
+	public static ImageFiltering.Padding lawsPadding = ImageFiltering.Padding.MIRROR;
+	/** null for no rotation invariance */
+	public static ImageFiltering.Pooling lawsPooling = null;
+	/** Chebyshev distance of the energy map in voxels, 0 for none */
+	public static int lawsEnergyDelta = 0;
 	/** true while compute() runs on a filtered image: shape, diagnostics and operational info describe the original only. */
 	private boolean filteredPass = false;
 	
@@ -771,6 +778,10 @@ public class RadiomicsJ {
 		logPadding = ImageFiltering.Padding.MIRROR;
 		meanSupport = null;
 		meanPadding = ImageFiltering.Padding.MIRROR;
+		lawsKernels = null;
+		lawsPadding = ImageFiltering.Padding.MIRROR;
+		lawsPooling = null;
+		lawsEnergyDelta = 0;
 		force2D = false;
 		activate_no_default_features = false;
 	}
@@ -1300,6 +1311,18 @@ public class RadiomicsJ {
 					if(keyString.equals(SettingParams.STRING_meanPadding.name())) {
 						RadiomicsJ.meanPadding = ImageFiltering.Padding.valueOf(val.trim().toUpperCase());
 					}
+					if(keyString.equals(SettingParams.STRING_lawsKernels.name())) {
+						RadiomicsJ.lawsKernels = val.trim().length()<1 ? null : val.trim().split("[\\s,;]+");
+					}
+					if(keyString.equals(SettingParams.STRING_lawsPadding.name())) {
+						RadiomicsJ.lawsPadding = ImageFiltering.Padding.valueOf(val.trim().toUpperCase());
+					}
+					if(keyString.equals(SettingParams.STRING_lawsPooling.name())) {
+						RadiomicsJ.lawsPooling = val.trim().length()<1 ? null : ImageFiltering.Pooling.valueOf(val.trim().toUpperCase());
+					}
+					if(keyString.equals(SettingParams.INT_lawsEnergyDelta.name())) {
+						RadiomicsJ.lawsEnergyDelta = Integer.parseInt(val.trim());
+					}
 					if(keyString.equals(SettingParams.BOOL_force2D.name())) {
 						RadiomicsJ.force2D = val.equals("1") || val.toLowerCase().equals("true") ? true:false;
 					}
@@ -1783,6 +1806,12 @@ public class RadiomicsJ {
 		originalMask = masks;
 		ResultsTable rt = null;
 		int num = images.getNSlices();
+		if(lawsKernels != null) {
+			// a slice that fails is skipped below, so a setting that can never work is refused before the loop
+			for(String k : lawsKernels) {
+				ImageFiltering.lawsKernels(k, force2D);
+			}
+		}
 		for(int i=0;i<num;i++) {
 			try {
 				currentImp = new ImagePlus(i+"", images.getStack().getProcessor(i+1).duplicate());
@@ -1852,6 +1881,14 @@ public class RadiomicsJ {
 		if(meanSupport != null) {
 			for(int m : meanSupport) {
 				passes.put("mean_M" + m + "_", imp -> ImageFiltering.meanFilter(imp, m, meanPadding, force2D));
+			}
+		}
+		if(lawsKernels != null) {
+			String pooling = lawsPooling == null ? "" : "_" + lawsPooling.name().toLowerCase();
+			String energy = lawsEnergyDelta > 0 ? "_d" + lawsEnergyDelta : "";
+			for(String k : lawsKernels) {
+				passes.put("laws_" + k + pooling + energy + "_",
+						imp -> ImageFiltering.lawsFilter(imp, k, lawsPadding, lawsPooling, lawsEnergyDelta, force2D));
 			}
 		}
 		return passes;

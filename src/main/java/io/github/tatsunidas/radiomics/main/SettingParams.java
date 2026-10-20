@@ -76,6 +76,10 @@ public enum SettingParams {
 	DOUBLE_logTruncate,//LoG kernel half width in sigma, 4
 	INTARRAY_meanSupport,//mean filter supports in voxels, odd, IBSI 2
 	STRING_meanPadding,//mean filter edge: CONSTANT, NEAREST, MIRROR, PERIODIC
+	STRING_lawsKernels,//Laws kernels, 3 names each (2 with force2D), separated by commas: L5E5E5,E5L5S5, IBSI 2
+	STRING_lawsPadding,//Laws filter edge: CONSTANT, NEAREST, MIRROR, PERIODIC
+	STRING_lawsPooling,//Laws rotation invariance, pooling of the right angle rotations: MAX, AVERAGE, MIN, empty for none
+	INT_lawsEnergyDelta,//Laws energy map distance in voxels, 0 for no energy map
 	STRING_logPadding,//LoG edge: CONSTANT, NEAREST, MIRROR, PERIODIC
 	BOOL_force2D,//slice by slice calculation
 	BOOL_activate_no_default_features,
