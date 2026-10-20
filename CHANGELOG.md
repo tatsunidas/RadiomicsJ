@@ -88,6 +88,16 @@
     and 459). `TestSplineInterpolation` checks it.
   - `TRICUBIC_POLYNOMIAL` and the other interpolations are as before.
 
+### Fixed, slice-wise extraction (`BOOL_force2D`)
+
+- **`extractAllSlice` no longer hides slices that failed.** It left a slice that raised an
+  exception out of the result and printed a stack trace without the slice number; when
+  every slice failed it returned `null`. It now names the slice and the reason, throws an
+  `IllegalStateException` (with the first failure as its cause) when every slice that holds
+  the mask failed, and otherwise returns the other slices with the skipped ones listed in
+  `getSkippedSlices()` (1 based). Slices with a blank mask are still skipped without being
+  failures. Columns and values of a successful run are unchanged.
+
 ### Fixed, diagnostics
 
 - **The re-segmented morphological mask is the interpolated mask.**
