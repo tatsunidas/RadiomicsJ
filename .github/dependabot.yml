@@ -1,0 +1,12 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: maven
+    directory: /
+    schedule:
+      interval: weekly
+    # the pom pins old versions on purpose in places (Java 8 target); keep the noise low
+    open-pull-requests-limit: 3

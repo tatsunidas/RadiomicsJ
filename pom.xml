@@ -116,6 +116,7 @@
 										<exclude>conda-recipe/conda_build_config.yaml</exclude>
 										<!-- excludes tests code and data -->
 										<exclude>tests/**</exclude>
+										<exclude>smoke/**</exclude>
 										<exclude>**/.pytest_cache/**</exclude>
 										<exclude>**/__pycache__/**</exclude>
 										<!--
