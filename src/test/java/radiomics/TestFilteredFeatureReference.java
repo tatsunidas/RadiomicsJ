@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import ij.ImagePlus;
@@ -46,9 +45,6 @@ import io.github.tatsunidas.radiomics.main.TestDataLoader;
  * re-segmentation to [-1000, 400] HU, mirror padding. Configuration A filters
  * every slice and still takes the features over the whole roi, which RadiomicsJ
  * does not offer (BOOL_force2D takes the features slice by slice), so A is not tested.
- *
- * All three tests are disabled: the unfiltered baseline 1.B does not reproduce its reference, so a
- * mismatch of 2.B or 3.B cannot be put down to the filter. Enable them once the baseline passes.
  *
  * @author tatsunidas <t_kobayashi@vis-ionary.com>
  */
@@ -148,21 +144,18 @@ public class TestFilteredFeatureReference {
 	}
 
 	@Test
-	@Disabled("not reached: the unfiltered 1.B already misses the reference (7 of 18 features), see docs/IBSI2_reference_features.md")
 	public void noFilterMatchesTheReferenceOfConfigurationB() throws Exception {
 		List<String> failed = compare("1.B", configurationB(null, null), "");
 		assertTrue(failed.isEmpty(), "out of tolerance: " + failed);
 	}
 
 	@Test
-	@Disabled("not reached: the unfiltered 1.B already misses the reference (7 of 18 features), see docs/IBSI2_reference_features.md")
 	public void meanFilterMatchesTheReferenceOfConfigurationB() throws Exception {
 		List<String> failed = compare("2.B", configurationB(null, new int[] { 5 }), "mean_M5_");
 		assertTrue(failed.isEmpty(), "out of tolerance: " + failed);
 	}
 
 	@Test
-	@Disabled("not reached: the unfiltered 1.B already misses the reference (7 of 18 features), see docs/IBSI2_reference_features.md")
 	public void laplacianOfGaussianMatchesTheReferenceOfConfigurationB() throws Exception {
 		List<String> failed = compare("3.B", configurationB(new double[] { 1.5d }, null), "log_sigma1.5mm_");
 		assertTrue(failed.isEmpty(), "out of tolerance: " + failed);
