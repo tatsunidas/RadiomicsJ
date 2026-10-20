@@ -53,12 +53,19 @@
   prefixed `gabor_s<sigma>_l<lambda>_g<gamma>_t<theta>[_<pooling>_dt<step>]_`. It matches the
   four IBSI 2 consensus maps of tests 4.a and 4.b (within 0.11 % of their range). Details:
   `docs/GaborFilter.md`.
+- **Separable undecimated wavelet filter as defined by IBSI 2**,
+  `ImageFiltering.waveletFilter(imp, wavelet, combination, level, padding, pooling, planar)`,
+  and `STRING_waveletSets` / `STRING_waveletPadding` / `STRING_waveletPooling` in the
+  extraction settings (Haar, Daubechies 2 to 4, Coiflet 1 to 3). Columns are prefixed
+  `wavelet_<name>_<combination>_l<level>[_<pooling>]_`. Optional pseudo rotation invariance
+  with the right angle rotations of appendix A. It matches the six IBSI 2 consensus maps of
+  tests 5.a, 6.a and 7.a (within 1e-5 % of their range). Details: `docs/WaveletFilter.md`.
 - **The Laplacian of Gaussian and the mean filter are two passes of one list.** Their
   settings and column names are as before.
 - The features of filtered images agree with the IBSI 2 reference values of the CT
   phantom, configuration B: no filter, mean (M = 5), LoG (1.5 mm), Laws (L5E5E5,
-  max pooling, energy map of distance 7) and Gabor (5 mm, 2 mm, 3/2, average over steps of pi/8 and
-  the orthogonal planes) are 18 of 18 features within tolerance each. See `docs/IBSI2_reference_features.md`.
+  max pooling, energy map of distance 7), Gabor (5 mm, 2 mm, 3/2, average over steps of pi/8 and
+  the orthogonal planes) and Daubechies 3 (LLH level 1, HHH level 2, average pooling) are 18 of 18 features within tolerance each. See `docs/IBSI2_reference_features.md`.
 
 ### Fixed, interpolation
 

@@ -498,6 +498,11 @@ public class RadiomicsJ {
 	public static ImageFiltering.Pooling gaborPooling = null;
 	/** orientation step in radians when pooling */
 	public static double gaborDeltaTheta = Math.PI / 8;
+	/** separable undecimated wavelets of the filtered passes, each as name:combination:level such as db3:LLH:1; null for none */
+	public static String[] waveletSets = null;
+	public static ImageFiltering.Padding waveletPadding = ImageFiltering.Padding.MIRROR;
+	/** null for no rotation invariance */
+	public static ImageFiltering.Pooling waveletPooling = null;
 	/** true while compute() runs on a filtered image: shape, diagnostics and operational info describe the original only. */
 	private boolean filteredPass = false;
 	
@@ -793,6 +798,9 @@ public class RadiomicsJ {
 		gaborPadding = ImageFiltering.Padding.MIRROR;
 		gaborPooling = null;
 		gaborDeltaTheta = Math.PI / 8;
+		waveletSets = null;
+		waveletPadding = ImageFiltering.Padding.MIRROR;
+		waveletPooling = null;
 		force2D = false;
 		activate_no_default_features = false;
 	}
@@ -1343,6 +1351,15 @@ public class RadiomicsJ {
 					if(keyString.equals(SettingParams.STRING_gaborPooling.name())) {
 						RadiomicsJ.gaborPooling = val.trim().length()<1 ? null : ImageFiltering.Pooling.valueOf(val.trim().toUpperCase());
 					}
+					if(keyString.equals(SettingParams.STRING_waveletSets.name())) {
+						RadiomicsJ.waveletSets = val.trim().length()<1 ? null : val.trim().split("\\s*;\\s*");
+					}
+					if(keyString.equals(SettingParams.STRING_waveletPadding.name())) {
+						RadiomicsJ.waveletPadding = ImageFiltering.Padding.valueOf(val.trim().toUpperCase());
+					}
+					if(keyString.equals(SettingParams.STRING_waveletPooling.name())) {
+						RadiomicsJ.waveletPooling = val.trim().length()<1 ? null : ImageFiltering.Pooling.valueOf(val.trim().toUpperCase());
+					}
 					if(keyString.equals(SettingParams.DOUBLE_gaborDeltaTheta.name())) {
 						RadiomicsJ.gaborDeltaTheta = Double.parseDouble(val.trim());
 					}
@@ -1841,6 +1858,12 @@ public class RadiomicsJ {
 			}
 			ImageFiltering.gaborSteps(gaborPooling, gaborDeltaTheta);
 		}
+		if(waveletSets != null) {
+			for(String s : waveletSets) {
+				String[] t = ImageFiltering.waveletSet(s);
+				ImageFiltering.waveletCheck(t[0], t[1], Integer.parseInt(t[2]), force2D);
+			}
+		}
 		for(int i=0;i<num;i++) {
 			try {
 				currentImp = new ImagePlus(i+"", images.getStack().getProcessor(i+1).duplicate());
@@ -1928,6 +1951,16 @@ public class RadiomicsJ {
 						+ significant(v[3]) + pooling + "_",
 						imp -> ImageFiltering.gaborFilter(imp, v[0], v[1], v[2], v[3], gaborPadding, gaborPooling,
 								gaborDeltaTheta, force2D));
+			}
+		}
+		if(waveletSets != null) {
+			String pooling = waveletPooling == null ? "" : "_" + waveletPooling.name().toLowerCase();
+			for(String s : waveletSets) {
+				String[] t = ImageFiltering.waveletSet(s);
+				String name = t[0].toLowerCase(), letters = t[1].toUpperCase();
+				int level = Integer.parseInt(t[2]);
+				passes.put("wavelet_" + name + "_" + letters + "_l" + level + pooling + "_",
+						imp -> ImageFiltering.waveletFilter(imp, name, letters, level, waveletPadding, waveletPooling, force2D));
 			}
 		}
 		return passes;
