@@ -20,6 +20,19 @@
   - Definition, arguments and timings: `docs/LoG_filter.md`. The extraction
     settings do not use the filter yet.
 
+### Fixed, diagnostics
+
+- **The re-segmented morphological mask is the interpolated mask.**
+  `DiagnosticsResegmentedROIMorphMaskVoxelCount` and
+  `DiagnosticsResegmentedROIMorphMaskBoundingBoxDimensionX/Y/Z` carried the values
+  of the re-segmented intensity mask. Re-segmentation (range filter, outlier
+  removal) narrows only the intensity mask, and the morphological features are
+  computed on the interpolated mask, so these four values now describe that
+  mask.
+  - The values change only when a range filter or outlier removal is used.
+  - In a 512 voxel roi whose top layer is outside the range, the count is now
+    512, not 448, and the z extent of the bounding box is now 8, not 7.
+
 ## 2.4.1
 
 ### Fixed, GLAM
