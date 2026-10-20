@@ -1374,8 +1374,6 @@ public class Utils {
 			return null;
 		}
 		
-		float[][] sw = initializeCubicSplineWeights(256);
-
 		int newW = (int)Math.ceil(w * (cal.pixelWidth / resampleX));
 		int newH = (int)Math.ceil(h * (cal.pixelHeight / resampleY));
 		int newS = (int)Math.ceil(s * (cal.pixelDepth / resampleZ));
@@ -1391,6 +1389,8 @@ public class Utils {
 				}
 			}
 		}
+		// the samples become the coefficients of the interpolating spline
+		splinePrefilter(voxels, w, h, s);
 		
 		int i, j, k;
 		double x, y, z;
@@ -1417,7 +1417,7 @@ public class Utils {
 					if(z < 0) z = 0;
 					if(z > s-1) z = s-1;
 					index = k * slice + j * newW + i;
-					float interp = (float) (TricubicSplineInterporation(voxels,sw, w, h, s, x, y, z));
+					float interp = (float) (TricubicSplineInterporation(voxels, w, h, s, x, y, z));
 					deformed[index] = interp;
 				}
 			}
@@ -1537,55 +1537,40 @@ public class Utils {
 	 * @param z coordinate z to interpolation
 	 * @return
 	 */
-	static float TricubicSplineInterporation(float[] oldV, float[][] sw, int XN, int YN, int ZN, double x, double y, double z) {
+	static float TricubicSplineInterporation(float[] oldV, int XN, int YN, int ZN, double x, double y, double z) {
 		int x0 = (int) Math.floor(x);
 		int y0 = (int) Math.floor(y);
 		int z0 = (int) Math.floor(z);
 		double dz = z - z0;
 		double dy = y - y0;
 		double dx = x - x0;
-		float[] wx = sw[(int) (dx*sw.length)];
-		float[] wy = sw[(int) (dy*sw.length)];
-		float[] wz = sw[(int) (dz*sw.length)];
+		double[] wx = cubicBSplineWeights(dx);
+		double[] wy = cubicBSplineWeights(dy);
+		double[] wz = cubicBSplineWeights(dz);
 		
 		int slice = XN * YN;
-		float vz = 0;
+		double vz = 0;
 		int z_itr = 0;
 		for (int zi = -1; zi <= 2; zi++) {
 			int z_ = z0+zi;
-			if(z_ < 0) {
-				z_ = 0;
-			}
-			if(z_ >= ZN) {
-				z_ = ZN-1;
-			}
-			float vy = 0;
+			z_ = mirrorIndex(z_, ZN);
+			double vy = 0;
 			int y_itr = 0;
 			for (int yi = -1; yi <= 2; yi++) {
 				int y_ = y0+yi;
-				if(y_ < 0) {
-					y_ = 0;
-				}
-				if(y_ >= YN) {
-					y_ = YN-1;
-				}
-				float vx = 0;
+				y_ = mirrorIndex(y_, YN);
+				double vx = 0;
 				int x_itr = 0;
 				for(int xi = -1; xi <= 2; xi++) {
 					int x_ = x0+xi;
-					if(x_ < 0) {
-						x_ = 0;
-					}
-					if(x_ >= XN) {
-						x_ = XN-1;
-					}
+					x_ = mirrorIndex(x_, XN);
 					vx += oldV[z_ * slice + y_ * XN + x_]* wx[x_itr++];
 				}
 				vy += wy[y_itr++]*vx;
 			}
 			vz += wz[z_itr++]*vy;
 		}
-		return vz;
+		return (float) vz;
 	}
 	
 	static float TricubicPolynomialInterporation(float[] oldV, float[][] pw, int XN, int YN, int ZN, double x, double y, double z) {
@@ -1659,18 +1644,78 @@ public class Utils {
 	 * @param resolution (discrete distance points between n0 to n1) 256 as default.
 	 * @return spline weights by 4 points
 	 */
-	static float[][] initializeCubicSplineWeights(int resolution) {
-		float[][] sw = new float[resolution][4];
-		for (int i = 0; i < resolution; i++) {
-			float dx = i/(float)resolution;
-			float dx2 = dx*dx;
-			float dx3 = dx*dx*dx;
-			sw[i][0] = (-dx3 + 3*dx2 -3*dx + 1)/6;
-			sw[i][1] = (3*dx3 - 6*dx2 +4)/6;
-			sw[i][2] = (-3*dx3 + 3*dx2 + 3*dx +1)/6;
-			sw[i][3] = dx3/6;
+	/** index i reflected about the first and last sample, as the spline prefilter assumes */
+	private static int mirrorIndex(int i, int n) {
+		if (n < 2) {
+			return 0;
 		}
-		return sw;
+		int period = 2 * (n - 1);
+		int m = Math.floorMod(i, period);
+		return m < n ? m : period - m;
+	}
+
+	/**
+	 * Weights of the four coefficients around a position, for the cubic B-spline basis.
+	 * The offset d is the distance past the second of them, in [0, 1).
+	 */
+	static double[] cubicBSplineWeights(double d) {
+		double d2 = d * d;
+		double d3 = d2 * d;
+		return new double[] { (1 - d) * (1 - d) * (1 - d) / 6, (3 * d3 - 6 * d2 + 4) / 6,
+				(-3 * d3 + 3 * d2 + 3 * d + 1) / 6, d3 / 6 };
+	}
+
+	/**
+	 * Turns samples into the coefficients of the cubic B-spline that passes through them
+	 * (Unser, Aldroubi, Eden 1993): a causal and an anti-causal recursive filter of pole
+	 * sqrt(3) - 2 along each axis, mirrored at the edges. Without it the basis smooths
+	 * the samples instead of interpolating them.
+	 */
+	static void splinePrefilter(float[] v, int w, int h, int d) {
+		double[] line = new double[Math.max(w, Math.max(h, d))];
+		for (int z = 0; z < d; z++) {
+			for (int y = 0; y < h; y++) {
+				filterLine(v, z * w * h + y * w, 1, w, line);
+			}
+		}
+		for (int z = 0; z < d; z++) {
+			for (int x = 0; x < w; x++) {
+				filterLine(v, z * w * h + x, w, h, line);
+			}
+		}
+		for (int y = 0; y < h; y++) {
+			for (int x = 0; x < w; x++) {
+				filterLine(v, y * w + x, w * h, d, line);
+			}
+		}
+	}
+
+	private static void filterLine(float[] v, int start, int step, int n, double[] c) {
+		if (n < 2) {
+			return;
+		}
+		final double z1 = Math.sqrt(3.0) - 2.0;
+		for (int i = 0; i < n; i++) {
+			c[i] = 6.0 * v[start + i * step];
+		}
+		// causal start: the sum of z1^k s[k] over the horizon where z1^k is still visible
+		int horizon = Math.min(n, (int) Math.ceil(Math.log(1e-12) / Math.log(Math.abs(z1))));
+		double zk = 1.0, sum = 0.0;
+		for (int k = 0; k < horizon; k++) {
+			sum += zk * c[k];
+			zk *= z1;
+		}
+		c[0] = sum;
+		for (int i = 1; i < n; i++) {
+			c[i] += z1 * c[i - 1];
+		}
+		c[n - 1] = (z1 / (z1 * z1 - 1.0)) * (c[n - 1] + z1 * c[n - 2]);
+		for (int i = n - 2; i >= 0; i--) {
+			c[i] = z1 * (c[i + 1] - c[i]);
+		}
+		for (int i = 0; i < n; i++) {
+			v[start + i * step] = (float) c[i];
+		}
 	}
 	
 	public static double DoubleDistance(double z0, double y0, double x0,

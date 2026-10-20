@@ -39,9 +39,23 @@
   to 1.a.4 and 1.b.1 (within 6e-6 % of their range). Details: `docs/MeanFilter.md`.
 - **The Laplacian of Gaussian and the mean filter are two passes of one list.** Their
   settings and column names are as before.
-- The features of filtered images could not be checked against the IBSI 2 reference
-  values: the unfiltered baseline of the same configuration already misses its
-  reference. See `docs/IBSI2_reference_features.md`.
+- The features of filtered images agree with the IBSI 2 reference values of the CT
+  phantom, configuration B: no filter, mean (M = 5) and LoG (1.5 mm) are 18 of 18
+  features within tolerance each. See `docs/IBSI2_reference_features.md`.
+
+### Fixed, interpolation
+
+- **`TRICUBIC_SPLINE` interpolates.** It applied the cubic B-spline basis to the samples
+  without the prefilter that turns them into spline coefficients, so it smoothed the
+  image: the result did not pass through the samples, and it could not reach the
+  overshoot of a spline. The prefilter is now applied, the weights are computed at the
+  exact position instead of a 1/256 table, and the edges are mirrored.
+  - **Values change** wherever the spline interpolation was used. On the IBSI 1 CT
+    phantom at 2 mm the interpolated image now has the minimum -1111 and the
+    maximum 2637 of the IBSI 1 configuration E reference (before -1000 and 1382),
+    and the roi mean, minimum and maximum -48.3, -966 and 627 (before -49.6, -929
+    and 459). `TestSplineInterpolation` checks it.
+  - `TRICUBIC_POLYNOMIAL` and the other interpolations are as before.
 
 ### Fixed, diagnostics
 
