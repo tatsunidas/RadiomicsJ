@@ -33,6 +33,16 @@
   - Morphology, Shape2D, diagnostics and operational information describe the
     original image and are not repeated.
 
+- **Mean filter as defined by IBSI 2**, `ImageFiltering.meanFilter(imp, support, padding, planar)`,
+  and `INTARRAY_meanSupport` / `STRING_meanPadding` in the extraction settings. Columns
+  are prefixed `mean_M<support>_`. It matches the IBSI 2 consensus maps of tests 1.a.1
+  to 1.a.4 and 1.b.1 (within 6e-6 % of their range). Details: `docs/MeanFilter.md`.
+- **The Laplacian of Gaussian and the mean filter are two passes of one list.** Their
+  settings and column names are as before.
+- The features of filtered images could not be checked against the IBSI 2 reference
+  values: the unfiltered baseline of the same configuration already misses its
+  reference. See `docs/IBSI2_reference_features.md`.
+
 ### Fixed, diagnostics
 
 - **The re-segmented morphological mask is the interpolated mask.**

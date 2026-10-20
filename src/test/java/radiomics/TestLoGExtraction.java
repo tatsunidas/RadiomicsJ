@@ -219,4 +219,33 @@ public class TestLoGExtraction {
 		ResultsTable manual = extract(calibrated(filtered, 1d), msk, null, false);
 		assertTwins(manual, rt, "log_sigma3.0mm_");
 	}
+
+	@Test
+	public void meanFilterColumnsEqualTheFeaturesOfTheFilteredImage() throws Exception {
+		ImagePlus img = image(3d), msk = mask(3d);// the support is in voxels, so the spacing may differ
+		for (boolean force2D : new boolean[] { false, true }) {
+			RadiomicsJ rj = new RadiomicsJ();
+			Properties prop = new Properties();
+			prop.setProperty("INTARRAY_meanSupport", "3,5");
+			prop.setProperty("STRING_meanPadding", "periodic");
+			rj.loadSettings(prop);
+			RadiomicsJ.force2D = force2D;
+			ResultsTable rt = force2D ? rj.extractAllSlice(img, msk, 1) : rj.extractAll(img, msk, 1);
+			assertEquals(2, RadiomicsJ.meanSupport.length);
+			ImagePlus filtered = ImageFiltering.meanFilter(img, 5, Padding.PERIODIC, force2D);
+			ResultsTable manual = extract(calibrated(filtered, 3d), msk, null, force2D);
+			assertTwins(manual, rt, "mean_M5_");
+			assertTrue(rt.columnExists(rt.getColumnIndex("mean_M3_" + "IntensityHistogram_" + firstHistogram(manual))));
+		}
+	}
+
+	@Test
+	public void anEvenMeanSupportIsRefused() {
+		ImagePlus img = image(1d), msk = mask(1d);
+		assertThrows(IllegalArgumentException.class, () -> {
+			RadiomicsJ rj = new RadiomicsJ();
+			RadiomicsJ.meanSupport = new int[] { 4 };
+			rj.extractAll(img, msk, 1);
+		});
+	}
 }
