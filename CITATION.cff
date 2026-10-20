@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use RadiomicsJ in your work, please cite the article below."
+title: "RadiomicsJ"
+type: software
+authors:
+  - family-names: Kobayashi
+    given-names: Tatsuaki
+    email: t_kobayashi@vis-ionary.com
+    affiliation: "Visionary Imaging Services, Inc."
+repository-code: "https://github.com/tatsunidas/RadiomicsJ"
+license: Apache-2.0
+preferred-citation:
+  type: article
+  title: "RadiomicsJ: a library to compute radiomic features"
+  authors:
+    - family-names: Kobayashi
+      given-names: Tatsuaki
+  journal: "Radiological Physics and Technology"
+  volume: 15
+  start: 255
+  end: 263
+  year: 2022
+  doi: "10.1007/s12194-022-00664-4"
