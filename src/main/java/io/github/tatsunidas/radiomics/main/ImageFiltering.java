@@ -162,16 +162,7 @@ public class ImageFiltering {
 		int w = imp.getWidth();
 		int h = imp.getHeight();
 		int d = imp.getStackSize();
-		float[][] f = new float[d][];
-		ImageStack in = imp.getStack();
-		for (int z = 0; z < d; z++) {
-			ImageProcessor ip = in.getProcessor(z + 1);
-			float[] s = new float[w * h];
-			for (int i = 0; i < s.length; i++) {
-				s[i] = (float) cal.getCValue(ip.getf(i));
-			}
-			f[z] = s;
-		}
+		float[][] f = calibratedVoxels(imp);
 
 		// separable: LoG = Gxx Gy Gz + Gx Gyy Gz + Gx Gy Gzz
 		float[][] gx = convolve(f, w, h, d, g, padding, 0);
@@ -201,12 +192,73 @@ public class ImageFiltering {
 			}
 		}
 
-		ImageStack stack = new ImageStack(w, h);
-		for (int z = 0; z < d; z++) {
-			stack.addSlice(new FloatProcessor(w, h, out[z]));
+		return response("LoG", out, imp);
+	}
+
+	/**
+	 * Mean filter as defined by IBSI 2 (reference manual section 4.2): every voxel
+	 * becomes the mean over a cube of support M voxels (a square for a planar
+	 * filter) centred on it. Voxels the cube reaches outside the image take the
+	 * value the padding gives them, which is 0 for constant padding.
+	 *
+	 * The support is in voxels, so the voxel spacing does not matter.
+	 *
+	 * @param imp image, read through its density calibration (for instance HU)
+	 * @param support M, an odd number of voxels
+	 * @param padding how the image is extended past its edge
+	 * @param planar true filters every axial slice on its own, false the volume
+	 * @return response map in 32 bit float, on the grid of the input
+	 */
+	public static ImagePlus meanFilter(ImagePlus imp, int support, Padding padding, boolean planar) {
+		if (imp == null || padding == null) {
+			throw new IllegalArgumentException("RadiomicsJ:meanFilter::image and padding are required.");
 		}
-		ImagePlus res = new ImagePlus("LoG", stack);
-		Calibration resCal = cal.copy();
+		if (support < 1 || support % 2 == 0) {
+			throw new IllegalArgumentException(
+					"RadiomicsJ:meanFilter::the support must be an odd number of voxels, got " + support);
+		}
+		int w = imp.getWidth();
+		int h = imp.getHeight();
+		int d = imp.getStackSize();
+		double[] kernel = new double[support];
+		java.util.Arrays.fill(kernel, 1.0 / support);
+		float[][] out = convolve(calibratedVoxels(imp), w, h, d, kernel, padding, 0);
+		out = convolve(out, w, h, d, kernel, padding, 1);
+		if (!planar) {
+			out = convolve(out, w, h, d, kernel, padding, 2);
+		}
+		return response("mean", out, imp);
+	}
+
+	/** voxel values through the density calibration of the image, one array per slice */
+	private static float[][] calibratedVoxels(ImagePlus imp) {
+		Calibration cal = imp.getCalibration();
+		int w = imp.getWidth();
+		int h = imp.getHeight();
+		int d = imp.getStackSize();
+		float[][] f = new float[d][];
+		ImageStack in = imp.getStack();
+		for (int z = 0; z < d; z++) {
+			ImageProcessor ip = in.getProcessor(z + 1);
+			float[] s = new float[w * h];
+			for (int i = 0; i < s.length; i++) {
+				s[i] = (float) cal.getCValue(ip.getf(i));
+			}
+			f[z] = s;
+		}
+		return f;
+	}
+
+	/** a response map on the grid of the source, without a density calibration */
+	private static ImagePlus response(String title, float[][] voxels, ImagePlus source) {
+		int w = source.getWidth();
+		int h = source.getHeight();
+		ImageStack stack = new ImageStack(w, h);
+		for (float[] v : voxels) {
+			stack.addSlice(new FloatProcessor(w, h, v));
+		}
+		ImagePlus res = new ImagePlus(title, stack);
+		Calibration resCal = source.getCalibration().copy();
 		resCal.disableDensityCalibration();
 		res.setCalibration(resCal);
 		return res;

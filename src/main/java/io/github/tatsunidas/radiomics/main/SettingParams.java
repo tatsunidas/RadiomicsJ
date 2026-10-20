@@ -74,6 +74,8 @@ public enum SettingParams {
 	DOUBLEARRAY_resamplingFactorXYZ,
 	DOUBLEARRAY_logSigmaMm,//Laplacian of Gaussian scales in mm, IBSI 2
 	DOUBLE_logTruncate,//LoG kernel half width in sigma, 4
+	INTARRAY_meanSupport,//mean filter supports in voxels, odd, IBSI 2
+	STRING_meanPadding,//mean filter edge: CONSTANT, NEAREST, MIRROR, PERIODIC
 	STRING_logPadding,//LoG edge: CONSTANT, NEAREST, MIRROR, PERIODIC
 	BOOL_force2D,//slice by slice calculation
 	BOOL_activate_no_default_features,

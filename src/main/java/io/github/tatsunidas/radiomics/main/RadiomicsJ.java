@@ -480,6 +480,10 @@ public class RadiomicsJ {
 	public static double logTruncate = 4d;
 	/** extension of the image past its edge for the LoG filter. */
 	public static ImageFiltering.Padding logPadding = ImageFiltering.Padding.MIRROR;
+	/** mean filter supports in voxels (odd). null or empty: no mean filtered image is analysed. Columns are prefixed mean_M[support]_. */
+	public static int[] meanSupport = null;
+	/** extension of the image past its edge for the mean filter. */
+	public static ImageFiltering.Padding meanPadding = ImageFiltering.Padding.MIRROR;
 	/** true while compute() runs on a filtered image: shape, diagnostics and operational info describe the original only. */
 	private boolean filteredPass = false;
 	
@@ -765,6 +769,8 @@ public class RadiomicsJ {
 		logSigmaMm = null;
 		logTruncate = 4d;
 		logPadding = ImageFiltering.Padding.MIRROR;
+		meanSupport = null;
+		meanPadding = ImageFiltering.Padding.MIRROR;
 		force2D = false;
 		activate_no_default_features = false;
 	}
@@ -1287,6 +1293,12 @@ public class RadiomicsJ {
 					}
 					if(keyString.equals(SettingParams.STRING_logPadding.name())) {
 						RadiomicsJ.logPadding = ImageFiltering.Padding.valueOf(val.trim().toUpperCase());
+					}
+					if(keyString.equals(SettingParams.INTARRAY_meanSupport.name())) {
+						RadiomicsJ.meanSupport = val.length()<1 ? null : Utils.s2ints(val);
+					}
+					if(keyString.equals(SettingParams.STRING_meanPadding.name())) {
+						RadiomicsJ.meanPadding = ImageFiltering.Padding.valueOf(val.trim().toUpperCase());
 					}
 					if(keyString.equals(SettingParams.BOOL_force2D.name())) {
 						RadiomicsJ.force2D = val.equals("1") || val.toLowerCase().equals("true") ? true:false;
@@ -1820,7 +1832,33 @@ public class RadiomicsJ {
 	
 
 	/**
-	 * compute() on the original image, then on each Laplacian of Gaussian filtered image.
+	 * The filtered images to analyse after the original: the column prefix of each,
+	 * and the filter that makes it from the resampled image.
+	 */
+	private java.util.LinkedHashMap<String, java.util.function.UnaryOperator<ImagePlus>> filterPasses() {
+		java.util.LinkedHashMap<String, java.util.function.UnaryOperator<ImagePlus>> passes = new java.util.LinkedHashMap<>();
+		if(logSigmaMm != null) {
+			for(double sigma : logSigmaMm) {
+				passes.put("log_sigma" + sigma + "mm_", imp -> {
+					try {
+						return ImageFiltering.laplacianOfGaussian(imp, sigma, logTruncate, logPadding, force2D);
+					}catch(IllegalArgumentException e) {
+						throw new IllegalArgumentException("RadiomicsJ:LoG filter sigma " + sigma + " mm was refused: " + e.getMessage()
+								+ " Make the resampled voxels isotropic with DOUBLEARRAY_resamplingFactorXYZ.", e);
+					}
+				});
+			}
+		}
+		if(meanSupport != null) {
+			for(int m : meanSupport) {
+				passes.put("mean_M" + m + "_", imp -> ImageFiltering.meanFilter(imp, m, meanPadding, force2D));
+			}
+		}
+		return passes;
+	}
+
+	/**
+	 * compute() on the original image, then on each filtered image (Laplacian of Gaussian filtered image.
 	 * The features of a filtered image join the row of the original with the column
 	 * prefix log_sigma[scale]mm_. Re-segmentation and normalisation follow the intensities
 	 * of the original image, so the filtered images reuse the re-segmented mask and are
@@ -1828,21 +1866,17 @@ public class RadiomicsJ {
 	 */
 	ResultsTable computeWithFilters() throws Exception {
 		ResultsTable rt = compute(resampledImp, resegmentedMask, RadiomicsJ.label_);
-		if(rt == null || logSigmaMm == null || logSigmaMm.length == 0) {
+		java.util.LinkedHashMap<String, java.util.function.UnaryOperator<ImagePlus>> filters = filterPasses();
+		if(rt == null || filters.isEmpty()) {
 			return rt;
 		}
 		int row = rt.getCounter() - 1;
 		ImagePlus original = resampledImp;
 		try {
 			filteredPass = true;
-			for(double sigma : logSigmaMm) {
-				ImagePlus filtered;
-				try {
-					filtered = ImageFiltering.laplacianOfGaussian(original, sigma, logTruncate, logPadding, force2D);
-				}catch(IllegalArgumentException e) {
-					throw new IllegalArgumentException("RadiomicsJ:LoG filter sigma " + sigma + " mm was refused: " + e.getMessage()
-							+ " Make the resampled voxels isotropic with DOUBLEARRAY_resamplingFactorXYZ.", e);
-				}
+			for(java.util.Map.Entry<String, java.util.function.UnaryOperator<ImagePlus>> pass : filters.entrySet()) {
+				String prefix = pass.getKey();
+				ImagePlus filtered = pass.getValue().apply(original);
 				resampledImp = filtered;
 				preprocessDiscretise(filtered, resegmentedMask, RadiomicsJ.label_);
 				ResultsTable t = compute(filtered, resegmentedMask, RadiomicsJ.label_);
@@ -1850,7 +1884,6 @@ public class RadiomicsJ {
 					continue;
 				}
 				int last = t.getCounter() - 1;
-				String prefix = "log_sigma" + sigma + "mm_";
 				for(String h : t.getHeadings()) {
 					if(h.equals(" ")) {
 						continue;//row label column
