@@ -1843,6 +1843,13 @@ public class RadiomicsJ {
 	 * @param masks : stack series masks
 	 * @return
 	 */
+	/** slices (1 based) that failed in the last extractAllSlice() and are missing from its result */
+	private java.util.List<Integer> skippedSlices = new java.util.ArrayList<>();
+
+	public java.util.List<Integer> getSkippedSlices() {
+		return java.util.Collections.unmodifiableList(skippedSlices);
+	}
+
 	public ResultsTable extractAllSlice(ImagePlus images, ImagePlus masks, Integer targetLabel) {
 		if(masks == null) {
 			/*
@@ -1857,6 +1864,9 @@ public class RadiomicsJ {
 		originalMask = masks;
 		ResultsTable rt = null;
 		int num = images.getNSlices();
+		skippedSlices = new java.util.ArrayList<>();
+		int attempted = 0;
+		Exception firstFailure = null;
 		if(lawsKernels != null) {
 			// a slice that fails is skipped below, so a setting that can never work is refused before the loop
 			for(String k : lawsKernels) {
@@ -1891,6 +1901,7 @@ public class RadiomicsJ {
 				if(Utils.isBlankMaskSlice(currentMask.getProcessor(), targetLabel)) {
 					continue;
 				}
+				attempted++;
 				/*
 				 * do preprocessing
 				 */
@@ -1921,10 +1932,25 @@ public class RadiomicsJ {
 					}
 				}
 			} catch (Exception e) {
-				System.err.println("Something strange skip this images and masks stack pair -> "+images.getTitle()+" and "+masks.getTitle());
+				// a slice that fails is left out of the result, and reported: see getSkippedSlices()
+				System.err.println("RadiomicsJ: slice " + (i+1) + " of " + images.getTitle() + " and " + masks.getTitle()
+						+ " was skipped -> " + e.getClass().getSimpleName() + ": " + e.getMessage());
 				e.printStackTrace();
+				skippedSlices.add(i+1);
+				if(firstFailure == null) {
+					firstFailure = e;
+				}
 				continue;
 			}
+		}
+		if(attempted > 0 && skippedSlices.size() == attempted) {
+			throw new IllegalStateException("RadiomicsJ: every slice failed (" + attempted + " of " + attempted
+					+ "), the first one with " + firstFailure.getClass().getSimpleName() + ": " + firstFailure.getMessage(),
+					firstFailure);
+		}
+		if(!skippedSlices.isEmpty()) {
+			System.err.println("RadiomicsJ: " + skippedSlices.size() + " of " + attempted
+					+ " slices were skipped and are missing from the result: " + skippedSlices);
 		}
 		return rt;
 	}
