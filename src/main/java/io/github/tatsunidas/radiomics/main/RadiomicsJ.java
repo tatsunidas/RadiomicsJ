@@ -491,6 +491,13 @@ public class RadiomicsJ {
 	public static ImageFiltering.Pooling lawsPooling = null;
 	/** Chebyshev distance of the energy map in voxels, 0 for none */
 	public static int lawsEnergyDelta = 0;
+	/** Gabor filters of the filtered passes, each as sigma(mm):lambda(mm):gamma:theta(rad); null for none */
+	public static String[] gaborSets = null;
+	public static ImageFiltering.Padding gaborPadding = ImageFiltering.Padding.MIRROR;
+	/** null for a single orientation */
+	public static ImageFiltering.Pooling gaborPooling = null;
+	/** orientation step in radians when pooling */
+	public static double gaborDeltaTheta = Math.PI / 8;
 	/** true while compute() runs on a filtered image: shape, diagnostics and operational info describe the original only. */
 	private boolean filteredPass = false;
 	
@@ -782,6 +789,10 @@ public class RadiomicsJ {
 		lawsPadding = ImageFiltering.Padding.MIRROR;
 		lawsPooling = null;
 		lawsEnergyDelta = 0;
+		gaborSets = null;
+		gaborPadding = ImageFiltering.Padding.MIRROR;
+		gaborPooling = null;
+		gaborDeltaTheta = Math.PI / 8;
 		force2D = false;
 		activate_no_default_features = false;
 	}
@@ -1323,6 +1334,18 @@ public class RadiomicsJ {
 					if(keyString.equals(SettingParams.INT_lawsEnergyDelta.name())) {
 						RadiomicsJ.lawsEnergyDelta = Integer.parseInt(val.trim());
 					}
+					if(keyString.equals(SettingParams.STRING_gaborSets.name())) {
+						RadiomicsJ.gaborSets = val.trim().length()<1 ? null : val.trim().split("\\s*;\\s*");
+					}
+					if(keyString.equals(SettingParams.STRING_gaborPadding.name())) {
+						RadiomicsJ.gaborPadding = ImageFiltering.Padding.valueOf(val.trim().toUpperCase());
+					}
+					if(keyString.equals(SettingParams.STRING_gaborPooling.name())) {
+						RadiomicsJ.gaborPooling = val.trim().length()<1 ? null : ImageFiltering.Pooling.valueOf(val.trim().toUpperCase());
+					}
+					if(keyString.equals(SettingParams.DOUBLE_gaborDeltaTheta.name())) {
+						RadiomicsJ.gaborDeltaTheta = Double.parseDouble(val.trim());
+					}
 					if(keyString.equals(SettingParams.BOOL_force2D.name())) {
 						RadiomicsJ.force2D = val.equals("1") || val.toLowerCase().equals("true") ? true:false;
 					}
@@ -1812,6 +1835,12 @@ public class RadiomicsJ {
 				ImageFiltering.lawsKernels(k, force2D);
 			}
 		}
+		if(gaborSets != null) {
+			for(String g : gaborSets) {
+				ImageFiltering.gaborSet(g);
+			}
+			ImageFiltering.gaborSteps(gaborPooling, gaborDeltaTheta);
+		}
 		for(int i=0;i<num;i++) {
 			try {
 				currentImp = new ImagePlus(i+"", images.getStack().getProcessor(i+1).duplicate());
@@ -1891,7 +1920,22 @@ public class RadiomicsJ {
 						imp -> ImageFiltering.lawsFilter(imp, k, lawsPadding, lawsPooling, lawsEnergyDelta, force2D));
 			}
 		}
+		if(gaborSets != null) {
+			String pooling = gaborPooling == null ? "" : "_" + gaborPooling.name().toLowerCase() + "_dt" + significant(gaborDeltaTheta);
+			for(String g : gaborSets) {
+				double[] v = ImageFiltering.gaborSet(g);
+				passes.put("gabor_s" + significant(v[0]) + "_l" + significant(v[1]) + "_g" + significant(v[2]) + "_t"
+						+ significant(v[3]) + pooling + "_",
+						imp -> ImageFiltering.gaborFilter(imp, v[0], v[1], v[2], v[3], gaborPadding, gaborPooling,
+								gaborDeltaTheta, force2D));
+			}
+		}
 		return passes;
+	}
+
+	/** a number to 4 significant digits without trailing zeros, for a column prefix */
+	private static String significant(double v) {
+		return new java.math.BigDecimal(v).round(new java.math.MathContext(4)).stripTrailingZeros().toPlainString();
 	}
 
 	/**

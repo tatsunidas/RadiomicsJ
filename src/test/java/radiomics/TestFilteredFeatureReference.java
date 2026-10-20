@@ -92,6 +92,11 @@ public class TestFilteredFeatureReference {
 	}
 
 	private static ResultsTable configurationB(double[] logSigma, int[] meanSupport, String laws) throws Exception {
+		return configurationB(logSigma, meanSupport, laws, null);
+	}
+
+	private static ResultsTable configurationB(double[] logSigma, int[] meanSupport, String laws, String gabor)
+			throws Exception {
 		ImagePlus img = TestDataLoader.loadNifTi(PHANTOM + "image/phantom.nii.gz");
 		ImagePlus msk = TestDataLoader.loadNifTi(PHANTOM + "mask/mask.nii.gz");
 		RadiomicsJ rj = new RadiomicsJ();
@@ -111,6 +116,12 @@ public class TestFilteredFeatureReference {
 			RadiomicsJ.lawsPadding = Padding.MIRROR;
 			RadiomicsJ.lawsPooling = Pooling.MAX;
 			RadiomicsJ.lawsEnergyDelta = 7;
+		}
+		if (gabor != null) {
+			RadiomicsJ.gaborSets = new String[] { gabor };
+			RadiomicsJ.gaborPadding = Padding.MIRROR;
+			RadiomicsJ.gaborPooling = Pooling.AVERAGE;
+			RadiomicsJ.gaborDeltaTheta = Math.PI / 8;
 		}
 		return rj.extractAll(img, msk, 1);
 	}
@@ -175,6 +186,13 @@ public class TestFilteredFeatureReference {
 	@Test
 	public void lawsMatchesTheReferenceOfConfigurationB() throws Exception {
 		List<String> failed = compare("4.B", configurationB(null, null, "L5E5E5"), "laws_L5E5E5_max_d7_");
+		assertTrue(failed.isEmpty(), "out of tolerance: " + failed);
+	}
+
+	@Test
+	public void gaborMatchesTheReferenceOfConfigurationB() throws Exception {
+		List<String> failed = compare("5.B", configurationB(null, null, null, "5:2:1.5:0"),
+				"gabor_s5_l2_g1.5_t0_average_dt0.3927_");
 		assertTrue(failed.isEmpty(), "out of tolerance: " + failed);
 	}
 }
