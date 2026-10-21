@@ -54,10 +54,23 @@ last column is 8.a.3):
 | `2 pi k / (M-1)` | 0.5 % | 1.0 % | 1.8 % |
 
 In the Fourier domain the used grid reproduces the level 2 and 3 maps to 1e-7. **Level 1 is not
-reproduced exactly and the cause is unknown.** The residual is a smooth deviation of the gain of
-up to 0.01 over 1.2 < |nu| < pi; scaling `nuB` of level 1 by 1.004 lowers the difference to 0.07 %,
-but not to zero, so it is not a scale. It is 0.38 % of the range, inside the 1% criterion, and the test
-pins it (between 0.1 % and 0.5 %) so that a change shows. It was not tuned away.
+reproduced exactly and the cause is unknown.** It is 0.38 % of the range, inside the 1% criterion, and
+the test pins it (between 0.1 % and 0.5 %) so that a change shows. It was not tuned away.
+
+What was measured, once, and where it stopped (a NumPy replica of the filter gives the same 0.3784 %):
+
+- The reference level 1 map divided by the checkerboard in the Fourier domain gives the gain the
+  reference used. It differs from the formula by -0.0035 at 1.3 < |nu| < 1.6, then by +0.003 to +0.010
+  up to |nu| = pi, and by up to 0.009 just past pi, where the formula is 0. That is what a band
+  that reaches slightly beyond pi would give (compare the scaling of `nuB` below).
+- Scaling `nuB` of level 1 from pi to pi * 1.004 lowers the largest difference from 0.378 % to
+  0.070 % of the range (best of a scan of 1.000 to 1.012 in steps of 0.001; 1.005 gives 0.087 %, 1.003
+  gives 0.119 %), and it does not reach 0. This scales the band edges and the argument of the
+  cosine together. Moving only the upper edge, or only the lower edge, by that factor leaves the
+  0.38 % as it is (the argument alone was not tried).
+- Levels 2 and 3 need no such factor, so it is not a property of the grid. No rule that gives a
+  factor of 1.004 for level 1 and 1 for the others was found, and the reference code is not available
+  here. The factor is therefore not used.
 
 A wrong level, a slice-wise instead of a volumetric filter and another padding (on the
 checkerboard, which has content at its edge) all miss the reference by more than 1%. Exchanging two
