@@ -31,7 +31,6 @@ import java.util.Iterator;
 import java.util.Properties;
 import java.util.Set;
 
-import javax.swing.JOptionPane;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -213,7 +212,8 @@ public class RadiomicsJ {
 						}
 					}
 				}else {
-					JOptionPane.showMessageDialog(null, "RadiomicsJ can not perform feature extraction. Please check image, mask and settings.");
+					System.err.println("RadiomicsJ can not perform feature extraction. Please check image, mask and settings.");
+					System.exit(1);
 				}
 			} catch (Exception e) {
 				e.printStackTrace();

@@ -31,8 +31,10 @@
 - `exec.mainClass` in the `pom.xml` named the old package `com.vis.radiomics`, so
   `mvn exec:java` could not find the class. It is now
   `io.github.tatsunidas.radiomics.main.RadiomicsJ`.
-
-## Unreleased
+- When the extraction gives no result (for example a mask without a voxel of the target
+  label), the command line prints the reason to stderr and exits with status 1. Before, it
+  opened a dialog (`JOptionPane`), which fails with a `HeadlessException` where there is no
+  display.
 
 ### Added
 
