@@ -1,5 +1,32 @@
 # Changelog
 
+## 2.5.1 (2026-10-21)
+
+Security update of a dependency. The feature values are the same as in 2.5.0.
+
+### Security
+
+- `poi-ooxml` is updated from 4.1.2 to 5.4.0, which fixes CVE-2025-31672 (improper input
+  validation in OOXML file parsing). Apache POI is used only to read the Excel files of the
+  validation (`Validation`); feature extraction does not use it.
+
+POI 5 uses the Log4j API, and no logging implementation is bundled. When the validation
+reads its Excel file for the first time, Log4j prints one line, `Log4j API could not find a
+logging provider.`, and carries on. The values read from the file are the same as with 4.1.2.
+
+### Changed, dependencies
+
+- Added as transitive dependencies of POI: `commons-io` 2.18.0, `commons-lang3` 3.16.0 and
+  `log4j-api` 2.24.3 (the logging API only).
+- Replaced `poi-ooxml-schemas` 4.1.2 by `poi-ooxml-lite` 5.4.0.
+- Updated: `xmlbeans` 3.1.0 to 5.3.0, `commons-compress` 1.19 to 1.27.1, `commons-codec`
+  1.13 to 1.17.1, `SparseBitSet` 1.2 to 1.3, `curvesapi` 1.06 to 1.08.
+
+### Changed, build
+
+- Build and documentation plugins updated: `maven-javadoc-plugin` 3.12.0,
+  `exec-maven-plugin` 3.6.4.
+
 ## 2.5.0 (2026-10-20)
 
 Adds the convolutional filters of IBSI 2 to the extraction: Laplacian of Gaussian,
