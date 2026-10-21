@@ -35,7 +35,7 @@
 	</scm>
   
 	<properties>
-		<exec.mainClass>com.vis.radiomics.main.RadiomicsJ</exec.mainClass>
+		<exec.mainClass>io.github.tatsunidas.radiomics.main.RadiomicsJ</exec.mainClass>
 		<jdk.version>8</jdk.version>
 	  	<java.version>8</java.version>
 	  	<maven.compiler.source>8</maven.compiler.source>
