@@ -19,6 +19,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
@@ -182,7 +183,13 @@ public class RadiomicsJ {
 		
 		RadiomicsJ radiomics = new RadiomicsJ();
 		radiomics.setDebug(debug);
-		radiomics.loadSettings(propFilePath);
+		try {
+			radiomics.loadSettings(propFilePath);
+		} catch (IllegalArgumentException | UncheckedIOException e) {
+			System.err.println("Sorry, " + e.getMessage());
+			System.err.println("Please check the settings file path.");
+			System.exit(1);
+		}
 		
 		if(!testMode) {
 			try {
@@ -875,19 +882,14 @@ public class RadiomicsJ {
 		Properties prop = null;
 		if (propFilePath != null) {
 			propFile = new File(propFilePath);
-			if (propFile == null || !propFile.exists()) {
-				System.out.println("Sorry, can not read properties file correctly.");
-				System.out.println("Please check input paths.");
-				System.exit(0);
-			} else {
-				try (FileInputStream in = new FileInputStream(propFile);) {
-					prop = new Properties();
-					prop.load(in);
-				} catch (IOException e) {
-					System.out.println("Ouch, fail to read properties file...");
-					e.printStackTrace();
-					System.exit(0);
-				}
+			if (!propFile.exists()) {
+				throw new IllegalArgumentException("Can not read the properties file, it does not exist: " + propFilePath);
+			}
+			try (FileInputStream in = new FileInputStream(propFile);) {
+				prop = new Properties();
+				prop.load(in);
+			} catch (IOException e) {
+				throw new UncheckedIOException("Can not read the properties file: " + propFilePath, e);
 			}
 		}
 		loadSettings(prop);
@@ -922,19 +924,14 @@ public class RadiomicsJ {
 		}
 		File propFile = new File("./validation/"+fname);
 		Properties prop = null;
-		if (propFile == null || !propFile.exists()) {
-			System.out.println("Sorry, can not read properties file correctly.");
-			System.out.println("Please check input paths.");
-			System.exit(0);
-		} else {
-			try (FileInputStream in = new FileInputStream(propFile);) {
-				prop = new Properties();
-				prop.load(in);
-			} catch (IOException e) {
-				System.out.println("Ouch, fail to read properties file...");
-				e.printStackTrace();
-				System.exit(0);
-			}
+		if (!propFile.exists()) {
+			throw new IllegalArgumentException("Can not read the properties file, it does not exist: " + propFile.getPath());
+		}
+		try (FileInputStream in = new FileInputStream(propFile);) {
+			prop = new Properties();
+			prop.load(in);
+		} catch (IOException e) {
+			throw new UncheckedIOException("Can not read the properties file: " + propFile.getPath(), e);
 		}
 		loadSettings(prop);
 	}
