@@ -12,6 +12,14 @@
 
 ### Changed, dependencies
 
+- `log4j-to-jul` 2.26.1 is added at runtime, so the line `Log4j API could not find a logging
+  provider.` that POI 5 caused on the first read of the validation Excel file is gone (the
+  messages of POI go to `java.util.logging`). `log4j-api` is named as 2.26.1, where POI 5.5.1
+  brings 2.24.3, because 2.24.3 is affected by GHSA-qv9r-c865-cp47 (invalid JSON for non-finite
+  values in `MapMessage`, only with a JSON layout of Log4j Core; RadiomicsJ and POI do not use
+  it). `log4j-to-jul` is optional, so a Maven project that depends on RadiomicsJ does not get
+  it (its priority is higher than that of Log4j Core, and it would replace the logging of that
+  project); it is in the jars of the Python package and of the command line.
 - Test tooling: `maven-surefire-plugin` 3.6.0, `junit-jupiter-api` and
   `junit-jupiter-engine` 5.14.4 (both were 5.7.1). With surefire 2.22.2 the newer junit ran
   no test at all, so the update needed the newer surefire. The CI now fails when fewer
