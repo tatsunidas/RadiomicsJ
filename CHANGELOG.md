@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Changed, settings files
+
+- `loadSettings(String)` and `loadSettingsFromResource(String)` throw instead of ending the
+  JVM with `System.exit(0)` when the properties file does not exist
+  (`IllegalArgumentException`) or cannot be read (`UncheckedIOException`). A program that
+  calls them now has to handle these exceptions. The command line prints the reason and
+  ends with status 1.
+
+### Changed, dependencies
+
+- `maven-antrun-plugin` 3.2.0, `poi-ooxml` 5.5.1 (and its dependencies `commons-io` 2.21.0,
+  `commons-compress` 1.28.0, `commons-lang3` 3.18.0, `commons-codec` 1.20.0,
+  `commons-collections4` 4.5.0). The values read from the validation Excel file are the
+  same as with 5.4.0.
+
 ### Fixed, command line
 
 - `RadiomicsJ.main` now exits with status 1 when it fails: unparsable arguments, missing

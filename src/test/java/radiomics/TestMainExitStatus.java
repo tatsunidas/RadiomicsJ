@@ -67,4 +67,9 @@ public class TestMainExitStatus {
 		Files.createFile(masks.resolve("a.dcm"));
 		assertEquals(1, run("-i", images.toString(), "-m", masks.toString()));
 	}
+
+	@Test
+	public void missingSettingsFileExitsWithOne() throws Exception {
+		assertEquals(1, run("-t", "-tdt", "0", "-s", "no-such-settings.properties"));
+	}
 }
