@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -14,7 +13,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import javax.imageio.ImageIO;
+import ij.ImagePlus;
+import ij.io.FileSaver;
+import ij.process.ByteProcessor;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -90,14 +91,14 @@ public class TestMainExitStatus {
 	public void emptyMaskExitsWithOneAndReportsIt(@TempDir Path dir) throws Exception {
 		Path images = Files.createDirectory(dir.resolve("images"));
 		Path masks = Files.createDirectory(dir.resolve("masks"));
-		BufferedImage img = new BufferedImage(16, 16, BufferedImage.TYPE_BYTE_GRAY);
+		ByteProcessor img = new ByteProcessor(16, 16);
 		for (int y = 0; y < 16; y++) {
 			for (int x = 0; x < 16; x++) {
-				img.getRaster().setSample(x, y, 0, (x * 16 + y * 7) % 256);
+				img.set(x, y, (x * 16 + y * 7) % 256);
 			}
 		}
-		ImageIO.write(img, "tiff", images.resolve("img.tif").toFile());
-		ImageIO.write(new BufferedImage(16, 16, BufferedImage.TYPE_BYTE_GRAY), "tiff", masks.resolve("mask.tif").toFile());
+		assertTrue(new FileSaver(new ImagePlus("img", img)).saveAsTiff(images.resolve("img.tif").toString()));
+		assertTrue(new FileSaver(new ImagePlus("mask", new ByteProcessor(16, 16))).saveAsTiff(masks.resolve("mask.tif").toString()));
 		Path log = dir.resolve("out.log");
 		int status = run(ProcessBuilder.Redirect.to(log.toFile()), "-i", images.toString(), "-m", masks.toString());
 		String out = new String(Files.readAllBytes(log), java.nio.charset.StandardCharsets.UTF_8);
