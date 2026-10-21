@@ -54,9 +54,25 @@ within 1% of the reference's range.
 | 4.b.2 | 1.28 | 0.11 % |
 
 The 4.b maps are about four orders of magnitude further from the reference than the others.
-The cause is not known: it does not depend on the kernel width (the same with a kernel twice
-as wide), and an independent NumPy implementation gives the same numbers, so it is a property
-of the reference data, not of this code. It is well within the 1% criterion.
+**The cause is not known.** It is well within the 1% criterion. What was tried, once each, and
+stopped there:
+
+- An independent NumPy implementation gives the same numbers as this code.
+- The mirror padding repeats the edge voxel (`symmetric`). The variant that does not repeat it
+  (`reflect`) is 18 % (4.b.1) and 7.9 % (4.b.2) off, so the definition is right.
+- The kernel is cut to half the image on each axis (the image is 64 voxels, 6 sigma is 60 voxels).
+  Without that cut, with the padding reaching further, 4.b.2 moves from 0.112 % to 0.093 %
+  and 4.b.1 from 0.0108 % to 0.0106 %: a small part, not the cause.
+- It is not a scale: the least-squares slope of this code on the reference is 1.000017 (4.b.1)
+  and 1.000031 (4.b.2).
+- It is not at the image edge. The largest difference of 4.b.2 is at the centre (40, 40, 40), that
+  of 4.b.1 at (52, 8, 4). Where the reference is above one eighth of its maximum the mean
+  relative difference is 3e-6 to 2e-5 (4.b.1) and 2e-4 to 7e-4 (4.b.2).
+- The reference files are 32 bit float with no scaling (NIfTI datatype 16, `scl_slope` 1), so
+  the storage does not limit them to this size of difference.
+
+The code that made the reference maps is not available here, so the remaining candidates (its
+numerical precision, its kernel sampling) cannot be told apart and are not claimed.
 
 The opposite sign of the orientation (42 % and 97 %), the axial plane alone for 4.b.2
 (110 %), another padding, another pooling or step, and sigma and lambda taken as voxels all
