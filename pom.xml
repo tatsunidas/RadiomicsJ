@@ -409,5 +409,25 @@
 				</exclusion>
 			</exclusions>
 		</dependency>
+		<!--
+			POI logs through the Log4j API, which has no implementation of its own and prints
+			"could not find a logging provider". log4j-to-jul sends the messages to java.util.logging.
+			log4j-api is named here to take the version that GHSA-qv9r-c865-cp47 is fixed in (POI 5.5.1 brings 2.24.3),
+			and log4j-to-jul must have the same version.
+			log4j-to-jul is optional because its priority is higher than that of Log4j Core: a program that uses RadiomicsJ
+			as a library must not get its own Log4j setup replaced. The jars in the Python package and in target/ still hold it.
+		-->
+		<dependency>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-api</artifactId>
+			<version>2.26.1</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-to-jul</artifactId>
+			<version>2.26.1</version>
+			<scope>runtime</scope>
+			<optional>true</optional>
+		</dependency>
 	</dependencies>
 </project>
