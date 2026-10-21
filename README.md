@@ -312,7 +312,7 @@ If you want quick example with GUI, see [RadiomicsJ IJ-PlugIn](https://sites.goo
 ```
 <groupId>io.github.tatsunidas</groupId>
 <artifactId>radiomicsj</artifactId>
-<version>2.5.0</version>
+<version>2.5.1</version>
 ```
 ## Example 1 : feature extraction, 3D basis
 
