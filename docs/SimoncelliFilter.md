@@ -20,6 +20,19 @@ arXiv 2006.05470 v9, section 4.6.4, equation 4.8). Each level gives one response
   doubling the margin changes the response more than half a margin from the edge by 0.2 to 2 % of
   its range on a test image with a strong ramp (`TestSimoncelliFilter`); at the edge it changes it
   by up to 6 %. With `PERIODIC` there is no such choice.
+  **The margin is a limit of this filter, not a setting that converges.** Measured once in 2D
+  (one 64 x 64 slice of the checkerboard, and a 64 x 64 ramp with noise; levels 1 to 3; `MIRROR` and
+  `CONSTANT`), against the response with a margin of 256 voxels, as a fraction of the range:
+  with margins of 8, 16, 32, 64 and 128 voxels the largest difference falls slowly, by a third to a half
+  per doubling of the margin, for example 1.4, 1.1, 0.75, 0.43 and 0.17 % for the checkerboard at level 1 with
+  `MIRROR`. The response with a margin of 256 is itself not converged (128 against 256 still differs
+  by 0.15 to 0.4 %), so a margin that gives a response within, say, 0.1 % would be several hundred
+  voxels per side, which a 3D volume cannot afford (a margin of 200 on 64 voxels is 464 voxels on an
+  axis). The default (16 voxels at level 1, 32 at levels 2 and 3 for a 64 voxel axis) differs from
+  the margin of 256 by 0.9 to 2.1 % at the edge and 0.5 to 1.7 % at 16 voxels from it in these
+  images; with a margin of 8 voxels, a ramp at level 3 differs by 66 % at the edge. The default was
+  kept. For a result that does not depend on this choice use `PERIODIC` padding, or a margin that is
+  large against the image. The 3D case was not measured.
 - `planar` (`BOOL_force2D`) filters every axial slice in 2D.
 - The input is read through its density calibration; the output is 32 bit float.
 - The Shannon wavelet (equation 4.7) and the Riesz transform are not covered.
