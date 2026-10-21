@@ -518,5 +518,191 @@ public class Validation {
 		default:return null;
 		}
 	}
-	
+
+	// ---------------------------------------------------------------------------------------------
+	// Structured report (does not print, does not write files). See ValidationReport for the rule.
+	// ---------------------------------------------------------------------------------------------
+
+	private static final double TOLERANCE_EPS = 1e-9;
+	static final int MIN_SIGNIFICANT_DIGITS = 3;
+
+	/**
+	 * Validate against the IBSI 1 reference values and return a structured report.
+	 * <p>
+	 * Nothing is printed and no file is written (the reference table is read from the classpath stream).
+	 * Static settings of {@link RadiomicsJ} are changed while it runs (as in the legacy methods) and are
+	 * restored to their defaults at the end, so <b>call it while no other thread uses RadiomicsJ</b>.
+	 *
+	 * @param type P (digital phantom, built in code, works from the distributed jar), C or D (CT radiomics
+	 *             phantom; needs the data sets of src/test/resources on the classpath, like {@link #ibsi_ct_PAT1})
+	 * @throws IllegalArgumentException for configurations that have no settings file (A, B, E)
+	 * @throws IllegalStateException    when the data set or the reference table is not available, or the
+	 *                                  calculation fails
+	 */
+	public static ValidationReport report(ValidationConfigType type) {
+		return report(type, null, null);
+	}
+
+	/**
+	 * @param referenceXlsx reference table stream to use instead of the bundled one (tests, other versions). null: bundled
+	 * @param settingsOverride properties text to use instead of the bundled settings file. null: bundled
+	 */
+	static ValidationReport report(ValidationConfigType type, InputStream referenceXlsx, String settingsOverride) {
+		String dataSetName;
+		switch (type) {
+		case P:
+			dataSetName = "digital phantom";
+			break;
+		case C:
+			dataSetName = "configuration C";
+			break;
+		case D:
+			dataSetName = "configuration D";
+			break;
+		default:
+			throw new IllegalArgumentException("No settings file for configuration " + type + " (only P, C and D can be validated).");
+		}
+		String settingsFile = loadSettingsPropertiesByConfigType(type);
+		ImagePlus[] ds;
+		try {
+			ds = type == ValidationConfigType.P ? TestDataLoader.digital_phantom1_scratch() : TestDataLoader.sample_ct1();
+		} catch (Throwable t) {
+			throw new IllegalStateException("The data set for configuration " + type + " is not available: " + t, t);
+		}
+		if (ds == null || ds[0] == null || ds[1] == null) {
+			throw new IllegalStateException("The data set for configuration " + type + " is not available.");
+		}
+
+		IbsiReferenceTable table;
+		try (InputStream in = referenceXlsx != null ? referenceXlsx
+				: Thread.currentThread().getContextClassLoader().getResourceAsStream(referenceFile)) {
+			if (in == null) {
+				throw new IllegalStateException("Reference table not found on the classpath: " + referenceFile);
+			}
+			table = IbsiReferenceTable.read(in);
+		} catch (IOException e) {
+			throw new IllegalStateException("Cannot read the reference table: " + e.getMessage(), e);
+		}
+
+		String settingsText = settingsOverride != null ? settingsOverride : readResourceText(settingsFile);
+		java.util.Properties prop = new java.util.Properties();
+		try {
+			prop.load(new java.io.StringReader(settingsText));
+		} catch (IOException e) {
+			throw new IllegalStateException(e);
+		}
+
+		// RadiomicsJ prints progress to stdout/stderr regardless of its debug flag. Keep the report silent.
+		java.io.PrintStream out0 = System.out;
+		java.io.PrintStream err0 = System.err;
+		java.io.PrintStream sink = new java.io.PrintStream(new java.io.OutputStream() {
+			@Override
+			public void write(int b) {
+			}
+		});
+		ResultsTable res;
+		try {
+			System.setOut(sink);
+			System.setErr(sink);
+			RadiomicsJ radi = new RadiomicsJ();
+			radi.loadSettings(prop);
+			RadiomicsJ.force2D = false;
+			radi.setDebug(false);
+			res = radi.execute(ds[0], ds[1], RadiomicsJ.targetLabel);
+		} catch (Exception e) {
+			throw new IllegalStateException("The calculation failed: " + e, e);
+		} finally {
+			System.setOut(out0);
+			System.setErr(err0);
+			RadiomicsJ.resetSettings();
+		}
+
+		// result column of every 3D family name
+		HashMap<String, String> columnOf = new HashMap<>();
+		for (String h : res.getHeadings()) {
+			String key = header2familyName_3D(h);
+			if (key != null) {
+				columnOf.put(key, h);
+			}
+		}
+		java.util.List<ValidationReport.Row> rows = new ArrayList<>();
+		int diagnostics = 0;
+		for (IbsiReferenceTable.Entry e : table.of(dataSetName)) {
+			if (e.family != null && e.family.startsWith("Diagnostics")) {
+				diagnostics++;
+				continue;
+			}
+			if (e.value == null) {
+				continue;// no reference value: nothing to validate
+			}
+			String key = e.family + "_" + e.radiomicsjName;
+			String column = e.radiomicsjName == null ? null : columnOf.get(key);
+			Double computed = null;
+			if (column != null) {
+				double d = res.getValueAsDouble(res.getColumnIndex(column), 0);
+				computed = Double.isNaN(d) || Double.isInfinite(d) ? null : d;
+			}
+			ValidationReport.Verdict v;
+			if (e.referenceStatus != null && !e.referenceStatus.isEmpty()) {
+				v = ValidationReport.Verdict.NO_MANUAL_REFERENCE;
+			} else if (e.radiomicsjName == null || !isSupported3DFamily(e.family)) {
+				v = ValidationReport.Verdict.NOT_SUPPORTED;
+			} else if (column == null || computed == null) {
+				v = ValidationReport.Verdict.NOT_COMPUTED;
+			} else {
+				v = judge(computed, e.value, e.tolerance);
+			}
+			rows.add(new ValidationReport.Row(e.family, e.imageBiomarker, e.radiomicsjName, column, e.consensus, e.value,
+					e.tolerance, computed, v, e.referenceStatus));
+		}
+		return new ValidationReport(dataSetName, RadiomicsJ.version, referenceXlsx != null ? "(supplied)" : referenceFile,
+				table.sha256, settingsFile, settingsText, rows, diagnostics);
+	}
+
+	/** families that {@link #header2familyName_3D} produces (3D features only). */
+	private static boolean isSupported3DFamily(String family) {
+		if (family == null) {
+			return false;
+		}
+		return family.equals("Morphology") || family.equals("Local intensity") || family.equals("Statistics")
+				|| family.equals("Intensity histogram") || family.equals("Intensity volume histogram")
+				|| family.equals("Co-occurrence matrix (3D, averaged)") || family.equals("Run length matrix (3D, averaged)")
+				|| family.equals("Size zone matrix (3D)") || family.equals("Distance zone matrix (3D)")
+				|| family.equals("Neighbourhood grey tone difference matrix (3D)")
+				|| family.equals("Neighbouring grey level dependence matrix (3D)");
+	}
+
+	/** the verdict of one computed value, see {@link ValidationReport#RULE}. */
+	static ValidationReport.Verdict judge(double computed, double reference, Double tolerance) {
+		if (tolerance != null) {
+			double diff = Math.abs(computed - reference);
+			return diff <= tolerance * (1 + TOLERANCE_EPS) ? ValidationReport.Verdict.PASS : ValidationReport.Verdict.FAIL;
+		}
+		// no tolerance: equal at N significant digits, N = max(3, digits of the printed reference value).
+		// The reference values of the table are printed with at most 3 significant digits (checked in the tests).
+		java.math.BigDecimal ref = java.math.BigDecimal.valueOf(reference).stripTrailingZeros();
+		java.math.MathContext mc = new java.math.MathContext(Math.max(MIN_SIGNIFICANT_DIGITS, ref.precision()),
+				java.math.RoundingMode.HALF_UP);
+		return new java.math.BigDecimal(computed).round(mc).compareTo(ref.round(mc)) == 0
+				? ValidationReport.Verdict.PASS_AT_REFERENCE_DIGITS
+				: ValidationReport.Verdict.FAIL;
+	}
+
+	private static String readResourceText(String resource) {
+		try (InputStream in = Thread.currentThread().getContextClassLoader().getResourceAsStream(resource)) {
+			if (in == null) {
+				throw new IllegalStateException("Settings file not found on the classpath: " + resource);
+			}
+			java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+			byte[] buf = new byte[8192];
+			int n;
+			while ((n = in.read(buf)) > 0) {
+				bos.write(buf, 0, n);
+			}
+			return new String(bos.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+		} catch (IOException e) {
+			throw new IllegalStateException(e);
+		}
+	}
+
 }

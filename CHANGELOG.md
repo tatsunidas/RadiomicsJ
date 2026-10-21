@@ -1,5 +1,70 @@
 # Changelog
 
+## Unreleased
+
+### Fixed, command line
+
+- `RadiomicsJ.main` now exits with status 1 when it fails: unparsable arguments, missing
+  image or mask folders, unequal numbers of images and masks, an exception during the
+  extraction, and test data that cannot be prepared. Before, these ended with status 0 and
+  looked like a success to scripts. `-h` and a finished run still end with 0. A script that
+  ignored the status of a failed run will see the failure from now on.
+- `exec.mainClass` in the `pom.xml` named the old package `com.vis.radiomics`, so
+  `mvn exec:java` could not find the class. It is now
+  `io.github.tatsunidas.radiomics.main.RadiomicsJ`.
+
+## Unreleased
+
+### Added
+
+- `Validation.report(ValidationConfigType)` returns a structured `ValidationReport` of the IBSI 1 benchmark
+  (digital phantom `P`; CT phantom `C` and `D` from the source tree): one row per reference value with
+  the reference, the tolerance, the computed value and a verdict, plus the RadiomicsJ version, the SHA-256
+  of the reference table and the settings. `toJson()` and `toCsv()` write it out. It prints nothing and
+  writes no file. See `docs/IBSI_validation.md`.
+- Verdict rule of the report: with a tolerance, `|computed - reference| <= tolerance`. Without a tolerance
+  (the IBSI manual states neither a tolerance nor a rounding rule), RadiomicsJ's own criterion of equality
+  at N = max(3, significant digits of the reference) digits, counted separately
+  (`PASS_AT_REFERENCE_DIGITS`). The relative 1% / 20% rules of `ibsiDigitalPhantom()` are not used.
+- Reports of this version for the digital phantom and configurations C and D in `docs/benchmark/`
+  (`IbsiBenchmarkRecorder`).
+
+### Changed
+
+- The tolerances of 91 rows of `IBSI_ValidationFile.xlsx` (configuration C: 23, D: 68) now follow the
+  current IBSI 1 reference manual; all reference values agree. Rows that are not in the manual's tables are
+  marked in a new `reference_status` column. The old methods `ibsiDigitalPhantom()` and `ibsi_ct_PAT1()` are
+  unchanged and keep their rules. See `docs/IBSI_validation.md` and
+  `docs/benchmark/ibsi_1_reference_table_tolerance_changes.csv`.
+
+
+## 2.5.1 (2026-10-21)
+
+Security update of a dependency. The feature values are the same as in 2.5.0.
+
+### Security
+
+- `poi-ooxml` is updated from 4.1.2 to 5.4.0, which fixes CVE-2025-31672 (improper input
+  validation in OOXML file parsing). Apache POI is used only to read the Excel files of the
+  validation (`Validation`); feature extraction does not use it.
+
+POI 5 uses the Log4j API, and no logging implementation is bundled. When the validation
+reads its Excel file for the first time, Log4j prints one line, `Log4j API could not find a
+logging provider.`, and carries on. The values read from the file are the same as with 4.1.2.
+
+### Changed, dependencies
+
+- Added as transitive dependencies of POI: `commons-io` 2.18.0, `commons-lang3` 3.16.0 and
+  `log4j-api` 2.24.3 (the logging API only).
+- Replaced `poi-ooxml-schemas` 4.1.2 by `poi-ooxml-lite` 5.4.0.
+- Updated: `xmlbeans` 3.1.0 to 5.3.0, `commons-compress` 1.19 to 1.27.1, `commons-codec`
+  1.13 to 1.17.1, `SparseBitSet` 1.2 to 1.3, `curvesapi` 1.06 to 1.08.
+
+### Changed, build
+
+- Build and documentation plugins updated: `maven-javadoc-plugin` 3.12.0,
+  `exec-maven-plugin` 3.6.4.
+
 ## 2.5.0 (2026-10-20)
 
 Adds the convolutional filters of IBSI 2 to the extraction: Laplacian of Gaussian,
