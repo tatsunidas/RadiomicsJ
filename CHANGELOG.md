@@ -12,6 +12,10 @@
 
 ### Changed, dependencies
 
+- Test tooling: `maven-surefire-plugin` 3.6.0, `junit-jupiter-api` and
+  `junit-jupiter-engine` 5.14.4 (both were 5.7.1). With surefire 2.22.2 the newer junit ran
+  no test at all, so the update needed the newer surefire. The CI now fails when fewer
+  tests ran than the sources declare.
 - `maven-antrun-plugin` 3.2.0, `poi-ooxml` 5.5.1 (and its dependencies `commons-io` 2.21.0,
   `commons-compress` 1.28.0, `commons-lang3` 3.18.0, `commons-codec` 1.20.0,
   `commons-collections4` 4.5.0). The values read from the validation Excel file are the
