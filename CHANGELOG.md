@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `Validation.report(ValidationConfigType)` returns a structured `ValidationReport` of the IBSI 1 benchmark
+  (digital phantom `P`; CT phantom `C` and `D` from the source tree): one row per reference value with
+  the reference, the tolerance, the computed value and a verdict, plus the RadiomicsJ version, the SHA-256
+  of the reference table and the settings. `toJson()` and `toCsv()` write it out. It prints nothing and
+  writes no file. See `docs/IBSI_validation.md`.
+- Verdict rule of the report: with a tolerance, `|computed - reference| <= tolerance`. Without a tolerance
+  (the IBSI manual states neither a tolerance nor a rounding rule), RadiomicsJ's own criterion of equality
+  at N = max(3, significant digits of the reference) digits, counted separately
+  (`PASS_AT_REFERENCE_DIGITS`). The relative 1% / 20% rules of `ibsiDigitalPhantom()` are not used.
+- Reports of this version for the digital phantom and configurations C and D in `docs/benchmark/`
+  (`IbsiBenchmarkRecorder`).
+
+### Changed
+
+- The tolerances of 91 rows of `IBSI_ValidationFile.xlsx` (configuration C: 23, D: 68) now follow the
+  current IBSI 1 reference manual; all reference values agree. Rows that are not in the manual's tables are
+  marked in a new `reference_status` column. The old methods `ibsiDigitalPhantom()` and `ibsi_ct_PAT1()` are
+  unchanged and keep their rules. See `docs/IBSI_validation.md` and
+  `docs/benchmark/ibsi_1_reference_table_tolerance_changes.csv`.
+
+
 ## 2.5.1 (2026-10-21)
 
 Security update of a dependency. The feature values are the same as in 2.5.0.
