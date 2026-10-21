@@ -61,6 +61,10 @@ jobs:
             mvn -B test
           fi
 
+      - name: Check that the tests really ran
+        shell: bash
+        run: python3 .github/scripts/check_test_count.py
+
   python:
     name: python wheel (${{ matrix.os }}, Python ${{ matrix.python }})
     runs-on: ${{ matrix.os }}
