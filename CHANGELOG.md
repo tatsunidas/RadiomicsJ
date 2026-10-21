@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased
+## 2.5.2 (2026-10-21)
+
+A command line that reports failures by its exit status, a structured IBSI 1 report
+(`Validation.report`), no Log4j warning line any more, and dependency updates. The feature
+values are the same as in 2.5.1. `loadSettings` now throws instead of ending the JVM, which a
+calling program has to handle. The documentation of the Gabor and Simoncelli filters now states
+what is known about their small differences from the IBSI 2 reference maps, and the limits of
+the margin of the Simoncelli padding.
 
 ### Changed, settings files
 
