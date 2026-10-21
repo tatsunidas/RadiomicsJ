@@ -107,7 +107,7 @@ public class RadiomicsJ {
 			cmd = parser.parse(options, args);
 		} catch (ParseException e1) {
 			e1.printStackTrace();
-			System.exit(0);
+			System.exit(1);
 		}
 		
 		boolean debug = false;
@@ -159,7 +159,7 @@ public class RadiomicsJ {
 			if(!testMode) {
 				System.out.println("Sorry, can not read image or mask folders.");
 				System.out.println("Please check input paths,");
-				System.exit(0);
+				System.exit(1);
 			}
 		}
 		
@@ -175,7 +175,7 @@ public class RadiomicsJ {
 							"Please check input images and masks, Are these same size(same number of slices) ?? (or, contained no need files ?)");
 					System.out.println(
 							imgDir.listFiles().length + " images, " + maskDir.listFiles().length + " masks found.");
-					System.exit(0);
+					System.exit(1);
 				}
 			}
 		}
@@ -210,7 +210,7 @@ public class RadiomicsJ {
 				}
 			} catch (Exception e) {
 				e.printStackTrace();
-				System.exit(0);
+				System.exit(1);
 			}
 		}else {
 			ImagePlus imp = null;
@@ -245,12 +245,12 @@ public class RadiomicsJ {
 				} catch (Throwable t) {
 					System.err.println("Sorry, the test data set is not available. -> " + t.getMessage());
 					System.err.println("Please use -tdt 0, or run RadiomicsJ from the source tree.");
-					System.exit(0);
+					System.exit(1);
 				}
 			}
 			if(imp == null) {
 				System.out.println("Sorry, can not prepare the test data set. return.");
-				System.exit(0);
+				System.exit(1);
 			}
 			try {
 				ResultsTable res = radiomics.execute(imp, mask, RadiomicsJ.targetLabel);
@@ -262,7 +262,7 @@ public class RadiomicsJ {
 				}
 			} catch (Exception e) {
 				e.printStackTrace();
-				System.exit(0);
+				System.exit(1);
 			}
 		}
 	}
