@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Fixed, command line
+
+- `RadiomicsJ.main` now exits with status 1 when it fails: unparsable arguments, missing
+  image or mask folders, unequal numbers of images and masks, an exception during the
+  extraction, and test data that cannot be prepared. Before, these ended with status 0 and
+  looked like a success to scripts. `-h` and a finished run still end with 0. A script that
+  ignored the status of a failed run will see the failure from now on.
+- `exec.mainClass` in the `pom.xml` named the old package `com.vis.radiomics`, so
+  `mvn exec:java` could not find the class. It is now
+  `io.github.tatsunidas.radiomics.main.RadiomicsJ`.
+
+## Unreleased
+
 ### Added
 
 - `Validation.report(ValidationConfigType)` returns a structured `ValidationReport` of the IBSI 1 benchmark
