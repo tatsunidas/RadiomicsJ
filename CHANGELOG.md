@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Changed, speed
+
+- The mesh of the morphological features (marching cubes, `MCTriangulator`) reads the voxel values once instead
+  of calling `getProcessor(z).getf()` at every cube corner, which made ImageJ run `setMinAndMax` each time. The
+  mesh and every morphological value are the same: on the IBSI validation CT (STS_001, ROI 117,145 voxels)
+  the 132,468 mesh vertices have the same SHA-256 and all 23 morphological values are equal bit for bit.
+  Measured on one machine (16 cores), the mesh took 60.8 s before and 0.23 s after, and the morphological
+  family 95.2 s before and 68.7 s after (one run each); what remains is mostly the all-pairs loop of the
+  maximum 3D diameter.
+
 ## 2.5.2 (2026-10-21)
 
 A command line that reports failures by its exit status, a structured IBSI 1 report

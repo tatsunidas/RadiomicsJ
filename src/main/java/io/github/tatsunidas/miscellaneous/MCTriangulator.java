@@ -87,18 +87,29 @@ public class MCTriangulator {
 		double dy = padding.getCalibration().pixelHeight;
 		double dz = padding.getCalibration().pixelDepth;
 
+		// read every voxel once: getProcessor(z).getf() per cube corner calls setMinAndMax of ImageJ each time
+		float[][] voxels = new float[pD][pW * pH];
+		for (int z = 0; z < pD; z++) {
+			ImageProcessor ip = stack.getProcessor(z + 1);
+			for (int y = 0; y < pH; y++) {
+				for (int x = 0; x < pW; x++) {
+					voxels[z][y * pW + x] = ip.getf(x, y);
+				}
+			}
+		}
+
 		int scanStep = 1;
 		for (int z = 0; z < pD - scanStep; z++) {
 			for (int y = 0; y < pH - scanStep; y++) {
 				for (int x = 0; x < pW - scanStep; x++) {
-					processCube(stack, x, y, z, threshold, scanStep, dx, dy, dz);
+					processCube(voxels, pW, x, y, z, threshold, scanStep, dx, dy, dz);
 				}
 			}
 		}
 		return vertices;
 	}
 
-	private void processCube(ImageStack stack, int x, int y, int z, double thresh, int s, double dx, double dy,
+	private void processCube(float[][] voxels, int pW, int x, int y, int z, double thresh, int s, double dx, double dy,
 			double dz) {
 		// 1. キューブの8頂点の座標と値を定義
 		// 頂点の並び順（インデックス）はアルゴリズム標準のルールに従う
@@ -108,8 +119,7 @@ public class MCTriangulator {
 
 		double[] val = new double[8];
 		for (int i = 0; i < 8; i++) {
-			// ImageJのStackは1-based indexなので z+1
-			val[i] = stack.getProcessor(pz[i] + 1).getf(px[i], py[i]);
+			val[i] = voxels[pz[i]][py[i] * pW + px[i]];
 		}
 
 		// 2. どの頂点が閾値の内側にあるかを判定し、8ビットのインデックスを作成
