@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Added (GPU foundation)
+
+- `BOOL_USE_GPU` (default 1; `--gpu` / `--no-gpu` on the command line) and the package `io.github.tatsunidas.radiomics.gpu`:
+  an OpenCL context (JOCL 2.0.5, an optional dependency, kept in the CLI and Python jars) that later changes use for
+  GPU code. Nothing computes on the GPU yet, so no result changes. When JOCL, the OpenCL library or a GPU device is
+  missing, `Gpu.get()` returns null with one log line and the CPU code runs. On the development machine (only
+  `libOpenCL.so.1` installed) the GPU is reported as not usable until `libOpenCL.so` is on `LD_LIBRARY_PATH`.
+
 ### Changed, speed (NGTDM)
 
 - `NGTDMFeatures.fillNGTDM` gathers the sum and the number of valid neighbours of every voxel in parallel (over the
