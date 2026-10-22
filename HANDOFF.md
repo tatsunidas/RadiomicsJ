@@ -1,8 +1,9 @@
 # HANDOFF
 
-更新: 2026-10-22 / マシン: meerkat（Core Ultra 7 255H 16 コア + GTX 1050 Ti）
+更新: 2026-10-23 08:09 / マシン: meerkat（Core Ultra 7 255H 16 コア + GTX 1050 Ti）
 
 ## 0. 次にやること
+- 再開したら: `git fetch && git log --oneline origin/master -3` で master が `b46c36e` から進んでいないか確認する。この HANDOFF.md は master には無く、本ブランチにだけある。
 - 新しい実装の指示は無い。再開するなら、下の「未解決」から選び、着手前にプランモードで計画を出して承認を取る。
 - リリース（版数・タグ）は未実施。やるときは先にユーザーに確認する。
 - このブランチ（`gpu/phase1-benchmark`）は試作と計測の記録として残す。コードは master に入っているので、PR・マージはしない。
