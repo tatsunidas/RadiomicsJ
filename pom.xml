@@ -429,5 +429,16 @@
 			<scope>runtime</scope>
 			<optional>true</optional>
 		</dependency>
+		<!--
+			JOCL is the OpenCL binding for the optional GPU path (io.github.tatsunidas.radiomics.gpu).
+			It is optional so that a program that uses RadiomicsJ as a library does not get it by default;
+			without it on the classpath every GPU feature falls back to the CPU code. The CLI jar and the Python jars hold it.
+		-->
+		<dependency>
+			<groupId>org.jocl</groupId>
+			<artifactId>jocl</artifactId>
+			<version>2.0.5</version>
+			<optional>true</optional>
+		</dependency>
 	</dependencies>
 </project>

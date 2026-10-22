@@ -96,6 +96,8 @@ public class RadiomicsJ {
 		options.addOption("m","masks",true, "path to masks dir(folder)");
 		options.addOption("o","output",true, "path to save result location dir(not file). default is user folder.");
 		options.addOption("s","settings",true, "path to setting file(.properties)");
+		options.addOption(null,"gpu",false, "use the GPU(OpenCL) where available (default). falls back to the CPU when it is not usable.");
+		options.addOption(null,"no-gpu",false, "do not use the GPU. overrides BOOL_USE_GPU in the settings file.");
 		options.addOption("h","help",false, "print usage information.");
 		options.addOption("d","debug",false, "debug mode");
 		options.addOption("t","test",false, "test mode");
@@ -188,6 +190,12 @@ public class RadiomicsJ {
 			System.err.println("Sorry, " + e.getMessage());
 			System.err.println("Please check the settings file path.");
 			System.exit(1);
+		}
+		
+		if(cmd.hasOption("no-gpu")) {
+			RadiomicsJ.BOOL_USE_GPU = false;
+		}else if(cmd.hasOption("gpu")) {
+			RadiomicsJ.BOOL_USE_GPU = true;
 		}
 		
 		if(!testMode) {
@@ -452,6 +460,7 @@ public class RadiomicsJ {
 	 * if true, binCount discrete is performed (and binWidth is ignored).
 	 */
 	public static boolean BOOL_USE_FixedBinNumber = true;
+	public static boolean BOOL_USE_GPU = true;
 	
 	/**
 	 * fixed bin size ( 32 default, 6 to 64 is suitable range).
@@ -774,6 +783,7 @@ public class RadiomicsJ {
 		rangeMin = null;
 		rangeMax = null;
 		BOOL_USE_FixedBinNumber = true;
+		BOOL_USE_GPU = true;
 		nBins = 32;
 		binWidth = 25d;
 		IVH_binCount = 1000;
@@ -1301,6 +1311,9 @@ public class RadiomicsJ {
 					}
 					if(keyString.equals(SettingParams.BOOL_USE_FixedBinNumber.name())) {
 						RadiomicsJ.BOOL_USE_FixedBinNumber = val.equals("1") || val.toLowerCase().equals("true") ? true:false;
+					}
+					if(keyString.equals(SettingParams.BOOL_USE_GPU.name())) {
+						RadiomicsJ.BOOL_USE_GPU = val.equals("1") || val.toLowerCase().equals("true") ? true:false;
 					}
 					if(keyString.equals(SettingParams.BOOL_normalize.name())) {
 						RadiomicsJ.normalize = val.equals("1") || val.toLowerCase().equals("true") ? true:false;

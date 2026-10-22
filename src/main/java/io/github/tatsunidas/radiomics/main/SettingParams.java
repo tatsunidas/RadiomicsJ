@@ -44,6 +44,10 @@ public enum SettingParams {
 	 */
 	BOOL_interpolation_intensity_rounding,
 	BOOL_USE_FixedBinNumber,
+	/**
+	 * Use the GPU(OpenCL) where an implementation exists. Falls back to the CPU when no usable device is found. Default is true.
+	 */
+	BOOL_USE_GPU,
 	DOUBLE_binWidth,
 	INT_binCount,
 	BOOL_normalize,
