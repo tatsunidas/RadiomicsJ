@@ -213,10 +213,10 @@ public final class GpuEstimator {
 		ps.add(Problem.gabor(64, 64, 32, iso, 5, 2, 1.5, false, 4));
 		ps.add(Problem.localPeak(64, 64, 32, 64 * 64 * 16, iso));
 		ps.add(Problem.maxDiameter(5000));
-		names.add("CT-sized 198x202x59, ROI 117145 voxels, 132468 mesh vertices");
+		names.add("CT-sized 198x202x59, ROI 117145 voxels, 22080 unique mesh vertices");
 		ps.add(Problem.gabor(198, 202, 59, ct, 5, 2, 1.5, false, 4));
 		ps.add(Problem.localPeak(198, 202, 59, 117145, ct));
-		ps.add(Problem.maxDiameter(132468));
+		ps.add(Problem.maxDiameter(22080));
 		List<Estimate> es = estimate(recalibrate, ps.toArray(new Problem[0]));
 		out.println("GPU estimate on this machine (device: " + deviceName() + ", CPU cores: " + Runtime.getRuntime().availableProcessors() + ")");
 		out.println("Seconds are predicted from small measured problems, see " + file().getPath());
