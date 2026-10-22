@@ -841,19 +841,21 @@ public class ImageFiltering {
 					}
 				}
 			}
-			fft3(re, im, e, false);
-			for (int z = 0; z < e[2]; z++) {
-				for (int y = 0; y < e[1]; y++) {
-					for (int x = 0; x < e[0]; x++) {
-						double nu = Math.sqrt(nu2[0][x] + nu2[1][y] + nu2[2][z]);
-						double g = nu >= vb / 4 && nu <= vb ? Math.cos(Math.PI / 2 * Math.log(2 * nu / vb) / Math.log(2)) : 0;
-						int i = (z * e[1] + y) * e[0] + x;
-						re[i] *= g;
-						im[i] *= g;
+			if (!simoncelliOnGpu(re, e, vb, nu2)) {
+				fft3(re, im, e, false);
+				for (int z = 0; z < e[2]; z++) {
+					for (int y = 0; y < e[1]; y++) {
+						for (int x = 0; x < e[0]; x++) {
+							double nu = Math.sqrt(nu2[0][x] + nu2[1][y] + nu2[2][z]);
+							double g = nu >= vb / 4 && nu <= vb ? Math.cos(Math.PI / 2 * Math.log(2 * nu / vb) / Math.log(2)) : 0;
+							int i = (z * e[1] + y) * e[0] + x;
+							re[i] *= g;
+							im[i] *= g;
+						}
 					}
 				}
+				fft3(re, im, e, true);
 			}
-			fft3(re, im, e, true);
 			for (int z = 0; z < n[2]; z++) {
 				float[] o = out[planar ? s : z];
 				for (int y = 0; y < h; y++) {
@@ -868,6 +870,35 @@ public class ImageFiltering {
 
 	public static ImagePlus simoncelliFilter(ImagePlus imp, int level, Padding padding, boolean planar) {
 		return simoncelliFilter(imp, level, padding, 0, planar);
+	}
+
+	/**
+	 * The transform, band-pass and inverse transform on the device in single precision, written back into re.
+	 * 
+	 * @return false when there is no usable device or the volume does not fit it: the CPU code gives the same map
+	 */
+	private static boolean simoncelliOnGpu(double[] re, int[] e, double vb, double[][] nu2) {
+		Cl cl = Gpu.get();
+		if (cl == null) {
+			return false;
+		}
+		try {
+			float[] vol = new float[re.length];
+			for (int i = 0; i < vol.length; i++) {
+				vol[i] = (float) re[i];
+			}
+			float[] out = cl.simoncelli(vol, e, vb, nu2);
+			if (out == null) {
+				return false;
+			}
+			for (int i = 0; i < out.length; i++) {
+				re[i] = out[i];
+			}
+			return true;
+		} catch (Throwable t) {// the device failed: the FFT gives the same map
+			Gpu.fail(t);
+			return false;
+		}
 	}
 
 	/** FFT along each axis of a volume of e[0] x e[1] x e[2], index (z * e[1] + y) * e[0] + x */

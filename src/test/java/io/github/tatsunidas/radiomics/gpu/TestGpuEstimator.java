@@ -134,5 +134,10 @@ public class TestGpuEstimator {
 		Problem c = Problem.gabor(128, 128, 8, sp, 3, 2, 1.5, false, 1);
 		assertTrue(b.cpuWork > a.cpuWork && b.gpuWork > a.gpuWork);
 		assertTrue(c.cpuWork > b.cpuWork && c.gpuWork > b.gpuWork);// three planes instead of one
+		Problem s1 = Problem.simoncelli(64, 64, 32, 1, true, false);
+		Problem s2 = Problem.simoncelli(128, 128, 32, 1, true, false);
+		Problem sp2 = Problem.simoncelli(128, 128, 32, 1, true, true);
+		assertTrue(s2.cpuWork > s1.cpuWork);
+		assertTrue(sp2.cpuWork < s2.cpuWork);// planar: two axes of each slice, no third axis
 	}
 }

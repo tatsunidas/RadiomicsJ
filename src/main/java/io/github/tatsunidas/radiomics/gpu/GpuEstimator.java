@@ -57,7 +57,9 @@ public final class GpuEstimator {
 		/** global intensity peak of the local intensity features */
 		LOCAL_PEAK,
 		/** maximum 3D diameter of the mesh */
-		MAX_DIAMETER
+		MAX_DIAMETER,
+		/** {@code ImageFiltering.simoncelliFilter}, the Fourier transforms */
+		SIMONCELLI
 	}
 
 	/**
@@ -122,6 +124,35 @@ public final class GpuEstimator {
 			double work = (double) roiVoxels * Math.max(1, offsets);
 			double data = (double) w * h * d;
 			return new Problem(Task.LOCAL_PEAK, work, data, work, data);
+		}
+
+		/**
+		 * @param padded true for a padding other than PERIODIC, which extends every axis by min(N / 2, 2^(level + 3))
+		 * @param planar true filters every axial slice on its own
+		 */
+		public static Problem simoncelli(int w, int h, int d, int level, boolean padded, boolean planar) {
+			int[] n = { w, h, planar ? 1 : d };
+			int[] e = new int[3];
+			for (int a = 0; a < 3; a++) {
+				e[a] = n[a] + (padded && n[a] > 1 ? 2 * Math.min(n[a] / 2, 1 << Math.min(level + 3, 20)) : 0);
+			}
+			double voxels = (double) e[0] * e[1] * e[2];
+			double work = 0;
+			for (int a = 0; a < 3; a++) {
+				if (e[a] < 2) {
+					continue;
+				}
+				boolean pow2 = (e[a] & (e[a] - 1)) == 0;
+				double m = pow2 ? e[a] : Integer.highestOneBit(2 * e[a] - 1) << 1;
+				// a power of two is one transform of the line, the chirp-z transform is three of the padded line
+				work += voxels / e[a] * (pow2 ? 1 : 3) * m * Math.log(m) / Math.log(2);
+			}
+			work *= 2;// forward and inverse
+			if (planar) {
+				work *= d;
+				voxels *= d;
+			}
+			return new Problem(Task.SIMONCELLI, work, voxels, work, voxels);
 		}
 
 		/**
@@ -213,16 +244,18 @@ public final class GpuEstimator {
 		ps.add(Problem.gabor(64, 64, 32, iso, 5, 2, 1.5, false, 4));
 		ps.add(Problem.localPeak(64, 64, 32, 64 * 64 * 16, iso));
 		ps.add(Problem.maxDiameter(5000));
+		ps.add(Problem.simoncelli(64, 64, 32, 1, true, false));
 		names.add("CT-sized 198x202x59, ROI 117145 voxels, 22080 unique mesh vertices");
 		ps.add(Problem.gabor(198, 202, 59, ct, 5, 2, 1.5, false, 4));
 		ps.add(Problem.localPeak(198, 202, 59, 117145, ct));
 		ps.add(Problem.maxDiameter(22080));
+		ps.add(Problem.simoncelli(198, 202, 59, 1, true, false));
 		List<Estimate> es = estimate(recalibrate, ps.toArray(new Problem[0]));
 		out.println("GPU estimate on this machine (device: " + deviceName() + ", CPU cores: " + Runtime.getRuntime().availableProcessors() + ")");
 		out.println("Seconds are predicted from small measured problems, see " + file().getPath());
 		for (int i = 0; i < es.size(); i++) {
-			if (i % 3 == 0) {
-				out.println(names.get(i / 3) + ":");
+			if (i % 4 == 0) {
+				out.println(names.get(i / 4) + ":");
 			}
 			out.println("  " + es.get(i));
 		}
@@ -382,6 +415,15 @@ public final class GpuEstimator {
 				}
 				out.add(new Object[] { Problem.localPeak(s[0], s[1], s[2], roi, sp),
 						(Runnable) () -> new LocalIntensityFeatures(ii, mm, 1).calculate("0F91") });
+			}
+			break;
+		}
+		case SIMONCELLI: {
+			int[][] sizes = { { 32, 32, 16 }, { 48, 48, 24 }, { 64, 64, 32 }, { 96, 96, 40 }, { 128, 128, 48 } };
+			for (int[] s : sizes) {
+				ImagePlus imp = new ImagePlus("s", stack(s[0], s[1], s[2], 3));
+				out.add(new Object[] { Problem.simoncelli(s[0], s[1], s[2], 1, true, false),
+						(Runnable) () -> ImageFiltering.simoncelliFilter(imp, 1, ImageFiltering.Padding.MIRROR, false) });
 			}
 			break;
 		}
