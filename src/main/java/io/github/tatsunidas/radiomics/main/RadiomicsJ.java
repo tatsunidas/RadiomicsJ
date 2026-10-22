@@ -98,6 +98,8 @@ public class RadiomicsJ {
 		options.addOption("s","settings",true, "path to setting file(.properties)");
 		options.addOption(null,"gpu",false, "use the GPU(OpenCL) where available (default). falls back to the CPU when it is not usable.");
 		options.addOption(null,"no-gpu",false, "do not use the GPU. overrides BOOL_USE_GPU in the settings file.");
+		options.addOption(null,"gpu-estimate",false, "measure this machine and print how much faster the GPU tasks run (CPU vs GPU, typical sizes), then exit.");
+		options.addOption(null,"gpu-recalibrate",false, "with --gpu-estimate: measure again instead of reading ~/.radiomicsj/gpu-calibration.json.");
 		options.addOption("h","help",false, "print usage information.");
 		options.addOption("d","debug",false, "debug mode");
 		options.addOption("t","test",false, "test mode");
@@ -122,6 +124,10 @@ public class RadiomicsJ {
 		if(cmd.hasOption("h") || cmd.hasOption("help")) {
 			HelpFormatter formatter = new HelpFormatter();
 			formatter.printHelp("RadiomicsJ", options);
+			System.exit(0);
+		}
+		if(cmd.hasOption("gpu-estimate")) {
+			io.github.tatsunidas.radiomics.gpu.GpuEstimator.printTable(System.out, cmd.hasOption("gpu-recalibrate"));
 			System.exit(0);
 		}
 		if(cmd.hasOption("i") || cmd.hasOption("images")){

@@ -10,6 +10,22 @@
   missing, `Gpu.get()` returns null with one log line and the CPU code runs. On the development machine (only
   `libOpenCL.so.1` installed) the GPU is reported as not usable until `libOpenCL.so` is on `LD_LIBRARY_PATH`.
 
+### Added (GPU speed estimate)
+
+- `GpuEstimator` (package `io.github.tatsunidas.radiomics.gpu`) estimates, for Gabor, the global intensity peak and the
+  maximum 3D diameter, how long the CPU and the GPU take on the given problem size and which is faster. It measures
+  the machine: small synthetic problems run through the real code on each side (about a minute, once), and
+  `seconds = a + b * work + c * data` is fitted per task and side. The fit is stored in
+  `~/.radiomicsj/gpu-calibration.json` for the same device, CPU core count and RadiomicsJ version. It only advises;
+  what runs is still decided by `BOOL_USE_GPU`. A problem more than 10 times beyond the largest measured one is
+  marked as extrapolated.
+- Command line `--gpu-estimate` (typical sizes; `--gpu-recalibrate` measures again). Python:
+  `RadiomicsJExtractor.estimate_gpu(shape, spacing, roi_voxels, mesh_vertices, ...)` returns a DataFrame.
+- On the development machine (GTX 1050 Ti, 16 core CPU) the estimates were compared with runs that were not used for
+  the fit: the faster side was predicted correctly in 12 of 12 cases, the CPU or GPU seconds were off by up to about 2 times.
+- Note on the Gabor line above: measured again with the estimator's check, the same real CT case took 5.3 s on the CPU
+  and 4.4 s on the GPU; the earlier 1.3 s on the CPU was not reproduced and its cause is not known.
+
 ### Added (Gabor on the GPU)
 
 - `ImageFiltering.gaborFilter` convolves each plane on the GPU (direct sum, 32 bit float, `gabor.cl`) when a device is

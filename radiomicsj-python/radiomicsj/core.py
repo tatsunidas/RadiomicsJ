@@ -60,6 +60,38 @@ class RadiomicsJExtractor:
         if self._use_gpu is not None:
             self._RadiomicsJClass.BOOL_USE_GPU = bool(self._use_gpu)
 
+    def estimate_gpu(self, shape, spacing=(1.0, 1.0, 1.0), roi_voxels=None, mesh_vertices=None,
+                     gabor=(5.0, 2.0, 1.5), planar=False, angles=4, recalibrate=False) -> pd.DataFrame:
+        """このマシンで GPU がどれだけ速いかを見積もる（助言のみ。GPU の使用/不使用は切り替えない）。
+
+        初回は小さな問題で CPU と GPU を実測して較正し（約 1 分）、結果を ~/.radiomicsj/gpu-calibration.json に保存する。
+        shape=(幅, 高さ, スライス数)、spacing=(x, y, z) mm。roi_voxels / mesh_vertices（重複を除いた頂点数）を渡した
+        処理だけ見積もる。gabor=(sigma, lambda, gamma) mm。
+        戻り値の列: task, cpu_seconds, gpu_seconds（GPU 不可なら NaN）, speedup（>1 で GPU が速い）, recommend, extrapolated, note
+        """
+        P = jpype.JClass("io.github.tatsunidas.radiomics.gpu.GpuEstimator$Problem")
+        w, h, d = (int(v) for v in shape)
+        sp = jpype.JArray(jpype.JDouble)([float(v) for v in spacing])
+        problems = [P.gabor(w, h, d, sp, float(gabor[0]), float(gabor[1]), float(gabor[2]), bool(planar), int(angles))]
+        if roi_voxels is not None:
+            problems.append(P.localPeak(w, h, d, int(roi_voxels), sp))
+        if mesh_vertices is not None:
+            problems.append(P.maxDiameter(int(mesh_vertices)))
+        est = jpype.JClass("io.github.tatsunidas.radiomics.gpu.GpuEstimator").estimate(
+            bool(recalibrate), jpype.JArray(P)(problems))
+        rows = []
+        for e in est:
+            rows.append({
+                "task": str(e.task.name()),
+                "cpu_seconds": float(e.cpuSeconds),
+                "gpu_seconds": float(e.gpuSeconds),
+                "speedup": float(e.speedup()),
+                "recommend": "GPU" if e.recommendGpu() else "CPU",
+                "extrapolated": bool(e.extrapolated),
+                "note": None if e.note is None else str(e.note),
+            })
+        return pd.DataFrame(rows)
+
     def load_settings(self, config_prop_path: str):
         """プロパティファイルを読み込み、設定を更新します。"""
         if not os.path.exists(config_prop_path):
