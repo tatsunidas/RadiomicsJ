@@ -31,6 +31,14 @@
   1.5 to 1.8 s on the CPU. When no device is open, or the sphere is one voxel, the existing loop runs.
 - Unchanged and noted: the peak starts from 0, so a region whose sphere means are all negative gives 0.
 
+### Changed, speed (maximum 3D diameter)
+
+- `Morphological` maximum 3D diameter: the mesh lists a vertex once per triangle, so equal vertices are dropped before the
+  all-pairs search (the maximum is unchanged), and with a GPU the device finds the points whose farthest neighbour is within
+  the float error of the largest, which the CPU code then measures again. The value equals the old double loop bit for bit
+  (4 synthetic clouds, and the IBSI CT `STS_001` mesh of 132,468 vertices). On the IBSI CT: old loop 60.2 s, new CPU 2.1 s,
+  new GPU 0.03 to 0.14 s (GTX 1050 Ti).
+
 ### Changed, speed (NGTDM)
 
 - `NGTDMFeatures.fillNGTDM` gathers the sum and the number of valid neighbours of every voxel in parallel (over the
