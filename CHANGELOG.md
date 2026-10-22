@@ -10,6 +10,18 @@
   missing, `Gpu.get()` returns null with one log line and the CPU code runs. On the development machine (only
   `libOpenCL.so.1` installed) the GPU is reported as not usable until `libOpenCL.so` is on `LD_LIBRARY_PATH`.
 
+### Added (Gabor on the GPU)
+
+- `ImageFiltering.gaborFilter` convolves each plane on the GPU (direct sum, 32 bit float, `gabor.cl`) when a device is
+  open, in place of the FFT; pooling and placing back on the grid are unchanged. A device failure falls back to the FFT
+  with one warning. Against the CPU map on a volume of unequal voxel spacing the largest difference is 2e-4 % of the
+  range or less (all four paddings, single and pooled 3D); the IBSI 2 test set 1 (4.a, 4.b) stays within its 1 %
+  tolerance (largest 0.11 %), and the negative controls still fail.
+- Speed is not better everywhere: on the development machine (GTX 1050 Ti, 16 core CPU) the real CT of 198x202x59 with
+  sigma 5 mm, lambda 2 mm, gamma 1.5, MIRROR, MAX pooling of 4 orientations took 4.0 s on the GPU and 1.3 s on the CPU.
+  `BOOL_USE_GPU=0` / `--no-gpu` selects the CPU.
+- Python: `RadiomicsJExtractor(use_gpu=...)` sets `BOOL_USE_GPU`.
+
 ### Changed, speed (NGTDM)
 
 - `NGTDMFeatures.fillNGTDM` gathers the sum and the number of valid neighbours of every voxel in parallel (over the
