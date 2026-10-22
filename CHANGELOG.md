@@ -10,6 +10,19 @@
   missing, `Gpu.get()` returns null with one log line and the CPU code runs. On the development machine (only
   `libOpenCL.so.1` installed) the GPU is reported as not usable until `libOpenCL.so` is on `LD_LIBRARY_PATH`.
 
+### Added (Simoncelli on the GPU)
+
+- `ImageFiltering.simoncelliFilter` runs its Fourier transform, band-pass multiplication and inverse transform on the
+  GPU in single precision when a device is usable (`Gpu.get()`), else on the CPU as before. One work group transforms
+  one line in local memory (radix 2, and Bluestein's chirp-z transform for other lengths, as the CPU code does);
+  a padded line longer than 2048 voxels, or beyond the device's work group or local memory limit, stays on the CPU.
+  The map is not bit-identical: on the real CT (STS_001, level 1) the largest difference is 2.7e-7 of the response
+  range (fp32), and below 1e-6 of the range on the test volumes.
+- Measured on the development machine (GTX 1050 Ti vs 16 core CPU), real CT 198x202x59, one pass, 3D, MIRROR
+  (padded to 230x234x91): CPU 2.7-3.2 s, GPU 0.18-0.30 s (PERIODIC: CPU 2.7 s, GPU 0.08 s). An earlier run of the same
+  CPU case took 5.4-6.0 s with the same code; the cause of that difference is not known.
+- `GpuEstimator.Task.SIMONCELLI`, `Problem.simoncelli(...)`; `--gpu-estimate` prints it; Python `estimate_gpu(..., simoncelli_level=1)`.
+
 ### Added (GPU speed estimate)
 
 - `GpuEstimator` (package `io.github.tatsunidas.radiomics.gpu`) estimates, for Gabor, the global intensity peak and the

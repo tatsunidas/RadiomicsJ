@@ -61,12 +61,12 @@ class RadiomicsJExtractor:
             self._RadiomicsJClass.BOOL_USE_GPU = bool(self._use_gpu)
 
     def estimate_gpu(self, shape, spacing=(1.0, 1.0, 1.0), roi_voxels=None, mesh_vertices=None,
-                     gabor=(5.0, 2.0, 1.5), planar=False, angles=4, recalibrate=False) -> pd.DataFrame:
+                     gabor=(5.0, 2.0, 1.5), planar=False, angles=4, simoncelli_level=None, recalibrate=False) -> pd.DataFrame:
         """このマシンで GPU がどれだけ速いかを見積もる（助言のみ。GPU の使用/不使用は切り替えない）。
 
         初回は小さな問題で CPU と GPU を実測して較正し（約 1 分）、結果を ~/.radiomicsj/gpu-calibration.json に保存する。
         shape=(幅, 高さ, スライス数)、spacing=(x, y, z) mm。roi_voxels / mesh_vertices（重複を除いた頂点数）を渡した
-        処理だけ見積もる。gabor=(sigma, lambda, gamma) mm。
+        処理だけ見積もる。gabor=(sigma, lambda, gamma) mm。simoncelli_level を渡すと Simoncelli も見積もる（MIRROR 等の余白あり）。
         戻り値の列: task, cpu_seconds, gpu_seconds（GPU 不可なら NaN）, speedup（>1 で GPU が速い）, recommend, extrapolated, note
         """
         P = jpype.JClass("io.github.tatsunidas.radiomics.gpu.GpuEstimator$Problem")
@@ -77,6 +77,8 @@ class RadiomicsJExtractor:
             problems.append(P.localPeak(w, h, d, int(roi_voxels), sp))
         if mesh_vertices is not None:
             problems.append(P.maxDiameter(int(mesh_vertices)))
+        if simoncelli_level is not None:
+            problems.append(P.simoncelli(w, h, d, int(simoncelli_level), True, bool(planar)))
         est = jpype.JClass("io.github.tatsunidas.radiomics.gpu.GpuEstimator").estimate(
             bool(recalibrate), jpype.JArray(P)(problems))
         rows = []

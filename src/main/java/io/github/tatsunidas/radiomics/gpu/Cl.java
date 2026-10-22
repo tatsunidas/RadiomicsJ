@@ -28,12 +28,16 @@ public final class Cl implements AutoCloseable {
 	public final String deviceName;
 	/** true when the device supports double precision. */
 	public final boolean fp64;
+	/** largest work group and local memory the device allows. */
+	public final long maxWorkGroup, localMem;
 	private final cl_context context;
 	private final cl_command_queue queue;
 	private final cl_device_id device;
 	private final Map<String, cl_program> programs = new HashMap<String, cl_program>();
 
-	private Cl(cl_context c, cl_command_queue q, cl_device_id d, String name, boolean fp64) {
+	private Cl(cl_context c, cl_command_queue q, cl_device_id d, String name, boolean fp64, long maxWorkGroup, long localMem) {
+		this.maxWorkGroup = maxWorkGroup;
+		this.localMem = localMem;
 		this.context = c;
 		this.queue = q;
 		this.device = d;
@@ -66,7 +70,10 @@ public final class Cl implements AutoCloseable {
 			boolean fp64 = info(d, CL_DEVICE_EXTENSIONS).contains("cl_khr_fp64");
 			cl_context ctx = clCreateContext(null, 1, new cl_device_id[] { d }, null, null, null);
 			cl_command_queue q = clCreateCommandQueue(ctx, d, 0, null);
-			return new Cl(ctx, q, d, name, fp64);
+			long[] wg = new long[1], lm = new long[1];
+			clGetDeviceInfo(d, CL_DEVICE_MAX_WORK_GROUP_SIZE, Sizeof.size_t, Pointer.to(wg), null);
+			clGetDeviceInfo(d, CL_DEVICE_LOCAL_MEM_SIZE, Sizeof.cl_ulong, Pointer.to(lm), null);
+			return new Cl(ctx, q, d, name, fp64, wg[0], lm[0]);
 		}
 		throw new IllegalStateException("no OpenCL GPU device");
 	}
@@ -156,6 +163,24 @@ public final class Cl implements AutoCloseable {
 		clSetKernelArg(k, i, Sizeof.cl_mem, Pointer.to(m));
 	}
 
+	cl_mem rw(Pointer p, long bytes) {
+		return clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, bytes, p, null);
+	}
+
+	void arg(cl_kernel k, int i, float v) {
+		clSetKernelArg(k, i, Sizeof.cl_float, Pointer.to(new float[] { v }));
+	}
+
+	void argLocal(cl_kernel k, int i, long bytes) {
+		clSetKernelArg(k, i, bytes, null);
+	}
+
+	/** one dimensional launch with an explicit work group size */
+	void run1(cl_kernel k, long global, long local) {
+		clEnqueueNDRangeKernel(queue, k, 1, null, new long[] { global }, new long[] { local }, 0, null, null);
+		clFinish(queue);
+	}
+
 	void arg(cl_kernel k, int i, int v) {
 		clSetKernelArg(k, i, Sizeof.cl_int, Pointer.to(new int[] { v }));
 	}
@@ -192,6 +217,15 @@ public final class Cl implements AutoCloseable {
 	 */
 	public float[] maxSquaredDistances(float[] xyz) {
 		return MaxDistGpu.far(this, xyz);
+	}
+
+	/**
+	 * Band-pass filtering of a volume in the Fourier domain on the device, see {@link SimoncelliGpu#filter}.
+	 * 
+	 * @return null when the volume does not fit the device (a line longer than 1024 after padding)
+	 */
+	public float[] simoncelli(float[] vol, int[] e, double vb, double[][] nu2) {
+		return SimoncelliGpu.filter(this, vol, e, vb, nu2);
 	}
 
 	@Override
