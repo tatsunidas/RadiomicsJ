@@ -39,6 +39,8 @@ import ij.ImagePlus;
 import ij.measure.Calibration;
 import ij.process.ImageProcessor;
 import io.github.tatsunidas.miscellaneous.MCTriangulator;
+import io.github.tatsunidas.radiomics.gpu.Cl;
+import io.github.tatsunidas.radiomics.gpu.Gpu;
 import io.github.tatsunidas.radiomics.main.ImagePreprocessing;
 import io.github.tatsunidas.radiomics.main.RadiomicsJ;
 import io.github.tatsunidas.radiomics.main.Utils;
@@ -660,24 +662,6 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 	}
 	
 	private Double getMaximum3DDiameterByMesh() {
-		if(this.mct != null && this.points != null) {
-			Double max = 0d;
-			final int nPoints = points.size();
-			for (int n = 0; n < nPoints; n++) {
-				Point3f point0 = points.get(n);
-				for(int m = 0; m < nPoints; m++) {
-					if(n == m) {
-						continue;
-					}
-					Point3f point1 = points.get(m);
-					double d = point0.distance(point1);
-					if(max < d){
-						max = d;
-					}
-				}
-			}
-			return Double.valueOf(max);
-		}
 		/*
 		 * when digital phantom1 test,
 		 * reference value is not clear.
@@ -688,22 +672,71 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 		 * if you need validation sheet basis results,
 		 * use getMaximum3DDiameterByMeshByOriginal().
 		 */
-		Double max = 0d;
-		final int nPoints = points.size();
-		for (int n = 0; n < nPoints; n++) {
-			Point3f point0 = points.get(n);
-			for(int m = 0; m < nPoints; m++) {
-				if(n == m) {
-					continue;
+		return maximumDistance(points);
+	}
+
+	/**
+	 * The largest Point3f.distance between two of the points. A vertex is listed once per triangle, so the equal ones are
+	 * dropped first; that leaves the maximum as it was. With a GPU the device finds the points whose farthest neighbour is
+	 * within the float error of the overall largest, and only those are measured again by the CPU code, so the value is
+	 * the same bit for bit as the double loop over every pair.
+	 */
+	public static double maximumDistance(List<Point3f> all) {
+		java.util.HashSet<java.util.List<Integer>> seen = new java.util.HashSet<>();
+		java.util.ArrayList<Point3f> pts = new java.util.ArrayList<>();
+		for (Point3f p : all) {
+			if (seen.add(java.util.Arrays.asList(Float.floatToRawIntBits(p.x), Float.floatToRawIntBits(p.y), Float.floatToRawIntBits(p.z)))) {
+				pts.add(p);
+			}
+		}
+		final int n = pts.size();
+		Cl cl = n > 1 ? Gpu.get() : null;
+		if (cl != null) {
+			try {
+				float[] xyz = new float[3 * n];
+				for (int i = 0; i < n; i++) {
+					xyz[3 * i] = pts.get(i).x;
+					xyz[3 * i + 1] = pts.get(i).y;
+					xyz[3 * i + 2] = pts.get(i).z;
 				}
-				Point3f point1 = points.get(m);
-				double d = point0.distance(point1);
-				if(max < d){
-					max = d;
+				float[] far = cl.maxSquaredDistances(xyz);
+				float top = 0;
+				for (float f : far) {
+					top = Math.max(top, f);
+				}
+				double bound = top * (1 - 1e-5);
+				double max = 0;
+				for (int i = 0; i < n; i++) {
+					if (far[i] >= bound) {
+						Point3f p0 = pts.get(i);
+						for (int m = 0; m < n; m++) {
+							if (m != i) {
+								double d = p0.distance(pts.get(m));
+								if (max < d) {
+									max = d;
+								}
+							}
+						}
+					}
+				}
+				return max;
+			} catch (Throwable t) {// the device failed: the loop below gives the same value
+				Gpu.fail(t);
+			}
+		}
+		double max = 0;
+		for (int i = 0; i < n; i++) {
+			Point3f p0 = pts.get(i);
+			for (int m = 0; m < n; m++) {
+				if (m != i) {
+					double d = p0.distance(pts.get(m));
+					if (max < d) {
+						max = d;
+					}
 				}
 			}
 		}
-		return Double.valueOf(max);
+		return max;
 	}
 	
 	/**

@@ -187,6 +187,13 @@ public final class Cl implements AutoCloseable {
 		return LocalPeakGpu.means(this, img, roi, dx, dy, dz, w, h, s);
 	}
 
+	/**
+	 * For every point (x, y, z packed in xyz) the largest squared distance to another point in single precision.
+	 */
+	public float[] maxSquaredDistances(float[] xyz) {
+		return MaxDistGpu.far(this, xyz);
+	}
+
 	@Override
 	public void close() {
 		for (cl_program p : programs.values()) {
