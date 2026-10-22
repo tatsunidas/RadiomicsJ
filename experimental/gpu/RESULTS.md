@@ -83,3 +83,14 @@ Sampled with jstack; the counts are small (16, 18, 81 samples), so read them as 
 | LocalIntensityFeatures, 128^3 | 19.8 s (one run) | 18 | 18 (100 %) in `getGlobalIntensityPeak` -> `getSphericalVoxels` (line 163): for every ROI voxel, a sphere of voxels is collected into an `ArrayList<Double>` and averaged |
 | Simoncelli level 1, STS_001 CT | 4.1-4.5 s (4 runs) | 16 | 16 (100 %) in `ImageFiltering.fft` / `fftAny` / `fft3` (a CPU FFT) |
 The Morphological run took 87.9 s here, against 121.5 s in the family table above (same data, same code); the two single runs differ by 30 %, which is not explained.
+
+## 実装後の結果 (meerkat, 2026-10-22, master b46c36e)
+GPU 版は master に入った（PR #38-#46、詳細は `CHANGELOG.md`）。GTX 1050 Ti (OpenCL)、STS_001 CT。
+| 処理 | CPU | GPU | 備考 |
+|---|---|---|---|
+| Simoncelli level 1 (198x202x59, MIRROR) | 2.7-3.2 s | 0.18-0.30 s | 単精度、CPU との最大差は応答範囲の 2.7e-7。PERIODIC は CPU 2.7 s / GPU 0.08 s |
+| 最大 3D 径 (頂点 22080) | 0.44 s（見積もり表の実測） | 未取得（本節では） | 値はビット一致 |
+| Gabor (CT 規模) | 5.25 s | 4.39 s | 以前の記録 CPU 1.3 s / GPU 4.0 s は再現せず、原因不明 |
+同じ CPU 条件で Simoncelli が 5.4-6.0 s と 2.7-3.2 s の 2 通りに出た（原因不明）。
+
+見積もり（`GpuEstimator`）: 較正に使っていない 6 サイズで Simoncelli の速い側の判定は 6/6 一致、秒数は約 2 倍以内。CPU が勝つ例は見つかっていない。Gabor の CT 規模は外挿で、見積もりの CPU 秒は実測より低い。
