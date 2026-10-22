@@ -35,10 +35,12 @@ class RadiomicsJExtractor:
     インスタンス化時に一度だけ設定を読み込むことで、連続処理を高速化します。
     """
     
-    def __init__(self, config_prop_path: str = None):
+    def __init__(self, config_prop_path: str = None, use_gpu: bool = None):
         """
         Args:
             config_prop_path (str, optional): 設定プロパティファイルのパス。
+            use_gpu (bool, optional): GPU(OpenCL)を使うか。None なら設定ファイルの BOOL_USE_GPU(既定 1)に従う。
+                GPU が使えない環境では True でも CPU で計算し、ログに理由を 1 回出します。
         """
         if not jpype.isJVMStarted():
             start_jvm()
@@ -49,14 +51,21 @@ class RadiomicsJExtractor:
         # ImageJのパッケージを取得
         self.ij = jpype.JPackage("ij")
         
+        self._use_gpu = use_gpu
         if config_prop_path is not None:
             self.load_settings(config_prop_path)
+        self._apply_gpu()
+
+    def _apply_gpu(self):
+        if self._use_gpu is not None:
+            self._RadiomicsJClass.BOOL_USE_GPU = bool(self._use_gpu)
 
     def load_settings(self, config_prop_path: str):
         """プロパティファイルを読み込み、設定を更新します。"""
         if not os.path.exists(config_prop_path):
             raise FileNotFoundError(f"Config file not found: {config_prop_path}")
         self.radj.loadSettings(config_prop_path)
+        self._apply_gpu()
 
     def _numpy_to_imageplus(self, arr: np.ndarray, spacing: tuple, title: str) -> "ij.ImagePlus":
        """

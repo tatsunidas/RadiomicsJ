@@ -144,6 +144,42 @@ public final class Cl implements AutoCloseable {
 		}
 	}
 
+	cl_mem in(Pointer p, long bytes) {
+		return clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, bytes, p, null);
+	}
+
+	cl_mem out(long bytes) {
+		return clCreateBuffer(context, CL_MEM_WRITE_ONLY, bytes, null, null);
+	}
+
+	void arg(cl_kernel k, int i, cl_mem m) {
+		clSetKernelArg(k, i, Sizeof.cl_mem, Pointer.to(m));
+	}
+
+	void arg(cl_kernel k, int i, int v) {
+		clSetKernelArg(k, i, Sizeof.cl_int, Pointer.to(new int[] { v }));
+	}
+
+	void run(cl_kernel k, long x, long y, long z) {
+		clEnqueueNDRangeKernel(queue, k, 3, null, new long[] { x, y, z }, null, 0, null, null);
+		clFinish(queue);
+	}
+
+	void read(cl_mem m, Pointer dst, long bytes) {
+		clEnqueueReadBuffer(queue, m, CL_TRUE, 0, bytes, dst, 0, null, null);
+	}
+
+	/**
+	 * One orientation of the Gabor filter in one plane, by direct convolution on the device.
+	 * See {@link GaborGpu#plane}; the result is stored slice, row, column.
+	 */
+	public float[][] gaborPlane(float[] src, int[] stride, int slices, int rows, int cols, int rr, int rc,
+			int[] rowAt, int[] colAt, double sr, double sc, double sigma, double lambda, double gamma, double theta,
+			boolean useFp64) {
+		return GaborGpu.plane(this, src, stride, slices, rows, cols, rr, rc, rowAt, colAt, sr, sc, sigma, lambda, gamma,
+				theta, useFp64 && fp64);
+	}
+
 	@Override
 	public void close() {
 		for (cl_program p : programs.values()) {

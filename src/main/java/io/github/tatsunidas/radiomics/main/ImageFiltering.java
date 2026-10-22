@@ -24,6 +24,8 @@ import ij.measure.Calibration;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 import io.github.tatsunidas.ij.plugin.wavelet.Wavelet_Denoise;
+import io.github.tatsunidas.radiomics.gpu.Cl;
+import io.github.tatsunidas.radiomics.gpu.Gpu;
 
 /**
  * 
@@ -473,6 +475,28 @@ public class ImageFiltering {
 		int rr = Math.min(rows / 2, (int) Math.ceil(6 * sigmaLong / sr));
 		int rc = Math.min(cols / 2, (int) Math.ceil(6 * sigmaLong / sc));
 		int kr = 2 * rr + 1, kc = 2 * rc + 1;
+		int[] rowAt = new int[rows + 2 * rr], colAt = new int[cols + 2 * rc];
+		for (int i = 0; i < rowAt.length; i++) {
+			rowAt[i] = padIndex(i - rr, rows, padding);
+		}
+		for (int i = 0; i < colAt.length; i++) {
+			colAt[i] = padIndex(i - rc, cols, padding);
+		}
+		Cl cl = Gpu.get();
+		if (cl != null) {
+			try {
+				int d = size[2];
+				float[] flat = new float[w * h * d];
+				for (int z = 0; z < d; z++) {
+					System.arraycopy(src[z], 0, flat, z * w * h, w * h);
+				}
+				int[] axisStride = { 1, w, w * h };
+				return cl.gaborPlane(flat, new int[] { axisStride[plane[0]], axisStride[plane[1]], axisStride[plane[2]] },
+						slices, rows, cols, rr, rc, rowAt, colAt, sr, sc, sigma, lambda, gamma, theta, false);
+			} catch (Throwable t) {// the device failed: the FFT below gives the same map
+				Gpu.fail(t);
+			}
+		}
 		int lr = Integer.highestOneBit(Math.max(1, rows + 2 * rr - 1)) << 1;
 		int lc = Integer.highestOneBit(Math.max(1, cols + 2 * rc - 1)) << 1;
 		double[] kre = new double[lr * lc], kim = new double[lr * lc];
@@ -489,13 +513,6 @@ public class ImageFiltering {
 			}
 		}
 		fft2(kre, kim, lr, lc, false);
-		int[] rowAt = new int[rows + 2 * rr], colAt = new int[cols + 2 * rc];
-		for (int i = 0; i < rowAt.length; i++) {
-			rowAt[i] = padIndex(i - rr, rows, padding);
-		}
-		for (int i = 0; i < colAt.length; i++) {
-			colAt[i] = padIndex(i - rc, cols, padding);
-		}
 		float[][] dst = new float[slices][rows * cols];
 		IntStream range = IntStream.range(0, slices);
 		if (parallel) {
