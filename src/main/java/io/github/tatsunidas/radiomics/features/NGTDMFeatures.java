@@ -21,8 +21,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-
-import javax.vecmath.Point3i;
+import java.util.stream.IntStream;
 
 import ij.IJ;
 import ij.ImagePlus;
@@ -230,52 +229,89 @@ public class NGTDMFeatures extends AbstractRadiomicsFeature implements Texture{
 	public void fillNGTDM(boolean amadaAlgorithms) {
 		ngtdm = new double[nBins][4];//[i, Ni, Pi, Si]
 		Nvp = 0d; //sum of neighbor i
-		for(int grayLevel=1;grayLevel<=nBins;grayLevel++) {
-			double si = 0d; //Neighbourhood grey tone difference
-			int ni = 0;// the total number of voxels have this gray level
-			for(int z=0;z<s;z++) {
-				float[][] iSlice = discImg.getStack().getProcessor(z+1).getFloatArray();
-				float[][] mSlice = mask.getStack().getProcessor(z+1).getFloatArray();
-				for(int y=0;y<h;y++) {
-					for(int x=0;x<w;x++) {
-						//check voxel is in roi
-						int lbl = (int) mSlice[x][y];
-						if(lbl != this.label) {
-							continue;
-						}
-						float val = iSlice[x][y];
-						if(Float.isNaN(val)) {
-							continue;
-						}
-						if(((int)val) == grayLevel) {
-							double blob_sum = 0.0;
-							int numOfValidNeighbor = 0;
-							ArrayList<Point3i> neighbor = connectedNeighbor(x,y,z,w,h,s);
-							for(Point3i p : neighbor) {
-								if(!amadaAlgorithms) {
-									int lbl_ = (int) mask.getStack().getProcessor(p.z + 1).getPixelValue(p.x, p.y);
-									if (lbl_ != this.label) {
-										continue;
-									}
-								}
-								ImageProcessor ip = discImg.getStack().getProcessor(p.z+1);
-								float fv = ip.getf(p.x, p.y);
-								if(!Float.isNaN(fv)) {
-									blob_sum += fv;
-									numOfValidNeighbor++;
-								}
-							}
-							if(numOfValidNeighbor != 0) {
-								si += Math.abs(grayLevel-(blob_sum/numOfValidNeighbor));
-							}
-							ni++;
-						}
-					}
+		final int n = w * h * s;
+		final float[] disc = new float[n];
+		final boolean[] inRoi = new boolean[n];
+		for(int z=0;z<s;z++) {
+			float[][] iSlice = discImg.getStack().getProcessor(z+1).getFloatArray();
+			float[][] mSlice = mask.getStack().getProcessor(z+1).getFloatArray();
+			for(int y=0;y<h;y++) {
+				for(int x=0;x<w;x++) {
+					int idx = x + w * (y + h * z);
+					disc[idx] = iSlice[x][y];
+					inRoi[idx] = ((int) mSlice[x][y]) == this.label;
 				}
 			}
-			ngtdm[grayLevel-1] = new double[]{(double)grayLevel, (double)ni, 0.0d, si};
-			Nvp += ni;
-			if(si != 0.0) {
+		}
+		// neighbour offsets x, y, z, in the order the neighbours are visited, so that every sum adds in the same order
+		final ArrayList<int[]> offs = new ArrayList<>();
+		for(int i=1; i<= delta;i++) {
+			for(Integer a_id:angle_ids) {
+				if(Integer.valueOf(13) == a_id) {
+					continue;//0,0,0
+				}
+				int[] a = angles.get(a_id);
+				offs.add(new int[] {a[2]*i, a[1]*i*-1, a[0]*i});
+			}
+		}
+		// the sum and the number of valid neighbours of every voxel; the voxels do not depend on each other
+		final double[] blobSum = new double[n];
+		final int[] validCount = new int[n];
+		final boolean amada = amadaAlgorithms;
+		IntStream.range(0, s).parallel().forEach(z -> {
+			for(int y=0;y<h;y++) {
+				for(int x=0;x<w;x++) {
+					int idx = x + w * (y + h * z);
+					if(!inRoi[idx] || Float.isNaN(disc[idx])) {
+						continue;
+					}
+					double sum = 0.0;
+					int cnt = 0;
+					for(int[] o : offs) {
+						int nx = x + o[0], ny = y + o[1], nz = z + o[2];
+						if(nx < 0 || nx >= w || ny < 0 || ny >= h || nz < 0 || nz >= s) {
+							continue;
+						}
+						int j = nx + w * (ny + h * nz);
+						if(!amada && !inRoi[j]) {
+							continue;
+						}
+						float fv = disc[j];
+						if(!Float.isNaN(fv)) {
+							sum += fv;
+							cnt++;
+						}
+					}
+					blobSum[idx] = sum;
+					validCount[idx] = cnt;
+				}
+			}
+		});
+		// finish in the voxel order z, y, x, so that the Si of a gray level adds up in the same order as the serial loops
+		final double[] si = new double[nBins];
+		final int[] ni = new int[nBins];
+		for(int z=0;z<s;z++) {
+			for(int y=0;y<h;y++) {
+				for(int x=0;x<w;x++) {
+					int idx = x + w * (y + h * z);
+					if(!inRoi[idx] || Float.isNaN(disc[idx])) {
+						continue;
+					}
+					int grayLevel = (int) disc[idx];
+					if(grayLevel < 1 || grayLevel > nBins) {
+						continue;
+					}
+					if(validCount[idx] != 0) {
+						si[grayLevel-1] += Math.abs(grayLevel-(blobSum[idx]/validCount[idx]));
+					}
+					ni[grayLevel-1]++;
+				}
+			}
+		}
+		for(int grayLevel=1;grayLevel<=nBins;grayLevel++) {
+			ngtdm[grayLevel-1] = new double[]{(double)grayLevel, (double)ni[grayLevel-1], 0.0d, si[grayLevel-1]};
+			Nvp += ni[grayLevel-1];
+			if(si[grayLevel-1] != 0.0) {
 				Ngp++;
 			}
 		}
@@ -283,24 +319,6 @@ public class NGTDMFeatures extends AbstractRadiomicsFeature implements Texture{
 		for(int grayLevel=1;grayLevel<=nBins;grayLevel++) {
 			ngtdm[grayLevel-1][2] = ngtdm[grayLevel-1][1]/Nvp;
 		}
-	}
-	
-	private ArrayList<Point3i> connectedNeighbor(int seedX, int seedY, int seedZ, int max_w , int max_h, int max_s){
-		ArrayList<Point3i> neighbors = new ArrayList<Point3i>();
-		for(int i=1; i<= delta;i++) {
-			for(Integer a_id:angle_ids) {
-				if(Integer.valueOf(13) == a_id) {
-					continue;//0,0,0
-				}
-				int[] a = angles.get(a_id);
-				int nX = seedX+(a[2]*i);
-				int nY = seedY+(a[1]*i*-1);
-				int nZ = seedZ+(a[0]*i);
-				Point3i neighbor = new Point3i(nX,nY,nZ);
-				if(!Utils.isOutOfRange(new Point3i(nX,nY,nZ), max_w , max_h, max_s)) neighbors.add(neighbor);
-			}
-		}
-		return neighbors;
 	}
 	
 	public Double calculate(String id) {

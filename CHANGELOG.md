@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Changed, speed (NGTDM)
+
+- `NGTDMFeatures.fillNGTDM` gathers the sum and the number of valid neighbours of every voxel in parallel (over the
+  slices) instead of scanning the whole volume once per gray level with a list of neighbours per voxel. The matrix is
+  finished in the voxel order z, y, x with the same double operations, so the values are the same: on the IBSI
+  validation CT (STS_001) and on a 64^3 synthetic volume, all NGTDM features are equal bit for bit with the previous
+  code, for delta 1 and 2. Measured on one machine (16 cores), one run each, the NGTDM family took 60.6 s (delta 1)
+  and 142.3 s (delta 2) before and 0.31 s and 0.22 s after on the CT. `fillNGTDM` still does not reset `Ngp`, so a
+  second call on the same object adds to it (unchanged).
+
 ### Changed, speed
 
 - The mesh of the morphological features (marching cubes, `MCTriangulator`) reads the voxel values once instead
