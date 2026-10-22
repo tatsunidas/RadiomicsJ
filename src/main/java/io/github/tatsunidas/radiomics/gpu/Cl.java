@@ -180,6 +180,13 @@ public final class Cl implements AutoCloseable {
 				theta, useFp64 && fp64);
 	}
 
+	/**
+	 * The mean in the sphere around every voxel of a region in single precision, see {@link LocalPeakGpu#means}.
+	 */
+	public float[] localPeakMeans(float[] img, byte[] roi, int[] dx, int[] dy, int[] dz, int w, int h, int s) {
+		return LocalPeakGpu.means(this, img, roi, dx, dy, dz, w, h, s);
+	}
+
 	@Override
 	public void close() {
 		for (cl_program p : programs.values()) {

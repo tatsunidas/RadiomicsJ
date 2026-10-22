@@ -22,6 +22,15 @@
   `BOOL_USE_GPU=0` / `--no-gpu` selects the CPU.
 - Python: `RadiomicsJExtractor(use_gpu=...)` sets `BOOL_USE_GPU`.
 
+### Added (LocalIntensity global peak on the GPU)
+
+- `GlobalIntensityPeak` takes the mean in the sphere of every voxel of the region on the GPU (single precision,
+  `localpeak.cl`), then averages only the voxels within the float error bound of the largest one with the existing CPU
+  code, so the value equals the CPU value bit for bit (4 synthetic cases and the real CT `STS_001`, ROI 117,145 voxels:
+  the same 64 bit pattern). On the development machine (GTX 1050 Ti) the real CT took 0.07 to 0.14 s on the GPU and
+  1.5 to 1.8 s on the CPU. When no device is open, or the sphere is one voxel, the existing loop runs.
+- Unchanged and noted: the peak starts from 0, so a region whose sphere means are all negative gives 0.
+
 ### Changed, speed (NGTDM)
 
 - `NGTDMFeatures.fillNGTDM` gathers the sum and the number of valid neighbours of every voxel in parallel (over the

@@ -25,6 +25,9 @@ import javax.vecmath.Point3i;
 import org.apache.commons.math3.stat.StatUtils;
 import ij.ImagePlus;
 import ij.measure.Calibration;
+import ij.process.ImageProcessor;
+import io.github.tatsunidas.radiomics.gpu.Cl;
+import io.github.tatsunidas.radiomics.gpu.Gpu;
 import io.github.tatsunidas.radiomics.main.ImagePreprocessing;
 import io.github.tatsunidas.radiomics.main.Utils;
 
@@ -151,6 +154,17 @@ public class LocalIntensityFeatures extends AbstractRadiomicsFeature{
 	private Double getGlobalIntensityPeak() {
 		double r = Math.cbrt(3/(4*Math.PI));//spherical volume radius.//0.6203504908994 cm
 		r *= 10;// from "cm" to "mm"
+		Cl cl = Gpu.get();
+		if(cl != null) {
+			try {
+				Double peak = globalIntensityPeakOnGpu(cl, r);
+				if(peak != null) {
+					return peak;
+				}
+			} catch (Throwable t) {// the device failed: the loop below gives the same value
+				Gpu.fail(t);
+			}
+		}
 		double global_int_peak = 0;
 		for(int z=0;z<s;z++) {
 			float[][] iSlice = img.getStack().getProcessor(z+1).getFloatArray();
@@ -180,6 +194,78 @@ public class LocalIntensityFeatures extends AbstractRadiomicsFeature{
 		return global_int_peak;
 	}
 	
+	/**
+	 * The device gives the mean in the sphere of every voxel of the region in single precision. The voxels whose mean
+	 * is within the error bound of the largest one are then averaged again by the CPU code of the loop, so the value
+	 * equals the loop's bit for bit.
+	 * 
+	 * @return null when the sphere is one voxel(the loop handles it)
+	 */
+	private Double globalIntensityPeakOnGpu(Cl cl, double radius) {
+		int rx = (int) Math.round(radius/px);
+		int ry = (int) Math.round(radius/py);
+		int rz = (int) Math.round(radius/pz);
+		if(rx == 0 && ry == 0 && rz == 0) {
+			return null;
+		}
+		// the offsets are chosen by the same expression as getSphericalVoxels
+		java.util.ArrayList<int[]> offs = new java.util.ArrayList<>();
+		for(int z=-rz; z<=rz; z++) {
+			for(int y=-ry; y<=ry; y++) {
+				for(int x=-rx; x<=rx; x++) {
+					double length = Math.sqrt(Math.pow(x*px, 2) + Math.pow(y*py, 2) + Math.pow(z*pz, 2));
+					if(length <= radius) {
+						offs.add(new int[] {x,y,z});
+					}
+				}
+			}
+		}
+		int[] dx = new int[offs.size()], dy = new int[offs.size()], dz = new int[offs.size()];
+		for(int i=0; i<dx.length; i++) {
+			dx[i] = offs.get(i)[0];
+			dy[i] = offs.get(i)[1];
+			dz[i] = offs.get(i)[2];
+		}
+		float[] flat = new float[w*h*s];
+		byte[] roi = new byte[w*h*s];
+		double maxAbs = 0;
+		for(int z=0;z<s;z++) {
+			img.setPosition(z+1);
+			ImageProcessor ip = img.getProcessor();
+			float[][] mSlice = mask.getStack().getProcessor(z+1).getFloatArray();
+			for(int y=0;y<h;y++) {
+				for(int x=0;x<w;x++) {
+					float v = (float) ip.getPixelValue(x, y);
+					flat[(z*h+y)*w+x] = v;
+					maxAbs = Math.max(maxAbs, Math.abs(v));
+					roi[(z*h+y)*w+x] = (byte) ((int) mSlice[x][y] == label ? 1 : 0);
+				}
+			}
+		}
+		float[] means = cl.localPeakMeans(flat, roi, dx, dy, dz, w, h, s);
+		float best = Float.NEGATIVE_INFINITY;
+		for(float m : means) {
+			if(m > best) best = m;
+		}
+		if(best == Float.NEGATIVE_INFINITY) {
+			return 0d;// no voxel of the label
+		}
+		// a float sum of n terms is off by at most about n * 2^-24 * max|v| in the mean; take twice that
+		double tol = 2d * dx.length * Math.pow(2, -24) * maxAbs;
+		double peak = 0;
+		for(int i=0; i<means.length; i++) {
+			if(means[i] >= best - tol) {
+				int x = i % w, y = (i / w) % h, z = i / (w*h);
+				double[] svs = getSphericalVoxels(new Point3i(x,y,z), radius, px, py, pz);
+				double res = StatUtils.mean(svs);
+				if(peak < res) {
+					peak = res;
+				}
+			}
+		}
+		return peak;
+	}
+
 	/*
 	 * Unit is mm !! both radius and voxel sizes. 
 	 */
