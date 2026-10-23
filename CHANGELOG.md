@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Fixed (LocalIntensityPeak and GlobalIntensityPeak of a negative region)
+
+- The largest sphere mean was searched from a start value of 0, so a region whose largest mean is negative (for
+  example a lung region in HU) returned 0 instead of that negative mean. The search now starts from minus infinity.
+  Only such regions change (checked on a synthetic region shifted to about -300: before 0, now -269.09, equal to a
+  separate brute-force computation in the test); the IBSI CT (STS_001) gives the same double, bit for bit, on the CPU
+  and on the GPU. A region without any voxel of the label still returns 0.
+
 ### Added (GPU foundation)
 
 - `BOOL_USE_GPU` (default 1; `--gpu` / `--no-gpu` on the command line) and the package `io.github.tatsunidas.radiomics.gpu`:
