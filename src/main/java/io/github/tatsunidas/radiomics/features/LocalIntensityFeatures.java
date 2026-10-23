@@ -119,7 +119,7 @@ public class LocalIntensityFeatures extends AbstractRadiomicsFeature{
 		//search maximum
 		double[] voxels = Utils.getVoxels(img, mask, this.label);
 		double max = StatUtils.max(voxels);
-		double local_int_peak = 0;
+		double local_int_peak = Double.NEGATIVE_INFINITY;
 		for(int z=0;z<s;z++) {
 			float[][] iSlice = img.getStack().getProcessor(z+1).getFloatArray();
 			float[][] mSlice = mask.getStack().getProcessor(z+1).getFloatArray();
@@ -148,7 +148,7 @@ public class LocalIntensityFeatures extends AbstractRadiomicsFeature{
 				}
 			}
 		}
-		return local_int_peak;
+		return local_int_peak == Double.NEGATIVE_INFINITY ? 0d : local_int_peak;
 	}
 	
 	private Double getGlobalIntensityPeak() {
@@ -165,7 +165,7 @@ public class LocalIntensityFeatures extends AbstractRadiomicsFeature{
 				Gpu.fail(t);
 			}
 		}
-		double global_int_peak = 0;
+		double global_int_peak = Double.NEGATIVE_INFINITY;
 		for(int z=0;z<s;z++) {
 			float[][] iSlice = img.getStack().getProcessor(z+1).getFloatArray();
 			float[][] mSlice = mask.getStack().getProcessor(z+1).getFloatArray();
@@ -191,7 +191,7 @@ public class LocalIntensityFeatures extends AbstractRadiomicsFeature{
 				}
 			}
 		}
-		return global_int_peak;
+		return global_int_peak == Double.NEGATIVE_INFINITY ? 0d : global_int_peak;
 	}
 	
 	/**
@@ -252,7 +252,7 @@ public class LocalIntensityFeatures extends AbstractRadiomicsFeature{
 		}
 		// a float sum of n terms is off by at most about n * 2^-24 * max|v| in the mean; take twice that
 		double tol = 2d * dx.length * Math.pow(2, -24) * maxAbs;
-		double peak = 0;
+		double peak = Double.NEGATIVE_INFINITY;
 		for(int i=0; i<means.length; i++) {
 			if(means[i] >= best - tol) {
 				int x = i % w, y = (i / w) % h, z = i / (w*h);
