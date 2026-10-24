@@ -7,6 +7,12 @@ GPU computation (OpenCL, optional) for the Gabor and Simoncelli filters, the glo
 device is usable. Verified on one machine (Linux, GTX 1050 Ti); not run on a Windows or macOS GPU, and the Python
 `estimate_gpu` is not checked from a pip package.
 
+### Fixed (the command line did not end on a machine with a display)
+
+- `RadiomicsJ.main` showed the result window after saving the result, and the window kept the JVM alive, so a batch run
+  with `-o` never returned (it ended at once with `-Djava.awt.headless=true`; also in 2.5.2). With `-o` the result is
+  now saved without the window and the command ends with status 0; without `-o` the window is shown as before.
+
 ### Fixed (LocalIntensityPeak and GlobalIntensityPeak of a negative region)
 
 - The largest sphere mean was searched from a start value of 0, so a region whose largest mean is negative (for
