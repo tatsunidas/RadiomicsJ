@@ -1,6 +1,11 @@
 # Changelog
 
-## Unreleased
+## 2.6.0 (2026-10-24)
+
+GPU computation (OpenCL, optional) for the Gabor and Simoncelli filters, the global intensity peak and the maximum
+3D diameter, with a speed estimate for this machine. It is on by default and falls back to the CPU code when no
+device is usable. Verified on one machine (Linux, GTX 1050 Ti); not run on a Windows or macOS GPU, and the Python
+`estimate_gpu` is not checked from a pip package.
 
 ### Fixed (LocalIntensityPeak and GlobalIntensityPeak of a negative region)
 
