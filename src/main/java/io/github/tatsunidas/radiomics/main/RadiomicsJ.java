@@ -208,7 +208,10 @@ public class RadiomicsJ {
 			try {
 				ResultsTable res = radiomics.execute(imgDir, maskDir, RadiomicsJ.targetLabel);
 				if (res != null) {
-					res.show(RadiomicsJ.resultWindowTitle);
+					// the result window keeps the JVM alive on a machine with a display; a run that saves its result must end
+					if(outputDestPath == null) {
+						res.show(RadiomicsJ.resultWindowTitle);
+					}
 					if(outputDestPath !=null) {
 						if(outputDestPath.endsWith(".csv")) {
 							res.save(outputDestPath);
@@ -224,6 +227,7 @@ public class RadiomicsJ {
 							res.save(outDest.getAbsolutePath() + File.separator + "RadiomicsFeatures-"+timeStamp+".csv");
 							System.out.println("finish calculation, result save to " + outDest.getAbsolutePath() + File.separator + "RadiomicsFeatures-"+timeStamp+".csv");
 						}
+						System.exit(0);
 					}
 				}else {
 					System.err.println("RadiomicsJ can not perform feature extraction. Please check image, mask and settings.");
@@ -275,11 +279,13 @@ public class RadiomicsJ {
 			}
 			try {
 				ResultsTable res = radiomics.execute(imp, mask, RadiomicsJ.targetLabel);
-				if(res != null) {
+				boolean save = res != null && outputDestPath != null && outputDestPath.length()!=0;
+				if(res != null && !save) {
 					res.show(resultWindowTitle);
 				}
-				if (res != null && outputDestPath != null && outputDestPath.length()!=0) {
+				if (save) {
 					res.save(outputDestPath + File.separator + "RadiomicsFeatures.csv");
+					System.exit(0);
 				}
 			} catch (Exception e) {
 				e.printStackTrace();
