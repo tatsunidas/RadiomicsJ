@@ -312,7 +312,7 @@ If you want quick example with GUI, see [RadiomicsJ IJ-PlugIn](https://sites.goo
 ```
 <groupId>io.github.tatsunidas</groupId>
 <artifactId>radiomicsj</artifactId>
-<version>2.5.2</version>
+<version>2.6.0</version>
 ```
 ## Example 1 : feature extraction, 3D basis
 
@@ -558,6 +558,54 @@ The Japanese write up with the full worked example is in
 # Maven repo
 
 https://central.sonatype.com/artifact/io.github.tatsunidas/radiomicsj/overview
+
+# GPU (OpenCL)
+
+Some heavy steps can run on a GPU through OpenCL: the Gabor and Simoncelli filters, the global intensity peak and the
+maximum 3D diameter. The GPU is used by default where a device is usable; otherwise the CPU code runs and the reason is
+logged once. The global intensity peak and the maximum 3D diameter give the same value as the CPU, bit for bit. The
+Gabor and Simoncelli filters compute in single precision on the GPU and agree with the CPU within a small tolerance
+(Simoncelli: about 3e-7 of the response range on the test volume), so their values are not bit-identical.
+
+## Choosing it explicitly
+
+- Settings file: `BOOL_USE_GPU=1` (`0` turns it off).
+- Command line: `--gpu` or `--no-gpu` (`--no-gpu` wins over the settings file), for example
+  `java -cp <radiomicsj and its dependencies> io.github.tatsunidas.radiomics.main.RadiomicsJ --no-gpu ...`.
+- Java: `RadiomicsJ.BOOL_USE_GPU = true;` (or `false`) before the calculation.
+- Python: `RadiomicsJExtractor(use_gpu=True)` (or `False`). With `None`, the settings file decides.
+
+To see whether the GPU is in use from Java: `Gpu.get() != null`; if it is `null`, `Gpu.unavailableReason()` tells why
+(`io.github.tatsunidas.radiomics.gpu.Gpu`).
+
+## Will it be faster on this machine?
+
+It depends on the machine and the step. The gain can be small or absent when the CPU is fast (on a 16-core CPU with a
+GTX 1050 Ti, the Gabor filter on a CT-sized volume took 5.25 s on the CPU and 4.39 s on the GPU, while the Simoncelli
+filter took about 3 s against 0.2 s). `--gpu-estimate` measures your machine on small problems the first time
+(about a minute), keeps the result in `~/.radiomicsj/gpu-calibration.json`, and prints the estimated CPU and GPU time
+and a recommendation per step for typical sizes (`--gpu-recalibrate` measures again). In Python:
+`RadiomicsJExtractor().estimate_gpu(shape=(w, h, slices), ...)`. The estimate is advice only; it does not switch the
+GPU on or off. Where it recommends the CPU, use `--no-gpu` / `use_gpu=False`.
+
+## Requirements
+
+- An OpenCL device and its driver.
+- The OpenCL library under the name `libOpenCL.so` (Linux). Many systems only have `libOpenCL.so.1`; then add the link
+  once: `sudo ln -s libOpenCL.so.1 /usr/lib/x86_64-linux-gnu/libOpenCL.so` (the directory differs by distribution).
+- JOCL is an optional dependency and is not pulled in by Maven. When you use RadiomicsJ as a library, add it yourself;
+  the command line and Python distributions already include it:
+
+```
+<dependency>
+    <groupId>org.jocl</groupId>
+    <artifactId>jocl</artifactId>
+    <version>2.0.5</version>
+</dependency>
+```
+
+The GPU path has been run on Linux with a GTX 1050 Ti only; Windows and macOS GPUs are not verified (the tests there run
+the CPU code).
 
 # Python wrapper
 
