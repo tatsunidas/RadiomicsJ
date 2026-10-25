@@ -9,6 +9,12 @@
   intensity-mask voxels whose value is greater than 0 (zero is not positive; NaN when there is none). It uses the same
   voxels as the intensity based statistical features (after resampling and re-segmentation, not discretised).
   Existing columns are unchanged whether the family is on or off.
+- Four more members: `ProportionOfPositiveIntensities` (voxels > 0 divided by the voxel count),
+  `NormalisedStandardDeviation` (ln(SD) / ln(N), SD divided by N; NaN for N below 2 or SD 0),
+  `ReciprocalKurtosis` (1 / (excess kurtosis + 3); NaN when the variance is 0) and
+  `UniformityOfPositiveIntensities` (sum of squared bin probabilities over the voxels > 0, with the bins of the whole
+  ROI as in the intensity histogram features, not bins made again from the positive voxels). An undefined value is
+  NaN, never 0. No published reference values exist for these, so they are checked against hand-computed values only.
 
 ## 2.6.0 (2026-10-24)
 
