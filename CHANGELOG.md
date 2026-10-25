@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Changed (re-segmentation range with one bound)
+
+- `DOUBLE_rangeMin` and `DOUBLE_rangeMax` now work alone. Before, the range was applied only when both were set, and a
+  range with one bound was ignored without a message (the lower bound alone was already used for the bin edges of the
+  fixed bin width discretisation). A missing bound is open; the interval stays closed. Results change only for settings
+  that give one bound alone. Settings with both bounds or none (the IBSI benchmark configurations) are unchanged.
+
 ### Added (auxiliary statistics family)
 
 - New feature family `AuxiliaryStatistics`, switched by `BOOL_enableAuxiliaryStatistics` (default off). It holds

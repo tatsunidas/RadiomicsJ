@@ -1621,8 +1621,11 @@ public class RadiomicsJ {
 		/*
 		 * rangeFilter
 		 */
-		if(rangeMax != null && rangeMin != null) {
-			resegmentedMask = ImagePreprocessing.rangeFiltering(img, mask, targetLabel, rangeMax, rangeMin);
+		if(rangeMax != null || rangeMin != null) {
+			// a missing bound is open, like the lower bound alone already is for the bin edges (Utils.discreteByBinWidth)
+			resegmentedMask = ImagePreprocessing.rangeFiltering(img, mask, targetLabel,
+					rangeMax == null ? Double.POSITIVE_INFINITY : rangeMax,
+					rangeMin == null ? Double.NEGATIVE_INFINITY : rangeMin);
 		}else {
 			resegmentedMask = Utils.createMaskCopy(mask);
 		}
