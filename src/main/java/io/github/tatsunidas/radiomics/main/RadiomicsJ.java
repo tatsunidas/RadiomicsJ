@@ -2587,7 +2587,7 @@ public class RadiomicsJ {
 				System.out.println("=================================");
 				System.out.println("AuxiliaryStatistics features");
 			}
-			AuxiliaryStatisticsFeatures auxExecuter = new AuxiliaryStatisticsFeatures(img, mask, targetLabel);
+			AuxiliaryStatisticsFeatures auxExecuter = new AuxiliaryStatisticsFeatures(img, mask, targetLabel, BOOL_USE_FixedBinNumber, nBinsForCalculation, binWidth);
 			for(AuxiliaryStatisticsFeatureType aux:AuxiliaryStatisticsFeatureType.values()) {
 				if(excluded.contains(aux.name())) {
 					continue;
