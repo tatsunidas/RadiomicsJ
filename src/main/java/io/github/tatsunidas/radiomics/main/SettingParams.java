@@ -111,6 +111,7 @@ public enum SettingParams {
 	BOOL_enableNGLDM,
 	BOOL_enableHomological,
 	BOOL_enableFractal,
+	BOOL_enableAuxiliaryStatistics,//statistics outside IBSI (e.g. mean of positive intensities), default off
 	BOOL_enableOperationalInfo,//date, os, version, modality name, manufacturer, 
 	BOOL_enableDiagnostics,
 	;

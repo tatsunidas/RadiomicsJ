@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added (auxiliary statistics family)
+
+- New feature family `AuxiliaryStatistics`, switched by `BOOL_enableAuxiliaryStatistics` (default off). It holds
+  statistics that IBSI does not define. First member: `AuxiliaryStatistics_MeanOfPositiveIntensities`, the mean of the
+  intensity-mask voxels whose value is greater than 0 (zero is not positive; NaN when there is none). It uses the same
+  voxels as the intensity based statistical features (after resampling and re-segmentation, not discretised).
+  Existing columns are unchanged whether the family is on or off.
+
 ## 2.6.0 (2026-10-24)
 
 GPU computation (OpenCL, optional) for the Gabor and Simoncelli filters, the global intensity peak and the maximum

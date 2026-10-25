@@ -48,6 +48,8 @@ import ij.util.DicomTools;
 import io.github.tatsunidas.ij.plugin.nifti.Nifti_Reader;
 import io.github.tatsunidas.radiomics.features.DiagnosticsInfo;
 import io.github.tatsunidas.radiomics.features.DiagnosticsInfoType;
+import io.github.tatsunidas.radiomics.features.AuxiliaryStatisticsFeatureType;
+import io.github.tatsunidas.radiomics.features.AuxiliaryStatisticsFeatures;
 import io.github.tatsunidas.radiomics.features.FractalFeatureType;
 import io.github.tatsunidas.radiomics.features.FractalFeatures;
 import io.github.tatsunidas.radiomics.features.GLCMFeatureType;
@@ -692,6 +694,7 @@ public class RadiomicsJ {
 	boolean BOOL_enableNGTDM = true;
 	boolean BOOL_enableNGLDM = true;
 	boolean BOOL_enableFractal = true;
+	boolean BOOL_enableAuxiliaryStatistics = false;
 
 	/**
 	 * GLAM, gray level affinity metrics.
@@ -1468,6 +1471,9 @@ public class RadiomicsJ {
 					}
 					if(keyString.equals(SettingParams.BOOL_enableFractal.name())) {
 						this.BOOL_enableFractal = val.equals("1") || val.toLowerCase().equals("true") ? true:false;
+					}
+					if(keyString.equals(SettingParams.BOOL_enableAuxiliaryStatistics.name())) {
+						this.BOOL_enableAuxiliaryStatistics = val.equals("1") || val.toLowerCase().equals("true") ? true:false;
 					}
 					if(keyString.equals(SettingParams.BOOL_enableShape2D.name())) {
 						this.BOOL_enableShape2D = val.equals("1") || val.toLowerCase().equals("true") ? true:false;
@@ -2576,6 +2582,28 @@ public class RadiomicsJ {
 			}
 			if(IJ_PlugIn)IJ.showProgress(++progress/enableFamilies);
 		}
+		if(BOOL_enableAuxiliaryStatistics) {
+			if(debug) {
+				System.out.println("=================================");
+				System.out.println("AuxiliaryStatistics features");
+			}
+			AuxiliaryStatisticsFeatures auxExecuter = new AuxiliaryStatisticsFeatures(img, mask, targetLabel);
+			for(AuxiliaryStatisticsFeatureType aux:AuxiliaryStatisticsFeatureType.values()) {
+				if(excluded.contains(aux.name())) {
+					continue;
+				}
+				Double feature = auxExecuter.calculate(aux.id());
+				if(feature == null || Double.isNaN(feature)) {
+					rt.addValue("AuxiliaryStatistics_"+aux.name(), "NaN");
+				}else {
+					rt.addValue("AuxiliaryStatistics_"+aux.name(), feature);
+				}
+				if (debug) {
+					System.out.println(aux.name() + ", " + feature);
+				}
+			}
+			if(IJ_PlugIn)IJ.showProgress(++progress/enableFamilies);
+		}
 		/*
 		 * discretiseImp is a static hand-off from the pipeline to the feature classes,
 		 * that lets them skip re-discretisation. Clear it when the extraction is done,
@@ -2604,6 +2632,7 @@ public class RadiomicsJ {
 		if(BOOL_enableNGTDM)num++;
 		if(BOOL_enableNGLDM)num++;
 		if(BOOL_enableFractal)num++;
+		if(BOOL_enableAuxiliaryStatistics)num++;
 		if(BOOL_enableShape2D || force2D)num++;
 		return num;
 	}
