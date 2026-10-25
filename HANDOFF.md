@@ -1,15 +1,15 @@
 # HANDOFF
 
-更新: 2026-10-25 / マシン: meerkat（Core Ultra 7 255H 16 コア + GTX 1050 Ti）
+更新: 2026-10-25 / マシン: pop-os（Maven Central・PyPI の配布を実施。GPU 無し）。前回は meerkat（Core Ultra 7 255H 16 コア + GTX 1050 Ti）
 
 ## 0. 次にやること
 - 再開したら: `git fetch && git log --oneline origin/master -3` で master が `f228ae9` から進んでいないか確認する。この HANDOFF.md は master には無く、本ブランチにだけある。
-- 新しい実装の指示は無い。候補: Maven Central / PyPI への配布、見積もりの安定化の調査、実 DICOM での CLI 通常モード確認。再開するなら、下の「未解決」から選び、着手前にプランモードで計画を出して承認を取る。
-- **v2.6.0 は公開済み**（2026-10-25、タグ `v2.6.0`、jar 3 点）。次のリリースや Maven Central / PyPI への配布は、先にユーザーに確認する。
+- 新しい実装の指示は無い。候補: 見積もりの安定化の調査、実 DICOM での CLI 通常モード確認。再開するなら、下の「未解決」から選び、着手前にプランモードで計画を出して承認を取る。
+- **v2.6.0 は公開済み**（2026-10-25、タグ `v2.6.0`、jar 3 点）。**Maven Central（`mvn clean deploy -DskipTests -Dexec.skip=true`、Central ポータルで手動 Publish）と PyPI（`target/radiomicsj-python` で build → twine）にも 2026-10-25 に 2.6.0 を公開済み**。配布前に wheel を新規 venv に入れて `smoke/installed_smoke.py` が通ることを確認した。`mvn deploy`/`install` は `conda build` を呼ぶので、conda の無い機では `-Dexec.skip=true` が要る。次のリリースは、先にユーザーに確認する。
 - このブランチ（`gpu/phase1-benchmark`）は試作と計測の記録として残す。コードは master に入っているので、PR・マージはしない。
 
 ## 1. 現在の状態
-- master `f228ae9`。**v2.6.0 公開済み**（https://github.com/tatsunidas/RadiomicsJ/releases/tag/v2.6.0、GitHub Release のみ。Maven Central と PyPI は未配布）。マージ済み PR（squash、CI 全件 pass）:
+- master `f228ae9`。**v2.6.0 公開済み**（https://github.com/tatsunidas/RadiomicsJ/releases/tag/v2.6.0、Maven Central・PyPI にも 2.6.0 公開済み）。マージ済み PR（squash、CI 全件 pass）:
   - #38 Marching cubes（メッシュ同一、60.8 s → 0.23 s）
   - #39 NGTDM 並列（値同一、60.6 s → 0.31 s）
   - #40 GPU 基盤（任意の OpenCL、`BOOL_USE_GPU`、CPU へ退避）
