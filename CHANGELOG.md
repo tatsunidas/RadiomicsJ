@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## 2.7.0 (2026-10-26)
+
+New feature family `AuxiliaryStatistics` (IBSI-external, off by default) and a re-segmentation range that works with
+one bound. Other feature columns are unchanged.
 
 ### Changed (re-segmentation range with one bound)
 
