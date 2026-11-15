@@ -21,6 +21,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.BitSet;
+import java.util.stream.IntStream;
 
 import org.apache.commons.math3.stat.StatUtils;
 import javax.vecmath.Point3i;
@@ -254,6 +256,16 @@ public class GLRLMFeatures extends AbstractRadiomicsFeature implements Texture{
 	}
 	
 	
+	/**
+	 * When true (default), the 13 directions are calculated in parallel. The result is identical to the sequential
+	 * calculation (the matrices are integer run counts, put into the map in the same order). Set false to calculate
+	 * sequentially with the original code path.
+	 */
+	public static boolean parallel = true;
+
+	/** First angle id calculated (angle ids 0 to 13 are the opposite directions of 26 to 13, see Utils.buildAngles). */
+	private static final int FIRST_ANGLE_ID = 14;
+
 	public void fillGLRLM() throws Exception {
 		glrlm_raw = new HashMap<Integer, double[][]>();//angle_id and 
 		HashMap<Integer, int[]> angles = Utils.buildAngles();
@@ -263,13 +275,78 @@ public class GLRLMFeatures extends AbstractRadiomicsFeature implements Texture{
 		/*
 		 * only calculate about 13 angles
 		 */
-		for (int a = 14; a < num_of_angles; a++) {
-			double[][] glrlm_at_a = calcGLRLM(a, angles.get(Integer.valueOf(a)));
-			//TODO weighting before normalize
-			glrlm_raw.put(a, glrlm_at_a);
+		if (parallel && num_of_angles - FIRST_ANGLE_ID > 1) {
+			// The directions are independent: each reads the shared voxels and writes only its own matrix.
+			final double[][][] out = new double[num_of_angles][][];
+			IntStream.range(FIRST_ANGLE_ID, num_of_angles).parallel()
+					.forEach(a -> out[a] = calcGLRLMShared(angles.get(Integer.valueOf(a))));
+			for (int a = FIRST_ANGLE_ID; a < num_of_angles; a++) {
+				glrlm_raw.put(a, out[a]);// in ascending order, as the sequential path does
+			}
+		} else {
+			for (int a = FIRST_ANGLE_ID; a < num_of_angles; a++) {
+				double[][] glrlm_at_a = calcGLRLM(a, angles.get(Integer.valueOf(a)));
+				//TODO weighting before normalize
+				glrlm_raw.put(a, glrlm_at_a);
+			}
 		}
 		normalize(glrlm_raw);
 		
+	}
+	
+	/**
+	 * Same matrix as {@link #calcGLRLM(Integer, int[])}, but the shared {@code voxels} are only read and the visited
+	 * voxels of this direction are held in a bit set (1 bit per voxel), so that directions can run in parallel without
+	 * a boxed copy of the whole volume each.
+	 */
+	private double[][] calcGLRLMShared(final int[] angle) {
+		final BitSet visited = new BitSet(s * h * w);
+		HashMap<Integer, HashMap<Integer,Integer>> glrlm_map_a = new HashMap<Integer, HashMap<Integer,Integer>>();
+		for(int grayLevel=1;grayLevel<=nBins;grayLevel++) {
+			HashMap<Integer,Integer> glrlm_row = new HashMap<Integer,Integer>();
+			for(int z=0;z<s;z++) {
+				for(int y=0;y<h;y++) {
+					for(int x=0;x<w;x++) {
+						Integer v = voxels[z][y][x];
+						if (v == null || v != grayLevel || visited.get((z * h + y) * w + x)) {
+							continue;
+						}
+						Integer run_length = countNeighborShared(grayLevel, visited, x, y, z, angle);
+						glrlm_row.put(run_length, glrlm_row.get(run_length) == null ? 1:glrlm_row.get(run_length)+1);
+					}
+				}
+			}
+			glrlm_map_a.put(grayLevel, glrlm_row);
+		}
+		return map2matrix(glrlm_map_a);
+	}
+	
+	/** Run length through the seed, extended forward and backward along the angle, marking the voxels visited. */
+	private int countNeighborShared(final int grayLevel, final BitSet visited, final int seedX, final int seedY, final int seedZ, final int[] angle) {
+		visited.set((seedZ * h + seedY) * w + seedX);
+		int count = 1;
+		for (int dir = 1; dir >= -1; dir -= 2) {
+			// dir = 1: forward, dir = -1: backward (the vector direction and the coordinate direction differ in the Y axis)
+			int x = seedX;
+			int y = seedY;
+			int z = seedZ;
+			while (true) {
+				x += dir * angle[2];
+				y -= dir * angle[1];
+				z += dir * angle[0];
+				if (x < 0 || x >= w || y < 0 || y >= h || z < 0 || z >= s) {
+					break;
+				}
+				Integer v = voxels[z][y][x];
+				int idx = (z * h + y) * w + x;
+				if (v == null || v != grayLevel || visited.get(idx)) {
+					break;
+				}
+				visited.set(idx);
+				count++;
+			}
+		}
+		return count;
 	}
 	
 	

@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.7.1 (2026-11-15)
+
+Faster GLRLM. The 13 directions of the grey level run length matrix are now calculated in parallel. No feature value
+changes: the matrices are integer run counts, so the result is identical, bit for bit, to the sequential code.
+
+### Changed (performance: GLRLM directions in parallel)
+
+- `GLRLMFeatures.fillGLRLM` calculates the 13 directions in parallel and puts the matrices into the map in the same
+  order as before. The shared voxels are only read; each direction keeps its visited voxels in a bit set instead of a
+  boxed copy of the whole volume. `GLRLMFeatures.parallel` (default true) selects the original sequential code path
+  when set to false. `calcGLRLM(Integer, int[])` is unchanged.
+- Checked on two real CT lung tumours (NSCLC Radiogenomics, TCIA; 15,804 and 133,455 voxels; fixed bin width 25; 16
+  cores): all 76 columns of the call are bit-identical to RadiomicsJ 2.7.0 (three runs each). The GLRLM family alone,
+  as one call of the ROI feature table including the fixed cost of loading the volume, went from 108 s to 23-27 s and
+  from 198 s to 50-55 s. The peak resident memory of the JVM was 5% and 13% higher (9.4 to 9.8 GB and 15.8 to 17.9 GB;
+  an upper bound that depends on the garbage collector, not a measured heap size).
+- A new unit test compares the parallel and the sequential code on random volumes and a small phantom-like volume over
+  all 16 GLRLM features, bit for bit, and fails when the directions are mixed up or a direction is dropped. The full
+  test suite (133 tests, including the IBSI 1 benchmark report) passes.
+- Not changed: the other families (GLSZM, NGLDM, NGTDM and the others) still run one after another on one thread. They
+  have the same structure (a pass over the whole volume for each grey level) and are candidates for later work.
+
 ## 2.7.0 (2026-10-26)
 
 New feature family `AuxiliaryStatistics` (IBSI-external, off by default) and a re-segmentation range that works with
