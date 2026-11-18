@@ -301,20 +301,31 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 		return mesh_v;
 	}
 	
+	/**
+	 * The volume of a closed triangle mesh: the sum of the signed volumes of the tetrahedra (reference point, triangle).
+	 * Since 2.7.2 it is calculated in double and relative to the first vertex. The earlier version multiplied and
+	 * added the float coordinates measured from the origin of the image: for a region far from the origin the large terms
+	 * cancel, the float rounding does not, and the same shape gave a different volume at each position (about +-0.2%
+	 * at 470 mm). The volume of a closed mesh does not depend on the reference point.
+	 */
 	private double calculateMeshVolume(List<Point3f> points) {
+	    if (points.isEmpty()) {
+	        return 0d;
+	    }
+	    final Point3f o = points.get(0);
+	    final double ox = o.x, oy = o.y, oz = o.z;
 	    double v = 0;
 	    for (int i = 0; i < points.size(); i += 3) {
 	        Point3f p1 = points.get(i);
 	        Point3f p2 = points.get(i + 1);
 	        Point3f p3 = points.get(i + 2);
-	        
-	        // 3D_Viewer の CustomTriangleMesh と同じ行列式
-	        v += (p1.x * p2.y * p3.z 
-	            - p1.x * p3.y * p2.z 
-	            - p2.x * p1.y * p3.z 
-	            + p2.x * p3.y * p1.z 
-	            + p3.x * p1.y * p2.z 
-	            - p3.x * p2.y * p1.z);
+	        double x1 = p1.x - ox, y1 = p1.y - oy, z1 = p1.z - oz;
+	        double x2 = p2.x - ox, y2 = p2.y - oy, z2 = p2.z - oz;
+	        double x3 = p3.x - ox, y3 = p3.y - oy, z3 = p3.z - oz;
+	        // the determinant of (p1, p2, p3), the same as in 3D_Viewer's CustomTriangleMesh
+	        v += x1 * (y2 * z3 - y3 * z2)
+	           - x2 * (y1 * z3 - y3 * z1)
+	           + x3 * (y1 * z2 - y2 * z1);
 	    }
 	    return Math.abs(v / 6.0);
 	}
@@ -351,7 +362,6 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 		if(this.mct != null && this.points != null) {
 			surfaceArea = 0d;
 			final int nPoints = points.size();
-			final Point3f origin = new Point3f((float)orgCal.xOrigin, (float)orgCal.yOrigin, (float)orgCal.zOrigin);
 			for (int n = 0; n < nPoints; n += 3) {
 				final Point3f point0 = points.get(n);
 				final Point3f point1 = points.get(n+1);
@@ -366,14 +376,13 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 				crossVector.x = (float) (y1 * z2 - z1 * y2);
 				crossVector.y = (float) (z1 * x2 - x1 * z2);
 				crossVector.z = (float) (x1 * y2 - y1 * x2);
-				final double deltaArea = 0.5 * crossVector.distance(origin);
+				final double deltaArea = 0.5 * getVectorLength(crossVector);
 				surfaceArea += deltaArea;
 			}
 			return surfaceArea;
 		}
 		surfaceArea = 0d;
 		final int nPoints = points.size();
-		final Point3f origin = new Point3f((float)orgCal.xOrigin, (float)orgCal.yOrigin, (float)orgCal.zOrigin);
 //		System.out.println("Calculating surface area.., num of points : " + nPoints / 3);
 		for (int n = 0; n < nPoints; n += 3) {
 			// https://github.com/mdoube/BoneJ/blob/17ee483603afa8a7efb745512be60a29e093c94e/src/org/doube/geometry/Vectors.java#L19
@@ -390,7 +399,7 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 			crossVector.x = (float) (y1 * z2 - z1 * y2);
 			crossVector.y = (float) (z1 * x2 - x1 * z2);
 			crossVector.z = (float) (x1 * y2 - y1 * x2);
-			final double deltaArea = 0.5 * crossVector.distance(origin);
+			final double deltaArea = 0.5 * getVectorLength(crossVector);
 			surfaceArea += deltaArea;
 		}
 		return surfaceArea;
@@ -446,7 +455,7 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 //			crossVector.x = (float) (y1 * z2 - z1 * y2);
 //			crossVector.y = (float) (z1 * x2 - x1 * z2);
 //			crossVector.z = (float) (x1 * y2 - y1 * x2);
-//			final double deltaArea = 0.5 * crossVector.distance(origin);
+//			final double deltaArea = 0.5 * getVectorLength(crossVector);
 //			surfaceArea += deltaArea;
 //		}
 //		return surfaceArea;
@@ -1182,7 +1191,6 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 			}else {
 				surfaceArea = 0d;
 				final int nPoints = points.size();
-				final Point3f origin = new Point3f((float)orgCal.xOrigin, (float)orgCal.yOrigin, (float)orgCal.zOrigin);
 				for (int n = 0; n < nPoints; n += 3) {
 					final Point3f point0 = points.get(n);
 					final Point3f point1 = points.get(n+1);
@@ -1197,7 +1205,7 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 					crossVector.x = (float) (y1 * z2 - z1 * y2);
 					crossVector.y = (float) (z1 * x2 - x1 * z2);
 					crossVector.z = (float) (x1 * y2 - y1 * x2);
-					final double deltaArea = 0.5 * crossVector.distance(origin);
+					final double deltaArea = 0.5 * getVectorLength(crossVector);
 					surfaceArea += deltaArea;
 				}
 				double[] aabb = getAxisAlignedBoundingBoxExtents();
@@ -1210,7 +1218,6 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 		
 		Double sumArea = 0d;
 		final int nPoints = points.size();
-		final Point3f origin = new Point3f((float)orgCal.xOrigin, (float)orgCal.yOrigin, (float)orgCal.zOrigin);
 		for (int n = 0; n < nPoints; n += 3) {
 			final Point3f point0 = points.get(n);
 			final Point3f point1 = points.get(n+1);
@@ -1225,7 +1232,7 @@ public class MorphologicalFeatures extends AbstractRadiomicsFeature{
 			crossVector.x = (float) (y1 * z2 - z1 * y2);
 			crossVector.y = (float) (z1 * x2 - x1 * z2);
 			crossVector.z = (float) (x1 * y2 - y1 * x2);
-			final double deltaArea = 0.5 * crossVector.distance(origin);
+			final double deltaArea = 0.5 * getVectorLength(crossVector);
 			sumArea += deltaArea;
 		}
 		double[] aabb = getAxisAlignedBoundingBoxExtents();

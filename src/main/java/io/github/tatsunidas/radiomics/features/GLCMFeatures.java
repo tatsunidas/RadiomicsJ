@@ -738,6 +738,16 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 		return weighted;
 	}
 
+	/**
+	 * The mean over the angles that were actually calculated (the first {@code n} entries of {@code values}).
+	 * An angle without a matrix (all zero) is skipped when the values are collected, so the unused tail of the array
+	 * must not enter the mean: before 2.7.2 it did, and the features of a region on one slice (only the 4 in-plane
+	 * angles of the 13 have pairs) were all multiplied by about 4/13. NaN when no angle has a matrix.
+	 */
+	private static double meanOfValid(double[] values, int n) {
+		return n == 0 ? Double.NaN : StatUtils.mean(values, 0, n);
+	}
+
 	public double getJointMaximum() {
 		ArrayList<Integer> angles = new ArrayList<>(glcm.keySet());
 		Collections.sort(angles);
@@ -761,7 +771,7 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 			res_set[itr] = max_a;
 			itr++;
 		}
-		return StatUtils.mean(res_set);
+		return meanOfValid(res_set, itr);
 	}
 
 	// =====================================================================================================
@@ -785,7 +795,7 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 			res_set[itr] = res_a;
 			itr++;
 		}
-		return StatUtils.mean(res_set);
+		return meanOfValid(res_set, itr);
 	}
 
 	// =====================================================================================================
@@ -819,7 +829,7 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 			res_set[itr] = res_a;
 			itr++;
 		}
-		return StatUtils.mean(res_set);
+		return meanOfValid(res_set, itr);
 	}
 
 	// ===============================================================================================
@@ -846,7 +856,7 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 			res_set[itr] = entropy;
 			itr++;
 		}
-		return StatUtils.mean(res_set);
+		return meanOfValid(res_set, itr);
 	}
 
 	// =====================================================================================================
@@ -867,7 +877,7 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 			res_set[itr] = res_a;
 			itr++;
 		}
-		return StatUtils.mean(res_set);
+		return meanOfValid(res_set, itr);
 	}
 
 	// =====================================================================================================
@@ -892,7 +902,7 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 			res_set[itr] = res_a;
 			itr++;
 		}
-		return StatUtils.mean(res_set);
+		return meanOfValid(res_set, itr);
 	}
 
 	// =====================================================================================================
@@ -914,7 +924,7 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 			res_set[itr] = res_a;
 			itr++;
 		}
-		return StatUtils.mean(res_set);
+		return meanOfValid(res_set, itr);
 	}
 
 	public double getSumAverage() {
@@ -934,7 +944,7 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 			res_set[itr] = res_a;
 			itr++;
 		}
-		return StatUtils.mean(res_set);
+		return meanOfValid(res_set, itr);
 	}
 
 	public double getSumVariance() {
@@ -958,7 +968,7 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 			res_set[itr] = res_a;
 			itr++;
 		}
-		return StatUtils.mean(res_set);
+		return meanOfValid(res_set, itr);
 	}
 
 	public double getSumEntropy() {
@@ -978,7 +988,7 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 			res_set[itr] = -1 * res_a;
 			itr++;
 		}
-		return StatUtils.mean(res_set);
+		return meanOfValid(res_set, itr);
 	}
 
 	// =====================================================================================================
@@ -1009,7 +1019,7 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 			res_set[itr] = res_a;
 			itr++;
 		}
-		return StatUtils.mean(res_set);
+		return meanOfValid(res_set, itr);
 	}
 
 	// ===============================================================================================
@@ -1036,7 +1046,7 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 			res_set[itr] = contrast;
 			itr++;
 		}
-		return StatUtils.mean(res_set);
+		return meanOfValid(res_set, itr);
 	}
 
 	public double getDissimilarity() {
@@ -1060,7 +1070,7 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 			res_set[itr] = res_a;
 			itr++;
 		}
-		return StatUtils.mean(res_set);
+		return meanOfValid(res_set, itr);
 	}
 
 	public double getInverseDifference() {
@@ -1080,7 +1090,7 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 			res_set[itr] = res_a;
 			itr++;
 		}
-		return StatUtils.mean(res_set);
+		return meanOfValid(res_set, itr);
 	}
 
 	public double getNormalisedInverseDifference() {
@@ -1100,7 +1110,7 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 			res_set[itr] = res_a;
 			itr++;
 		}
-		return StatUtils.mean(res_set);
+		return meanOfValid(res_set, itr);
 	}
 
 	public double getInverseDifferenceMoment() {
@@ -1124,7 +1134,7 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 			res_set[itr] = res_a;
 			itr++;
 		}
-		return StatUtils.mean(res_set);
+		return meanOfValid(res_set, itr);
 	}
 
 	public double getNormalisedInverseDifferenceMoment() {
@@ -1148,7 +1158,7 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 			res_set[itr] = res_a;
 			itr++;
 		}
-		return StatUtils.mean(res_set);
+		return meanOfValid(res_set, itr);
 	}
 
 	public double getInverseVariance() {
@@ -1170,7 +1180,7 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 			res_set[itr] = res_a;
 			itr++;
 		}
-		return StatUtils.mean(res_set);
+		return meanOfValid(res_set, itr);
 	}
 
 	// =====================================================================================================
@@ -1202,7 +1212,7 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 			res_set[itr] = (1d / (stdevX * stdevY)) * res_a;
 			itr++;
 		}
-		return StatUtils.mean(res_set);
+		return meanOfValid(res_set, itr);
 
 	}
 
@@ -1226,7 +1236,7 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 			res_set[itr] = res_a;
 			itr++;
 		}
-		return StatUtils.mean(res_set);
+		return meanOfValid(res_set, itr);
 	}
 
 	// =====================================================================================================
@@ -1251,7 +1261,7 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 			res_set[itr] = res_a;
 			itr++;
 		}
-		return StatUtils.mean(res_set);
+		return meanOfValid(res_set, itr);
 	}
 
 	// =====================================================================================================
@@ -1281,7 +1291,7 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 			res_set[itr] = res_a;
 			itr++;
 		}
-		return StatUtils.mean(res_set);
+		return meanOfValid(res_set, itr);
 	}
 
 	// =====================================================================================================
@@ -1306,7 +1316,7 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 			res_set[itr] = res_a;
 			itr++;
 		}
-		return StatUtils.mean(res_set);
+		return meanOfValid(res_set, itr);
 	}
 
 	// ===============================================================================================
@@ -1341,7 +1351,7 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 			res_set[itr] = (HXY - HXY1) / HX;
 			itr++;
 		}
-		return StatUtils.mean(res_set);
+		return meanOfValid(res_set, itr);
 	}
 
 	// ===============================================================================================
@@ -1371,7 +1381,7 @@ public class GLCMFeatures extends AbstractRadiomicsFeature implements Texture{
 				itr++;
 			}
 		}
-		return StatUtils.mean(res_set);
+		return meanOfValid(res_set, itr);
 	}
 
 //	//===============================================================================================

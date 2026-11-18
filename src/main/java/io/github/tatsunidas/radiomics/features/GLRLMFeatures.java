@@ -580,12 +580,18 @@ public class GLRLMFeatures extends AbstractRadiomicsFeature implements Texture{
 				}
 			}
 		}
-//		glrlm = new double[discreteLevel][length_max];//also ok, here, keep (i,j) shape, 
-		double[][] glrlm = new double[nBins][nBins];//(i,j matrices)
+		/*
+		 * The width is the longest run of this direction, but never narrower than nBins (the shape of the matrix
+		 * before 2.7.2, so that the values do not change when every run is not longer than nBins).
+		 * Before 2.7.2 the matrix was always nBins x nBins and the runs longer than nBins were dropped silently
+		 * (all of them dropped: the matrix is zero and the normalisation gives NaN).
+		 */
+		final int width = Math.max(nBins, length_max);
+		double[][] glrlm = new double[nBins][width];//(i,j matrices)
 		
 		for(int row=1;row<=nBins;row++) {
 			HashMap<Integer,Integer> length_count_pair = glrlm_map.get(row);
-			for(int col=1;col<=nBins;col++) {
+			for(int col=1;col<=width;col++) {
 				Integer count = length_count_pair.get(col);
 				if(count == null) {
 					count = 0;
@@ -684,7 +690,7 @@ public class GLRLMFeatures extends AbstractRadiomicsFeature implements Texture{
 				for (int i=1; i<=nBins; i++) {
 					r_j += glrlm_a[i-1][j-1];
 				}
-				sre_a += r_j/(j*j);
+				sre_a += r_j/((double) j*j);
 			}
 //			sre_a = sre_a/Ns_a;//normalizing is already done
 			res_set[itr] = sre_a;
@@ -716,7 +722,7 @@ public class GLRLMFeatures extends AbstractRadiomicsFeature implements Texture{
 				for (int i=1; i<=nBins; i++) {
 					r_j += glrlm_a[i-1][j-1];
 				}
-				lre_a += r_j*(j*j);
+				lre_a += r_j*((double) j*j);
 			}
 //			lre_a = lre_a/Ns_a;//normalizing is already done
 			res_set[itr] = lre_a;
@@ -749,7 +755,7 @@ public class GLRLMFeatures extends AbstractRadiomicsFeature implements Texture{
 				for (int j=1; j<=Nr_a; j++) {
 					r_i += glrlm_a[i-1][j-1];
 				}
-				lgre_a += r_i/(i*i);
+				lgre_a += r_i/((double) i*i);
 			}
 //			lgre_a = lgre_a/Ns_a;//normalizing is already done
 			res_set[itr] = lgre_a;
@@ -782,7 +788,7 @@ public class GLRLMFeatures extends AbstractRadiomicsFeature implements Texture{
 				for (int j=1; j<=Nr_a; j++) {
 					r_i += glrlm_a[i-1][j-1];
 				}
-				lgre_a += r_i*(i*i);
+				lgre_a += r_i*((double) i*i);
 			}
 //			lgre_a = lgre_a/Ns_a;//normalizing is already done
 			res_set[itr] = lgre_a;
@@ -812,7 +818,7 @@ public class GLRLMFeatures extends AbstractRadiomicsFeature implements Texture{
 //			}
 			for (int i=1; i<=nBins; i++)  {
 				for (int j=1; j<=Nr_a; j++) {
-					srlge_a += glrlm_a[i-1][j-1]/(i*i*j*j);
+					srlge_a += glrlm_a[i-1][j-1]/((double) i*i*j*j);
 				}
 			}
 //			srlge_a = srlge_a/Ns_a;//normalizing is already done
@@ -842,7 +848,7 @@ public class GLRLMFeatures extends AbstractRadiomicsFeature implements Texture{
 			}
 			for (int i=1; i<=nBins; i++)  {
 				for (int j=1; j<=Nr_a; j++) {
-					srhge_a += (glrlm_a[i-1][j-1]*(i*i))/(j*j);
+					srhge_a += (glrlm_a[i-1][j-1]*((double) i*i))/((double) j*j);
 				}
 			}
 			srhge_a = srhge_a/Ns_a;
@@ -872,7 +878,7 @@ public class GLRLMFeatures extends AbstractRadiomicsFeature implements Texture{
 //			}
 			for (int i=1; i<=nBins; i++)  {
 				for (int j=1; j<=Nr_a; j++) {
-					lrlge_a += (glrlm_a[i-1][j-1]*(j*j))/(i*i);
+					lrlge_a += (glrlm_a[i-1][j-1]*((double) j*j))/((double) i*i);
 				}
 			}
 //			lrlge_a = lrlge_a/Ns_a;//normalizing is already done
@@ -902,7 +908,7 @@ public class GLRLMFeatures extends AbstractRadiomicsFeature implements Texture{
 //			}
 			for (int i=1; i<=nBins; i++)  {
 				for (int j=1; j<=Nr_a; j++) {
-					lrhge_a += glrlm_a[i-1][j-1]*(i*i*j*j);
+					lrhge_a += glrlm_a[i-1][j-1]*((double) i*i*j*j);
 				}
 			}
 //			lrhge_a = lrhge_a/Ns_a;//normalizing is already done

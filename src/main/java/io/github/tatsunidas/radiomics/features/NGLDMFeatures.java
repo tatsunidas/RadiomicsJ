@@ -366,7 +366,7 @@ public class NGLDMFeatures extends AbstractRadiomicsFeature implements Texture{
 			for(int i=1; i<=gldm.length; i++) {
 				sj += gldm[i-1][j-1];
 			}
-			sde += sj/(j*j);
+			sde += sj/((double) j*j);
 		}
 		return sde/Ns;
 	}
@@ -390,7 +390,7 @@ public class NGLDMFeatures extends AbstractRadiomicsFeature implements Texture{
 			for(int j=1; j<=gldm[0].length; j++) {
 				si += gldm[i-1][j-1];
 			}
-			lgle += si/(i*i);
+			lgle += si/((double) i*i);
 		}
 		return lgle/Ns;
 	}
@@ -412,7 +412,7 @@ public class NGLDMFeatures extends AbstractRadiomicsFeature implements Texture{
 		Double sdlgle = 0.0d;
 		for(int i=1; i<=gldm.length; i++) {
 			for(int j=1; j<=gldm[0].length; j++) {
-				sdlgle += gldm[i-1][j-1] / (i*i*j*j);
+				sdlgle += gldm[i-1][j-1] / ((double) i*i*j*j);
 			}
 		}
 		return sdlgle/Ns;
@@ -422,7 +422,7 @@ public class NGLDMFeatures extends AbstractRadiomicsFeature implements Texture{
 		Double sdhgle = 0.0d;
 		for(int i=1; i<=gldm.length; i++) {
 			for(int j=1; j<=gldm[0].length; j++) {
-				sdhgle += (gldm[i-1][j-1]*i*i)/(j*j);
+				sdhgle += (gldm[i-1][j-1]*i*i)/((double) j*j);
 			}
 		}
 		return sdhgle/Ns;
@@ -432,7 +432,7 @@ public class NGLDMFeatures extends AbstractRadiomicsFeature implements Texture{
 		Double ldlgle = 0.0d;
 		for(int i=1; i<=gldm.length; i++) {
 			for(int j=1; j<=gldm[0].length; j++) {
-				ldlgle += (gldm[i-1][j-1]*j*j)/(i*i);
+				ldlgle += (gldm[i-1][j-1]*j*j)/((double) i*i);
 			}
 		}
 		return ldlgle/Ns;

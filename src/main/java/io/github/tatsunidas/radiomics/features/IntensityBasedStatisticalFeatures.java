@@ -427,21 +427,24 @@ public class IntensityBasedStatisticalFeatures extends AbstractRadiomicsFeature{
 		return sumsq/n;
 	}
 	
+	/**
+	 * Skewness. Since 2.7.2 this is {@link #getSkewness2()}: the deviations from the mean are summed (two passes).
+	 * The earlier version summed the raw moments (sum of v^3 - 3 mean sum of v^2 + ...), which loses all digits when the mean
+	 * is large against the standard deviation (for example a mean of 30000 and a standard deviation of 2.5 gave -5.03 instead of
+	 * -0.16) and gave about 1e6 instead of NaN for a region of one constant value.
+	 */
 	public Double getSkewness1() {
-		int pixelCount = voxels.length;
-		double dv, dv2, sum2=0.0, sum3=0.0;
-  		for(int z=0; z<pixelCount; z++) {
-  			dv = voxels[z];
-  			dv2 = dv*dv;
-  			sum2 += dv2;
-  			sum3 += dv*dv2;
-  		}
-  		double mean = StatUtils.mean(voxels);
-  	    double mean2 = mean*mean;
-  	    double variance = sum2/pixelCount - mean2;
-  	    double sDeviation = Math.sqrt(variance);
-  	    Double ij_skewness = ((sum3 - 3.0*mean*sum2)/(double)pixelCount + 2.0*mean*mean2)/(variance*sDeviation);
-	    return ij_skewness;
+		return getSkewness2();
+	}
+
+	/** All the voxels have exactly the same value (the skewness and the kurtosis are undefined: NaN). */
+	private boolean isConstant() {
+		for (int i = 1; i < voxels.length; i++) {
+			if (voxels[i] != voxels[0]) {
+				return false;
+			}
+		}
+		return true;
 	}
 	
 	/**
@@ -451,6 +454,9 @@ public class IntensityBasedStatisticalFeatures extends AbstractRadiomicsFeature{
 	public Double getSkewness2() {
 		if(voxels == null || voxels.length ==0) {
 			return null;
+		}
+		if(isConstant()) {
+			return Double.NaN;
 		}
 		int pixelCount = voxels.length;
 		double mean = StatUtils.mean(voxels);
@@ -466,31 +472,21 @@ public class IntensityBasedStatisticalFeatures extends AbstractRadiomicsFeature{
 	}
 	
 	/**
-	 * same as ( getKurtosis() - 3.0 )
+	 * same as ( getKurtosis() - 3.0 ). Since 2.7.2 it is computed that way (two passes); the earlier raw-moment version
+	 * lost the digits when the mean is large against the standard deviation.
 	 * @return
 	 */
 	public Double getExcessKurtosis() {
-		if(voxels == null || voxels.length ==0) {
-			return null;
-		}
-		int pixelCount = voxels.length;
-		double dv, dv2, sum2=0.0, sum3=0.0, sum4=0.0;
-		for(int i=0; i<pixelCount; i++) {
-			dv = voxels[i];
-			dv2 = dv*dv;
-			sum2 += dv2;
-			sum3 += dv*dv2;
-			sum4 += dv2*dv2;
-		}
-		double mean = StatUtils.mean(voxels);
-	    double mean2 = mean*mean;
-	    double variance = sum2/pixelCount - mean2;
-	    return (((sum4 - 4.0*mean*sum3 + 6.0*mean2*sum2)/pixelCount - 3.0*mean2*mean2)/(variance*variance)-3.0);
+		Double kurtosis = getKurtosis();
+		return kurtosis == null ? null : kurtosis - 3.0;
 	}
 	
 	public Double getKurtosis() {
 		if(voxels == null || voxels.length ==0) {
 			return null;
+		}
+		if(isConstant()) {
+			return Double.NaN;
 		}
 		int pixelCount = voxels.length;
 		double sum2=0.0, sum4=0.0;

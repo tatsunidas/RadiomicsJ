@@ -217,8 +217,14 @@ public class IntensityHistogramFeatures extends IntensityBasedStatisticalFeature
 	}
 	
 	
+	/*
+	 * Histogram gradient (the first and the last bin: the difference to the neighbour, the others: the central difference,
+	 * (h[i+1] - h[i-1]) / 2). Since 2.7.2 the central difference is divided by 2.0 (the earlier integer division cut off
+	 * the 0.5 of an odd difference) and the maximum and the minimum start from -Infinity and +Infinity (they started
+	 * from 0, so a histogram whose gradients are all negative gave a maximum of 0 and the bin 0).
+	 */
 	private Double getMaximumHistogramGradient() {
-		double maxH = 0d;
+		double maxH = Double.NEGATIVE_INFINITY;
 		double histGrad = 0d;
 		if(hist.length < 2) {
 			//a single bin histogram has no gradient.
@@ -239,7 +245,7 @@ public class IntensityHistogramFeatures extends IntensityBasedStatisticalFeature
 				}
 				break;
 			}
-			histGrad = (hist[i+1] - hist[i-1])/2;
+			histGrad = (hist[i+1] - hist[i-1])/2.0;
 			if(maxH < histGrad) {
 				maxH = histGrad;
 			}
@@ -248,7 +254,7 @@ public class IntensityHistogramFeatures extends IntensityBasedStatisticalFeature
 	}
 	
 	private Double getMaximumHistogramGradientIntensity() {
-		double maxH = 0d;
+		double maxH = Double.NEGATIVE_INFINITY;
 		double histGrad = 0d;
 		double index = 0;
 		if(hist.length < 2) {
@@ -272,7 +278,7 @@ public class IntensityHistogramFeatures extends IntensityBasedStatisticalFeature
 				}
 				break;
 			}
-			histGrad = (hist[i+1] - hist[i-1])/2;
+			histGrad = (hist[i+1] - hist[i-1])/2.0;
 			if(maxH < histGrad) {
 				maxH = histGrad;
 				index = (i+1d);
@@ -282,7 +288,7 @@ public class IntensityHistogramFeatures extends IntensityBasedStatisticalFeature
 	}
 	
 	private Double getMinimumHistogramGradient() {
-		double minH = 0d;
+		double minH = Double.POSITIVE_INFINITY;
 		double histGrad = 0d;
 		if(hist.length < 2) {
 			//a single bin histogram has no gradient.
@@ -303,7 +309,7 @@ public class IntensityHistogramFeatures extends IntensityBasedStatisticalFeature
 				}
 				break;
 			}
-			histGrad = (hist[i+1] - hist[i-1])/2;
+			histGrad = (hist[i+1] - hist[i-1])/2.0;
 			if(minH > histGrad) {
 				minH = histGrad;
 			}
@@ -312,7 +318,7 @@ public class IntensityHistogramFeatures extends IntensityBasedStatisticalFeature
 	}
 	
 	private Double getMinimumHistogramGradientIntensity() {
-		double minH = 0d;
+		double minH = Double.POSITIVE_INFINITY;
 		double histGrad = 0d;
 		double index = 0d;
 		if(hist.length < 2) {
@@ -336,7 +342,7 @@ public class IntensityHistogramFeatures extends IntensityBasedStatisticalFeature
 				}
 				break;
 			}
-			histGrad = (hist[i+1] - hist[i-1])/2;
+			histGrad = (hist[i+1] - hist[i-1])/2.0;
 			if(minH > histGrad) {
 				minH = histGrad;
 				index = (i+1d);
