@@ -1,5 +1,89 @@
 # Changelog
 
+## 2.7.2 (2026-11-18)
+
+Fixes for features that gave a wrong value, a NaN or an Infinity without any message for some inputs. They were found when a CT lung
+tumour of 279,000 voxels gave a negative GLSZM large zone emphasis and a NaN small zone emphasis, and then by reading all the feature
+code for the same kind of mistake (an `int` multiplication that overflows) and for other silent errors. **A value changes only for the
+inputs listed under "Who is affected"; every other value is unchanged.** On five real CT tumours (public NSCLC Radiogenomics data,
+93,000 to 279,000 voxels, 230 columns, default settings) 19 to 38 columns changed, all of them in the lists below, and none of the
+GLCM, GLDZM, NGLDM, NGTDM and fractal columns. The IBSI 1 reports (digital phantom, configurations C and D) have the same counts and
+the same verdict for every feature as the reports of 2.7.0. 2.7.1 (the parallel GLRLM) is included.
+
+### Fixed (integer overflow of a square: wrong value, NaN)
+- GLSZM `j*j` (zone size), GLRLM and NGLDM and GLDZM `i*i*j*j` (grey level and run length, dependence, distance) and the single squares
+  of the same kind were multiplied as `int`. Over 46,340 the square wrapped (a wrong, often negative, value); at 65,536 it was 0 and a
+  division 0/0 gave NaN. All of them are `double` now.
+- GLSZM: a zone of more than 46,340 voxels gave a wrong `LargeZoneEmphasis` (a 48,000-voxel block: -9.97e8 instead of +1.15e9) and
+  a zone of 65,536 voxels or more gave NaN for `SmallZoneEmphasis` and `SmallZoneHighGrayLevelEmphasis`. On the real tumours: large
+  zone emphasis -71,386 -> 1,638,167 and -199,405 -> 437,689 (negative values are impossible), 106,136 -> 897,179 (positive, wrong); the
+  two NaN became 0.606 and 0.519.
+- GLRLM `ShortRunLowGrayLevelEmphasis` was NaN with 256 or more grey levels (the empty cell (256, 256) gave 0/0), and GLDZM
+  `SmallDistanceLowGrayLevelEmphasis` was Infinity for a grey level 4096 at a distance of 16 (and the same for every grey level times distance
+  that is a multiple of 65,536). Fixed bin widths of 1 HU make such grey levels common.
+
+### Fixed (GLRLM: runs longer than the number of bins were dropped)
+- The matrix was always `nBins x nBins`, so a run longer than `nBins` (32 by default) was dropped without a message; when all runs of a
+  direction were dropped the normalisation gave 0/0 = NaN (rows of 100 voxels with 32 bins: NaN). The matrix is now as wide as the longest run
+  of the direction, never narrower than `nBins`: **when no run is longer than `nBins` the matrix and every value are exactly the same as
+  before.** On the real tumours only the one with 13 runs of 33 to 45 voxels (of 1.8 million) changed: 16 GLRLM columns, the largest
+  `RunLengthVariance` +3.7e-3 and `LongRunEmphasis` +1.9e-3 (relative).
+
+### Fixed (GLCM: a region on one slice)
+- A region on one slice has pairs only in the 4 in-plane angles of the 13; the other 9 were skipped, but the mean was taken over all 13
+  entries of the array, so **every GLCM feature was multiplied by about 4/13 = 0.3077** (a uniform region gave an angular second moment of 0.3077
+  instead of 1). The mean is over the angles that have a matrix. A region on two or more slices, and `force2D`, are not affected.
+  `InformationalMeasureOfCorrelation2` skips an angle whose value is NaN and is now averaged over the others.
+
+### Fixed (skewness and kurtosis)
+- They were computed from raw moments, which loses the digits when the mean is large against the standard deviation (mean 30,000, SD 2.5:
+  skewness 0.089 instead of 0.0005, excess kurtosis 5,419 instead of 0.0007) and gave -1.1e6 and 7.3e11 instead of NaN for a region of one constant value (100.3). They are computed
+  from the deviations from the mean now and are NaN for a constant region. CT and PET values were already correct to 1e-9 and change by less than 1e-10
+  (relative). Also `ReciprocalKurtosis` of the auxiliary statistics.
+
+### Fixed (mesh volume and surface area)
+- The mesh volume added `float` triple products measured from the origin of the image; for a region far from the origin the large terms cancel and
+  the float rounding does not, so the same shape had a different volume at each position (a sphere of 33,360 mm3 gave 33,344 mm3, -0.05%, 215 mm from
+  the origin; more farther) and the shape features derived from it (sphericity, compactness, volume densities, integrated intensity) too. It is computed in double relative to the first vertex now (the convex
+  hull volume as well). On the real tumours the volume changed by 5e-5 to 2.5e-4 (relative).
+- The surface area of the mesh and of the bounding box area densities measured the distance between the cross product and the origin
+  of the calibration instead of the length of the cross product: an image whose calibration origin is not 0 gave a wrong surface area (it depended
+  on the origin) and so did every feature using it. With origin 0 (the usual case) the area is unchanged
+  (1e-8 relative).
+
+### Fixed (intensity histogram gradient)
+- The central difference `(h[i+1] - h[i-1]) / 2` of the integer histogram was an integer division (the 0.5 of an odd difference was
+  cut off), and the maximum and the minimum started from 0: a histogram whose gradients are all negative gave a maximum of 0 and the bin 0. Changes
+  `MaximumHistogramGradient`, `MinimumHistogramGradient` and their intensities (a value of an odd difference gets its 0.5).
+
+### Fixed (size of a resampled image)
+- `ceil(n * spacing / new spacing)` came out one voxel too large when the exact result is an integer and the floating point result is a
+  few ULP above it (100 pixels of 0.55 mm to 1 mm gave 56, not 55; a half voxel shift of the grid). A result within 4 ULP of an integer is that integer.
+  Resampling to a spacing that gives such a size changes slightly.
+
+### Who is affected
+| Change | Inputs whose values change |
+|---|---|
+| Overflow of a square (GLSZM, GLRLM, NGLDM, GLDZM) | a zone, run or distance of more than 46,340, or 256 or more grey levels, or a grey level times a distance or run that is a multiple of 65,536 |
+| GLRLM matrix width | a run longer than `nBins` |
+| GLCM mean | a region on one slice (3D mode); `InformationalMeasureOfCorrelation2` when an angle gives NaN |
+| Skewness, kurtosis | a mean larger than about 400 standard deviations, or a constant region (NaN); otherwise below 1e-10 |
+| Mesh volume (and the shape features from it) | all regions, by 5e-5 to 2.5e-4 on CT tumours (more far from the image origin) |
+| Surface area | an image whose calibration origin is not 0 |
+| Histogram gradient | an odd difference between the neighbours of a bin; an all-negative or all-positive gradient |
+| Resampled size | a size that is an exact integer |
+
+### Known and not changed
+- Items that need the IBSI definition first: the intensity at volume fraction of the IVH (`intensity + 1` for the raw and the binned intensity),
+  NGTDM of a uniform region (Infinity, NaN) and its `Ngp`, the GLDZM `Ns` that is not reset and its slow neighbour search for large regions, the
+  fractal boxes with a count of 0, the memory of a matrix with thousands of grey levels, and the time of GLAM for large regions.
+
+### Tests
+- 21 new tests compare every fix with a reference computed in the test (a zone, run or distance of 48,000, 67,600 and 200,000 voxels; 300 and
+  4,096 grey levels; a run of 100 with 32 bins; a uniform region on one and three slices; mean 30,000 and SD 2.5; a sphere at three positions; the
+  origin of the calibration; the histograms [1,1,4,1] and [5,3,1]; the sizes of common spacings) and fail on the code of 2.7.1. The whole suite
+  (154 tests) passes.
+
 ## 2.7.1 (2026-11-15)
 
 Faster GLRLM. The 13 directions of the grey level run length matrix are now calculated in parallel. No feature value

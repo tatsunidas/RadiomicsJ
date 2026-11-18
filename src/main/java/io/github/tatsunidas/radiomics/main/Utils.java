@@ -564,8 +564,8 @@ public class Utils {
 		
 		double sx = cal.pixelWidth/resampleX;
 		double sy = cal.pixelHeight/resampleY;
-		int newW = (int) Math.ceil(imp.getWidth()*sx);
-		int newH = (int) Math.ceil(imp.getHeight()*sy);
+		int newW = sizeCeil(imp.getWidth()*sx);
+		int newH = sizeCeil(imp.getHeight()*sy);
 		ImageStack stack = new ImageStack(newW,newH);
 		int size = imp.getNSlices();
 		for(int z=0;z<size;z++) {
@@ -860,9 +860,9 @@ public class Utils {
 //		int newH = (int)Math.round(h * (cal.pixelHeight / resampleY));
 //		int newS = (int)Math.round(s * (cal.pixelDepth / resampleZ));
 		
-		int newW = (int)Math.ceil(w * (cal.pixelWidth / resampleX));
-		int newH = (int)Math.ceil(h * (cal.pixelHeight / resampleY));
-		int newS = (int)Math.ceil(s * (cal.pixelDepth / resampleZ));
+		int newW = sizeCeil(w * (cal.pixelWidth / resampleX));
+		int newH = sizeCeil(h * (cal.pixelHeight / resampleY));
+		int newS = sizeCeil(s * (cal.pixelDepth / resampleZ));
 		
 		float[] voxels = new float[w*h*s];
 		float[] deformed = new float[newW*newH*newS];
@@ -1165,9 +1165,9 @@ public class Utils {
 			return null;
 		}
 
-		int newW = (int)Math.ceil(w * (cal.pixelWidth / resampleX));
-		int newH = (int)Math.ceil(h * (cal.pixelHeight / resampleY));
-		int newS = (int)Math.ceil(s * (cal.pixelDepth / resampleZ));
+		int newW = sizeCeil(w * (cal.pixelWidth / resampleX));
+		int newH = sizeCeil(h * (cal.pixelHeight / resampleY));
+		int newS = sizeCeil(s * (cal.pixelDepth / resampleZ));
 		
 		float[] voxels = new float[w*h*s];
 		float[] deformed = new float[newW*newH*newS];
@@ -1374,9 +1374,9 @@ public class Utils {
 			return null;
 		}
 		
-		int newW = (int)Math.ceil(w * (cal.pixelWidth / resampleX));
-		int newH = (int)Math.ceil(h * (cal.pixelHeight / resampleY));
-		int newS = (int)Math.ceil(s * (cal.pixelDepth / resampleZ));
+		int newW = sizeCeil(w * (cal.pixelWidth / resampleX));
+		int newH = sizeCeil(h * (cal.pixelHeight / resampleY));
+		int newS = sizeCeil(s * (cal.pixelDepth / resampleZ));
 		
 		float[] voxels = new float[w*h*s];
 		float[] deformed = new float[newW*newH*newS];
@@ -1459,9 +1459,9 @@ public class Utils {
 		
 		float[][] pw = initializeCubicPolynomialWeights(256);
 
-		int newW = (int)Math.ceil(w * (cal.pixelWidth / resampleX));
-		int newH = (int)Math.ceil(h * (cal.pixelHeight / resampleY));
-		int newS = (int)Math.ceil(s * (cal.pixelDepth / resampleZ));
+		int newW = sizeCeil(w * (cal.pixelWidth / resampleX));
+		int newH = sizeCeil(h * (cal.pixelHeight / resampleY));
+		int newS = sizeCeil(s * (cal.pixelDepth / resampleZ));
 		
 		float[] voxels = new float[w*h*s];
 		float[] deformed = new float[newW*newH*newS];
@@ -2193,6 +2193,17 @@ public class Utils {
 	 * 
 	 * @return 26 + own angles. symmetrical calculation needed only angle 14 to 27.
 	 */
+	/**
+	 * The size of a resampled axis, ceil(n * spacing / new spacing). When the exact result is an integer (100 pixels of 0.55 mm
+	 * to 1.0 mm is 55) the floating point product and quotient can come out a few ULP above it (55.00000000000001) and a
+	 * plain ceil gave 56: one more voxel and a half voxel shift of the grid. A result within 4 ULP of an integer
+	 * (the rounding error of one product and one quotient is at most a few ULP) is that integer.
+	 */
+	static int sizeCeil(double x) {
+		double r = Math.rint(x);
+		return Math.abs(x - r) <= 4 * Math.ulp(x) ? (int) r : (int) Math.ceil(x);
+	}
+
 	public static HashMap<Integer, int[]> buildAngles() {
 		// angle 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
 		// dim z -1 0 1 -1 0 1 -1 0 1 -1 0 1 -1 0 1 -1 0 1 -1 0 1 -1 0 1 -1 0 1

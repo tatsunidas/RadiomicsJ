@@ -807,7 +807,7 @@ public class GLDZMFeatures extends AbstractRadiomicsFeature implements Texture{
 			for(int i=1; i<=gldzm.length; i++) {
 				s_j += gldzm[i-1][j-1];
 			}
-			sde += s_j/(j*j);
+			sde += s_j/((double) j*j);
 		}
 		return sde;//already normalized
 	}
@@ -819,7 +819,7 @@ public class GLDZMFeatures extends AbstractRadiomicsFeature implements Texture{
 			for(int i=1; i<=gldzm.length; i++) {
 				s_j += gldzm[i-1][j-1];
 			}
-			lde += s_j*(j*j);
+			lde += s_j*((double) j*j);
 		}
 		return lde;//already normalized
 	}
@@ -832,7 +832,7 @@ public class GLDZMFeatures extends AbstractRadiomicsFeature implements Texture{
 			for(int j=1; j<=gldzm[0].length; j++) {
 				s_i += gldzm[i-1][j-1];
 			}
-			lglze += s_i/(i*i);
+			lglze += s_i/((double) i*i);
 		}
 		return lglze;//already normalized
 	}
@@ -844,7 +844,7 @@ public class GLDZMFeatures extends AbstractRadiomicsFeature implements Texture{
 			for(int j=1; j<=gldzm[0].length; j++) {
 				s_i += gldzm[i-1][j-1];
 			}
-			lglze += s_i*(i*i);
+			lglze += s_i*((double) i*i);
 		}
 		return lglze;//already normalized
 	}
@@ -854,7 +854,7 @@ public class GLDZMFeatures extends AbstractRadiomicsFeature implements Texture{
 		Double sdlgle = 0.0d;
 		for(int i=1; i<=gldzm.length; i++) {
 			for(int j=1; j<=gldzm[0].length; j++) {
-				sdlgle += gldzm[i-1][j-1]/(i*i*j*j);
+				sdlgle += gldzm[i-1][j-1]/((double) i*i*j*j);
 			}
 		}
 		return sdlgle;//already normalized
@@ -864,7 +864,7 @@ public class GLDZMFeatures extends AbstractRadiomicsFeature implements Texture{
 		Double sdhgle = 0.0d;
 		for(int i=1; i<=gldzm.length; i++) {
 			for(int j=1; j<=gldzm[0].length; j++) {
-				sdhgle += (gldzm[i-1][j-1]*i*i)/(j*j);
+				sdhgle += (gldzm[i-1][j-1]*i*i)/((double) j*j);
 			}
 		}
 //		return sahgle/Nz;
@@ -875,7 +875,7 @@ public class GLDZMFeatures extends AbstractRadiomicsFeature implements Texture{
 		Double ldlgle = 0.0d;
 		for(int i=1; i<=gldzm.length; i++) {
 			for(int j=1; j<=gldzm[0].length; j++) {
-				ldlgle += (gldzm[i-1][j-1]*j*j)/(i*i);
+				ldlgle += (gldzm[i-1][j-1]*j*j)/((double) i*i);
 			}
 		}
 		return ldlgle;//already normalized

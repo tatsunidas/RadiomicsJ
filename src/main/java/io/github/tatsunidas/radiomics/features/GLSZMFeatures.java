@@ -541,7 +541,7 @@ public class GLSZMFeatures extends AbstractRadiomicsFeature implements Texture{
 			for(int i=1; i<=glszm.length; i++) {
 				s_j += glszm[i-1][j-1];
 			}
-			sae += s_j/(j*j);
+			sae += s_j/((double) j*j);
 		}
 //		sae /= Nz;//already normalized
 		return sae;
@@ -554,7 +554,7 @@ public class GLSZMFeatures extends AbstractRadiomicsFeature implements Texture{
 			for(int i=1; i<=glszm.length; i++) {
 				s_j += glszm[i-1][j-1];
 			}
-			lae += s_j*(j*j);
+			lae += s_j*((double) j*j);
 		}
 //		lae /= Nz;//already normalized
 		return lae;
@@ -568,7 +568,7 @@ public class GLSZMFeatures extends AbstractRadiomicsFeature implements Texture{
 			for(int j=1; j<=glszm[0].length; j++) {
 				s_i += glszm[i-1][j-1];
 			}
-			lglze += s_i/(i*i);
+			lglze += s_i/((double) i*i);
 		}
 //		return lglze/Nz;//already normalized
 		return lglze;
@@ -581,7 +581,7 @@ public class GLSZMFeatures extends AbstractRadiomicsFeature implements Texture{
 			for(int j=1; j<=glszm[0].length; j++) {
 				s_i += glszm[i-1][j-1];
 			}
-			lglze += s_i*(i*i);
+			lglze += s_i*((double) i*i);
 		}
 //		return lglze/Nz;//already normalized
 		return lglze;
@@ -603,7 +603,7 @@ public class GLSZMFeatures extends AbstractRadiomicsFeature implements Texture{
 		Double sahgle = 0.0d;
 		for(int i=1; i<=glszm.length; i++) {
 			for(int j=1; j<=glszm[0].length; j++) {
-				sahgle += (glszm[i-1][j-1]*i*i)/(j*j);
+				sahgle += (glszm[i-1][j-1]*i*i)/((double) j*j);
 			}
 		}
 //		return sahgle/Nz;
