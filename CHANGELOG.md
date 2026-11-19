@@ -1,5 +1,58 @@
 # Changelog
 
+## 2.7.3 (2026-11-19)
+
+The intensity-volume histogram (IVH) features are computed as IBSI 1 (section 3.5) defines them. The IBSI configuration C had one
+failure, the intensity at 10% volume (86.25 for a reference of 88.8 +- 0.2); the cause was found in the definition, and the same
+mistakes were in the other IVH features. **Only the IVH features change** (`IntensityVolumeHistogram_*`); no other family is touched.
+
+### Fixed
+- **Intensity at volume fraction (I10, I90)**: the definition is "the smallest discretised intensity that is in at most x% of the volume", searched
+  on the whole grid of intensities, also on the intensities that no voxel has. The code looked at the intensities that exist only, from the top, and
+  returned the first one with a volume fraction of x% or more, which is one grid step too low. Configuration C: I10 86.25 -> 88.75 (reference 88.8),
+  I90 -423.75 -> -421.25 (reference -421 +- 14); both were exactly one bin (2.5) low. A voxel count that is exactly x% (a tie) takes the bin itself.
+- **`+1` on the intensity (discrete case)**: the keys of the histogram had `+1` added ("1-based"). It is right only by chance, for a grid of step 1 and
+  a gap of one bin. It was wrong for intensities that are not integers (a CT interpolated without the rounding of the IBSI, 68QD, which is off by default),
+  and for a tie. **A non-integer intensity in mode 0 is now rounded half to even to the grid of 1, as the IBSI rounding does: the IVH is the same as
+  the IVH of the rounded image.** No other treatment of the data depends on its content.
+- **Total range G**: mode 1 (fixed bin width w) uses G = [Xmin + 0.5w, Xmax - 0.5w] (it used the re-segmentation range); mode 2 (fixed bin number Ng) uses
+  G = [1, Ng] (it used the re-segmentation range on the bin numbers, so the intensity fractions were meaningless). Mode 0 uses the re-segmentation range;
+  a range that is open on one side takes the missing side from the data (it was ignored unless both sides were given). The number of bins of mode 1 is
+  computed with decimal arithmetic (the range and the bin width are decimal numbers).
+- **Volume at intensity fraction (V10, V90)** and the **area under the IVH curve**: evaluated on the whole grid of G (they used the existing intensities only).
+  The area is 0 for a ROI with one discretised intensity (the IBSI definition), and NaN for an empty ROI and for features that need an intensity range
+  that does not exist (they were `null`).
+- The constructor that takes a settings map reads the bin width and the bin number from it (it read the static values).
+- Mode 0 prints a diagnostic to `System.err` when the rounding to the grid of 1 puts every voxel of a ROI into one value although the ROI has different values (an ADC map or a
+  PET in SUV, for which mode 0 is not meant). No feature value depends on it. Mode 0 is for calibrated, discrete intensities (CT in HU); use mode 1 or 2 otherwise.
+
+### Checked
+- IBSI 1 reports (digital phantom, configurations C and D), recorded with this version: **configuration C has no failure (it was 1)**; configuration D and the
+  digital phantom have the same verdict for every feature as 2.7.2. The area under the IVH curve is excluded by default and the manual says it has no reference
+  value; the values of the IBSI validation file (IBSI_ValidationFile.xlsx) are reproduced: digital phantom 0.3203 (0.32), configuration C 0.6807 (0.681 +- 0.003),
+  configuration D 0.5630 (0.563 +- 0.013) (it was 0.4095 for the phantom). A test keeps these values (`IvhAucReferenceTest`).
+- 11 new tests (`IvhDefinitionTest`) compare all 7 features with a reference written from the formulas of the manual (floating point, loops over the grid); 10 of them fail
+  on the code of 2.7.2. The digital phantom of the manual (table 3.70), ties, a gap, a ROI with one value, a range open above, a value at the top of the range,
+  a range that the bin width does not divide, the fixed bin number, an empty ROI, and a CT without rounding against the rounded CT (88.99999, the halves) are covered.
+- Five real CT tumours (public NSCLC Radiogenomics), default settings (not interpolated, integer HU): **no column changes**. The analysis settings of the study
+  (1 mm isotropic, bin width 25 HU, IVH mode 0, fractional HU): **6 IVH columns change, no other column**: for example the intensity at 10% volume 56.35 -> 56,
+  -678.96 -> -679 (an integer now); the volume fractions change by up to 1e-4 in absolute value (V90 0.00467 -> 0.00472) because the intensity thresholds are on the grid.
+
+### Who is affected
+| Input | Change |
+|---|---|
+| IVH mode 0, integer intensities (CT, not interpolated) | I10, I90, V10, V90: same, except for a tie (a volume fraction of exactly x%); the area changes |
+| IVH mode 0, non-integer intensities (interpolated CT without rounding, PET) | all 7 IVH features: those of the intensities rounded to integers. **A PET (SUV) has to use mode 1** (fixed bin width); in mode 0 its grid is 1 SUV |
+| IVH mode 1 | I10, I90: one bin up; V90 can change (the range G); the area changes |
+| IVH mode 2 | V10, V90 and the area change (the range G is [1, Ng]) |
+| A ROI with one intensity, or empty | the area is 0 (one value); NaN for an empty ROI |
+
+### Not changed
+- The area under the IVH curve stays in the list of the features that are excluded by default (the IBSI manual has no reference value for it and says it should not be used).
+- Rounding of a CT after interpolation (IBSI 68QD) stays off by default.
+- `Utils.discreteByBinWidth` computes the bin number of a decimal bin width in binary floating point (a voxel exactly at a bin edge can fall in the neighbouring bin);
+  it is used by the texture features too and is recorded for a later version.
+
 ## 2.7.2 (2026-11-18)
 
 Fixes for features that gave a wrong value, a NaN or an Infinity without any message for some inputs. They were found when a CT lung
