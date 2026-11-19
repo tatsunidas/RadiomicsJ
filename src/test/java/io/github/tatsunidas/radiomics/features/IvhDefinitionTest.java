@@ -314,4 +314,35 @@ class IvhDefinitionTest {
             assertTrue(Double.isNaN(d));
         }
     }
+
+    private static String stderrOf(float[] values, int mode) throws Exception {
+        java.io.PrintStream saved = System.err;
+        java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+        System.setErr(new java.io.PrintStream(bytes, true, "UTF-8"));
+        try {
+            ivh(values, mode);
+        } finally {
+            System.setErr(saved);
+        }
+        return bytes.toString("UTF-8");
+    }
+
+    /** An ADC-like ROI (0.0005 to 0.003) is rounded into one value in mode 0: the diagnostic is printed. */
+    @Test
+    void modeZeroWarnsWhenTheRoundingCollapsesTheRoi() throws Exception {
+        float[] adc = { 0.0005f, 0.0008f, 0.0012f, 0.0020f, 0.0030f, 0.0011f };
+        assertTrue(stderrOf(adc, 0).contains("fall into one value"));
+    }
+
+    /** No diagnostic for a CT-like ROI (integer or interpolated), for a ROI with one value, and in the other modes. */
+    @Test
+    void noWarningForCtLikeRoisOrOtherModes() throws Exception {
+        float[] ct = { -120f, -80.4f, 35f, 60.5f, 12f, 3.2f };
+        assertEquals("", stderrOf(ct, 0));
+        assertEquals("", stderrOf(new float[] { 5f, 5f, 5f }, 0));
+        float[] adc = { 0.0005f, 0.0008f, 0.0012f, 0.0020f, 0.0030f, 0.0011f };
+        RadiomicsJ.IVH_binWidth = 0.0005;
+        assertEquals("", stderrOf(adc, 1));
+        assertEquals("", stderrOf(adc, 2));
+    }
 }

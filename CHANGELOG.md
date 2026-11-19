@@ -23,6 +23,8 @@ mistakes were in the other IVH features. **Only the IVH features change** (`Inte
   The area is 0 for a ROI with one discretised intensity (the IBSI definition), and NaN for an empty ROI and for features that need an intensity range
   that does not exist (they were `null`).
 - The constructor that takes a settings map reads the bin width and the bin number from it (it read the static values).
+- Mode 0 prints a diagnostic to `System.err` when the rounding to the grid of 1 puts every voxel of a ROI into one value although the ROI has different values (an ADC map or a
+  PET in SUV, for which mode 0 is not meant). No feature value depends on it. Mode 0 is for calibrated, discrete intensities (CT in HU); use mode 1 or 2 otherwise.
 
 ### Checked
 - IBSI 1 reports (digital phantom, configurations C and D), recorded with this version: **configuration C has no failure (it was 1)**; configuration D and the

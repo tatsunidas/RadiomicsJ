@@ -158,7 +158,9 @@ public class IntensityVolumeHistogramFeatures extends AbstractRadiomicsFeature{
 			kmin = 1;
 			kmax = Math.max(1, binCount);
 		}else {
-			k = toBins(Utils.getVoxels(this.img, this.mask, this.label), true);
+			double[] raw = finite(Utils.getVoxels(this.img, this.mask, this.label));
+			k = toBins(raw, true);
+			warnIfRoundingCollapses(raw, k);
 			offset = 0d;
 			step = 1d;
 			if(k.length == 0) {
@@ -170,6 +172,28 @@ public class IntensityVolumeHistogramFeatures extends AbstractRadiomicsFeature{
 			kmax = rMax != null ? (long)Math.floor(rMax) : dmax;
 		}
 		count(k);
+	}
+	
+	/**
+	 * Mode 0 is for calibrated, discrete intensities (CT in HU). On any other intensities (a computed image such as an ADC map,
+	 * a PET in SUV) the rounding to the grid of 1 destroys the values. Diagnostic only, no feature value depends on it:
+	 * it is reported when the rounding puts every voxel of the ROI into one grid value although the ROI has different values.
+	 */
+	private static void warnIfRoundingCollapses(double[] raw, long[] rounded) {
+		if(raw.length == 0) {
+			return;
+		}
+		long distinctRaw = Arrays.stream(raw).distinct().count();
+		long distinctGrid = Arrays.stream(rounded).distinct().count();
+		if(distinctRaw > 1 && distinctGrid == 1) {
+			System.err.println("RadiomicsJ IVH: mode 0 rounds the intensities to the grid of 1 and all " + raw.length
+					+ " voxels of the ROI fall into one value, although the ROI has " + distinctRaw
+					+ " different values. Mode 0 is for discrete calibrated intensities (CT in HU); use mode 1 (fixed bin width) or mode 2 (fixed bin number).");
+		}
+		if(RadiomicsJ.debug) {
+			long moved = Arrays.stream(raw).filter(d -> d != Math.rint(d)).count();
+			System.out.println("RadiomicsJ IVH: mode 0 rounded " + moved + " of " + raw.length + " voxels to the grid of 1.");
+		}
 	}
 	
 	private static double[] finite(double[] v) {
