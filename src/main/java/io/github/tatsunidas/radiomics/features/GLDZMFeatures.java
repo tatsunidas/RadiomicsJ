@@ -375,38 +375,75 @@ public class GLDZMFeatures extends AbstractRadiomicsFeature implements Texture{
 	}
 	
 	
+	/**
+	 * Collects the zones: the 26-connected sets of voxels of the same grey level. A voxel that is null in {@code src} is not part of any zone.
+	 * Breadth first search over a visited array, so the time is linear in the number of voxels (the former search removed the visited
+	 * voxels from lists, which made one large zone take about n^7 of the edge length n: 47 s for 41^3, 411 s for 55^3).
+	 */
 	public ArrayList<ArrayList<Point3i>> collectBlobs(Integer[][][] src){
-		int s = src.length;
-		int h = src[0].length;
-		int w = src[0][0].length;
-		//copy src to replace values.
-		Integer[][][] pixels = new Integer[s][h][w];
+		final int s = src.length;
+		final int h = src[0].length;
+		final int w = src[0][0].length;
+		final int[] value = new int[w * h * s];
+		final boolean[] done = new boolean[w * h * s];
 		for (int z = 0; z < s; z++) {
 			for (int y = 0; y < h; y++) {
 				for (int x = 0; x < w; x++) {
-					if(src[z][y][x] == null) {
-						pixels[z][y][x] = Integer.MIN_VALUE;
-					}else {
-						pixels[z][y][x] = Integer.valueOf(src[z][y][x]);
+					Integer v = src[z][y][x];
+					int idx = x + w * (y + h * z);
+					if (v == null || v == Integer.MIN_VALUE) {
+						done[idx] = true;//not a voxel of the region of interest
+					} else {
+						value[idx] = v;
 					}
 				}
 			}
 		}
-		
-		/*
-		 * blob list
-		 * blob points[[xyz],[xyz],[xyz]...]
-		 */
+		//the offsets of the 26 neighbours (the same set of neighbours as the former search)
+		if (angle_ids == null) {//the sub-class constructor does not set them
+			angle_ids = new ArrayList<>(angles.keySet());//0 to 26
+			Collections.sort(angle_ids);
+		}
+		final ArrayList<int[]> offs = new ArrayList<>();
+		for (Integer a_id : angle_ids) {
+			if (Integer.valueOf(13) == a_id) {
+				continue;//0,0,0
+			}
+			int[] a = angles.get(a_id);
+			offs.add(new int[] { a[2], a[1] * -1, a[0] });
+		}
 		ArrayList<ArrayList<Point3i>> blobs = new ArrayList<>();
+		final int[] stack = new int[w * h * s];
 		for (int z = 0; z < s; z++) {
 			for (int y = 0; y < h; y++) {
 				for (int x = 0; x < w; x++) {
-					if (pixels[z][y][x] == Integer.MIN_VALUE) {
+					int seed = x + w * (y + h * z);
+					if (done[seed]) {
 						continue;
 					}
-					int v = pixels[z][y][x];
+					final int grayLevel = value[seed];
 					ArrayList<Point3i> blob = new ArrayList<>();
-					blob = searchNeighbor2(v, pixels, x, y, z);
+					int top = 0;
+					stack[top++] = seed;
+					done[seed] = true;
+					while (top > 0) {
+						int idx = stack[--top];
+						int cx = idx % w;
+						int cy = (idx / w) % h;
+						int cz = idx / (w * h);
+						blob.add(new Point3i(cx, cy, cz));
+						for (int[] o : offs) {
+							int nx = cx + o[0], ny = cy + o[1], nz = cz + o[2];
+							if (nx < 0 || nx >= w || ny < 0 || ny >= h || nz < 0 || nz >= s) {
+								continue;
+							}
+							int j = nx + w * (ny + h * nz);
+							if (!done[j] && value[j] == grayLevel) {
+								done[j] = true;
+								stack[top++] = j;
+							}
+						}
+					}
 					blobs.add(blob);
 				}
 			}
@@ -461,65 +498,6 @@ public class GLDZMFeatures extends AbstractRadiomicsFeature implements Texture{
 //		}
 //	}
 	
-	private ArrayList<Point3i> searchNeighbor2(int grayLevel, Integer[][][] pixels, int seedX, int seedY, int seedZ) {
-		ArrayList<Point3i> blob = null;
-		if(pixels[seedZ][seedY][seedX] == null) {
-			return blob;
-		}
-		if(pixels[seedZ][seedY][seedX] == Integer.MIN_VALUE) {
-			return blob;
-		}
-		if(pixels[seedZ][seedY][seedX] != grayLevel) {
-			return blob;
-		}else {
-			pixels[seedZ][seedY][seedX] = Integer.MIN_VALUE;
-			Point3i xyz = new Point3i(seedX, seedY, seedZ);
-			if(blob == null) {
-				blob = new ArrayList<Point3i>();
-			}
-			blob.add(xyz);
-		}
-		
-		//26 connected
-		ArrayList<Point3i> connected = connectedNeighbor2(pixels, grayLevel, seedX, seedY, seedZ, w, h, s);
-		int seedX2 = 0;
-		int seedY2 = 0;
-		int seedZ2 = 0;
-		while(connected!=null) {
-			if(connected != null) {
-				ArrayList<Point3i> connected_itr = new ArrayList<>();
-				for (Point3i np : connected) {
-					if (np == null) {
-						// out of pixels coordinate
-						continue;
-					}
-					if (pixels[np.z][np.y][np.x] == null) {
-						continue;
-					}
-					if (pixels[np.z][np.y][np.x] == Integer.MIN_VALUE) {
-						continue;
-					}
-					if (pixels[np.z][np.y][np.x] == grayLevel) {
-						Point3i xyz = new Point3i(np.x, np.y, np.z);
-						blob.add(xyz);
-						pixels[np.z][np.y][np.x] = Integer.MIN_VALUE;
-						seedX2 = np.x;
-						seedY2 = np.y;
-						seedZ2 = np.z;
-						ArrayList<Point3i> connected_ = connectedNeighbor2(pixels, grayLevel, seedX2, seedY2, seedZ2, w, h, s);
-						if(connected_ != null) {
-							connected_itr.addAll(connected_);
-						}
-					}
-				}
-				connected.addAll(connected_itr);
-				connected = updateConnectedNeighbours(pixels, grayLevel, connected);
-			}
-		}
-		return blob;
-	}
-	
-
 //	private ArrayList<Point3i> connectedNeighbor(int seedX, int seedY, int seedZ, int max_w , int max_h, int max_s){
 //		ArrayList<Integer> angle_ids = new ArrayList<>(angles.keySet());//0 to 26
 //		Collections.sort(angle_ids);
@@ -537,51 +515,6 @@ public class GLDZMFeatures extends AbstractRadiomicsFeature implements Texture{
 //		}
 //		return connect26;
 //	}
-	
-	private ArrayList<Point3i> connectedNeighbor2(Integer[][][] voxels, final int grayLevel, final int seedX, final int seedY, final int seedZ, final int max_w , final int max_h, final int max_s){
-		ArrayList<Point3i> connected = new ArrayList<Point3i>();
-		for(Integer a_id:angle_ids) {
-			if(Integer.valueOf(13) == a_id) {
-				continue;//0,0,0
-			}
-			int[] a = angles.get(a_id);
-			int nX = seedX+a[2];
-			int nY = seedY+(a[1]*-1);//adjust y direction from vector
-			int nZ = seedZ+a[0];
-			Point3i neighbour = new Point3i(nX,nY,nZ);
-			if(!Utils.isOutOfRange(neighbour, max_w, max_h, max_s)) {
-				if(voxels[nZ][nY][nX] != null) {
-					if(voxels[nZ][nY][nX] == grayLevel) {
-						connected.add(neighbour);
-					}
-				}
-			}
-		}
-		return connected.size() > 0 ? connected:null;
-	}
-	
-	private ArrayList<Point3i> updateConnectedNeighbours(final Integer[][][] voxels, final int grayLevel, ArrayList<Point3i> connected) {
-		if(connected == null) {
-			return null;
-		}
-		if(connected.size() ==0 || connected.isEmpty()) {
-			connected = null;
-			return null;
-		}
-		ArrayList<Point3i> remove = new ArrayList<Point3i>();
-		for(Point3i p:connected) {
-			if (voxels[p.z][p.y][p.x] == null || voxels[p.z][p.y][p.x] == Integer.MIN_VALUE) {
-				remove.add(p);
-			}
-		}
-		connected.removeAll(remove);
-		if(connected.size() ==0 || connected.isEmpty()) {
-			connected = null;
-			return null;
-		}else {
-			return connected;
-		}
-	}
 	
 	/**
 	 * The distance to the ROI edge is defined according to 6 and 4-connectedness for 3D and 2D, respectively. 
