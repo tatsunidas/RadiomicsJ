@@ -301,17 +301,19 @@ public class NGTDMFeatures extends AbstractRadiomicsFeature implements Texture{
 					if(grayLevel < 1 || grayLevel > nBins) {
 						continue;
 					}
+					// IBSI: a voxel without any neighbour is not counted in n_i (and so not in N_v,c), and adds nothing to s_i
 					if(validCount[idx] != 0) {
 						si[grayLevel-1] += Math.abs(grayLevel-(blobSum[idx]/validCount[idx]));
+						ni[grayLevel-1]++;
 					}
-					ni[grayLevel-1]++;
 				}
 			}
 		}
 		for(int grayLevel=1;grayLevel<=nBins;grayLevel++) {
 			ngtdm[grayLevel-1] = new double[]{(double)grayLevel, (double)ni[grayLevel-1], 0.0d, si[grayLevel-1]};
 			Nvp += ni[grayLevel-1];
-			if(si[grayLevel-1] != 0.0) {
+			// IBSI: N_g,p is the number of grey levels with p_i > 0 (not the number of grey levels with s_i != 0)
+			if(ni[grayLevel-1] > 0) {
 				Ngp++;
 			}
 		}
@@ -342,10 +344,14 @@ public class NGTDMFeatures extends AbstractRadiomicsFeature implements Texture{
 		for(int i=1;i<=nBins;i++) {
 			coa += ngtdm[i-1][2] * ngtdm[i-1][3];
 		}
-		return 1.0/coa;
+		// IBSI: the denominator can be 0 (a uniform region); the coarseness is then set to the arbitrary maximum 10^6
+		return coa == 0.0 ? 1.0E6 : 1.0/coa;
 	}
 	
 	private Double getContrast() {
+		if(Ngp == 1) {
+			return 0.0; // IBSI
+		}
 		double cntra = 0.0;
 		double sumSi = 0.0d;
 		for(int i=1;i<=nBins;i++) {
@@ -360,6 +366,9 @@ public class NGTDMFeatures extends AbstractRadiomicsFeature implements Texture{
 	}
 	
 	private Double getBusyness() {
+		if(Ngp == 1) {
+			return 0.0; // IBSI
+		}
 		double busy1 = 0.0;
 		double busy2 = 0.0;
 		for(int i=1;i<=nBins;i++) {

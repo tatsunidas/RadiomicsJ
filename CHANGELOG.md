@@ -1,5 +1,45 @@
 # Changelog
 
+## 2.7.4 (2026-11-22)
+
+An audit of the open points of 2.7.2 (the list "Known and not changed") against the IBSI definition and an independent implementation
+(numpy, scipy). The NGTDM now follows IBSI in the cases where it did not, and the zone search of the GLDZM is linear in time.
+**A normal region of interest gives the same values as 2.7.3** (checked: the values of a normal region are equal to the 2.7.3 values, and the IBSI 1
+reports are the same); only a degenerate region, or a region with a voxel without neighbour, changes.
+
+### Fixed
+- **NGTDM, uniform and degenerate regions** (IBSI, the neighbouring grey tone difference based features): the coarseness is 10^6 when its denominator
+  is 0 (it was Infinity for a uniform region); the contrast and the busyness are 0 when N_g,p = 1 (they were NaN for a uniform region).
+- **NGTDM, N_g,p** is the number of grey levels with p_i > 0, as IBSI defines it. It was the number of grey levels with s_i != 0, so two flat blocks that do not touch
+  (every s_i is 0) gave N_g,p = 0 and a contrast of NaN.
+- **NGTDM, a voxel without any neighbour** in the region is no longer counted in n_i and N_v,c (IBSI: a voxel without neighbour is excluded, and adds nothing to s_i).
+  A region with an isolated voxel gave slightly wrong values for every NGTDM feature. A region in which no voxel has a neighbour (one voxel) has N_v,c = 0:
+  IBSI gives no value, and the features are NaN (the strength is 0, as IBSI says for a sum of s_i of 0).
+- **GLDZM, time**: the search of the 26-connected zones is a breadth first search over a visited array. The former search took about n^7 of the edge length n
+  for one large zone (a uniform region of 41^3 took 47 s, 55^3 took 411 s; now 0.06 s for 41^3). The zones are the same, so every GLDZM feature is the same.
+  A large zone appears with a coarse discretisation, or in a PET. `collectBlobs` also works on an object made with the constructor for sub-classes.
+
+### Checked and not a problem (the items of "Known and not changed" that were examined)
+- GLDZM `Ns` that is not reset: `map2matrix` is called once, so it is not reachable. The matrix of a one-voxel region, of one slice and of a uniform region are computed.
+- The fractal boxes with a count of 0: not reachable for a region of interest (every box size counts at least one box).
+- An array of more than 2^31 voxels: 1290^3 voxels; not a region of interest.
+
+### Known and not changed
+- **Fractal (`Fractal_Capacity`)** counts the vertices of the outline polygon of the region (`getFloatPolygon()`), not the pixels of the border that the description of
+  the class ("the boxes that cover a one pixel wide border", Smith et al., the ImageJ box counter) says. A straight edge has few vertices, so the count
+  is too small for a region with straight edges: a 56 x 56 rectangle on 6 slices gives the counts [3, 2, 2, 1, 1, 1, 1] for the box sizes 2, 3, 4, 6, 8, 12, 16
+  (D = 0.56); counting the border pixels gives [324, 144, 104, 36, 24, 16, 12] (D = 1.63). For a disc of radius 30 the counts are 20% lower
+  (D 1.52 against 1.59), for an irregular blob 4% lower (D 2.068 against 2.078). The value is not changed, so that analyses made with the earlier versions
+  stay comparable; IBSI 1 does not define this feature, so there is no reference value. Use it with this in mind.
+- Not examined: the weighting of the GLCM, the `eps` of the entropies, the direction of the ratio of the perimeter and the surface, the memory of a matrix with thousands of grey levels,
+  the time of GLAM for large regions.
+
+### Tests
+- `NgtdmIbsiTest` (5): the values are computed by a plain implementation of the IBSI definition in the test and by an independent implementation in Python; a normal
+  region, a uniform region, two flat blocks, a region with an isolated voxel, a one-voxel region. Four of them fail on 2.7.3 (the normal region does not).
+- `GldzmBlobsTest` (4): the zones of six random volumes are the same as those of a copy of the former search and of a plain queue search; the features of three volumes
+  are the values 2.7.3 gave; a uniform 41^3 region is found within 30 s (47 s on 2.7.3: the test fails there).
+
 ## 2.7.3 (2026-11-19)
 
 The intensity-volume histogram (IVH) features are computed as IBSI 1 (section 3.5) defines them. The IBSI configuration C had one

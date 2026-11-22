@@ -46,6 +46,13 @@ Jr., G. D. Lange and W. B. Marks, Fractal Methods and Results in Cellular Morpho
 which appeared in J. Neurosci. Methods, 69:1123-126, 1996.
 
 
+<p><b>What this class counts (not changed, so that earlier analyses stay comparable).</b> The boxes are counted over the
+vertices of the outline polygon of the region on every slice ({@code Roi.getFloatPolygon()}), not over every pixel of the border. A
+straight edge has few vertices, so the count is too small for a region with straight edges: a 56 x 56 rectangle on 6 slices gives
+the counts [3, 2, 2, 1, 1, 1, 1] for the box sizes 2, 3, 4, 6, 8, 12, 16 (D = 0.56), while counting the border pixels gives
+[324, 144, 104, 36, 24, 16, 12] (D = 1.63). For a disc of radius 30 the counts are 20% lower, for an irregular blob 4% lower (D differs by 0.5%).
+IBSI 1 does not define this feature, so there is no reference value. See CHANGELOG 2.7.4.
+
 @author tatsunidas.
 
 */
